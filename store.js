@@ -8,7 +8,7 @@ const TF = (() => {
       panelOpen: false,
       lastGroup: 'g_default'
     },
-    groups: [{ id: 'g_default', name: '未分類', color: '#f5b301' }],
+    groups: [{ id: 'g_default', name: 'お気に入り', color: '#f5b301' }],
     channels: {}, // key(@handle等) -> {id,name,avatar,groups:[gid],addedAt}
     history: [],   // {sid,id,ch,title,channel,at,sec,dur,pos}
     updatedAt: 0
@@ -78,6 +78,7 @@ const TF = (() => {
           id: meta.id,
           name: meta.name || (old && old.name) || meta.id,
           avatar: meta.avatar || (old && old.avatar) || '',
+          sub: !!(old && old.sub),
           groups: old ? Array.from(new Set([...old.groups, g])) : [g],
           addedAt: old ? old.addedAt : Date.now()
         };
@@ -88,16 +89,30 @@ const TF = (() => {
       mutate(s => {
         const old = s.channels[meta.id];
         if (!old) {
-          s.channels[meta.id] = { id: meta.id, name: meta.name || meta.id, avatar: meta.avatar || '', groups: [gid], addedAt: Date.now() };
+          s.channels[meta.id] = { id: meta.id, name: meta.name || meta.id, avatar: meta.avatar || '', sub: false, groups: [gid], addedAt: Date.now() };
         } else {
           old.groups = old.groups.includes(gid) ? old.groups.filter(x => x !== gid) : [...old.groups, gid];
           if (meta.avatar && !old.avatar) old.avatar = meta.avatar;
-          if (!old.groups.length) delete s.channels[meta.id];
+          if (!old.groups.length && !old.sub) delete s.channels[meta.id];
         }
         s.settings.lastGroup = gid;
       }, ['channels', 'settings'], true),
 
-    removeCh: id => mutate(s => { delete s.channels[id]; }, ['channels']),
+    // フォルダから外す(登録チャンネルは一覧に残る)
+    removeCh: id => mutate(s => {
+      const c = s.channels[id];
+      if (!c) return;
+      if (c.sub) c.groups = []; else delete s.channels[id];
+    }, ['channels']),
+
+    // YouTubeの登録チャンネルを取り込む
+    upsertSubs: items => mutate(s => {
+      items.forEach(i => {
+        const c = s.channels[i.id];
+        if (c) { c.sub = true; if (i.name) c.name = i.name; if (i.avatar) c.avatar = i.avatar; }
+        else s.channels[i.id] = { id: i.id, name: i.name || i.id, avatar: i.avatar || '', sub: true, groups: [], addedAt: Date.now() };
+      });
+    }, ['channels']),
 
     addGroup: (name, color) => {
       const id = uid('g_');
@@ -117,7 +132,7 @@ const TF = (() => {
         const def = defaultGroup(s);
         Object.values(s.channels).forEach(f => {
           f.groups = f.groups.filter(x => x !== id);
-          if (!f.groups.length) f.groups = [def];
+          if (!f.groups.length && !f.sub) f.groups = [def];
         });
         if (s.settings.lastGroup === id) s.settings.lastGroup = def;
       }, ['groups', 'channels', 'settings'], true),

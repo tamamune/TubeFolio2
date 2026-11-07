@@ -21,6 +21,7 @@
   const groupOf = gid => S.groups.find(g => g.id === gid);
   const colorOf = ch => (groupOf(ch.groups[0]) || S.groups[0]).color;
   const lastGroup = () => (groupOf(S.settings.lastGroup) ? S.settings.lastGroup : S.groups[0].id);
+  const favOf = k => { const c = S.channels[k]; return c && c.groups.length ? c : null; };
   const initial = n => esc((n || '?').replace(/^[@*\s]+/, '').charAt(0).toUpperCase());
 
   function watchChannelAnchor() {
@@ -66,7 +67,7 @@
       const m = metaFromBadge(b);
       if (!m) return;
       if (e.target.classList.contains('m')) { showMenu(m, b.getBoundingClientRect()); return; }
-      if (S.channels[m.id]) TF.removeCh(m.id); else TF.addCh(m, lastGroup());
+      if (favOf(m.id)) TF.removeCh(m.id); else TF.addCh(m, lastGroup());
     });
     a.insertAdjacentElement('afterend', b);
   }
@@ -94,10 +95,10 @@
       const a = b.previousElementSibling;
       const key = a && a.matches && a.matches(CH_SEL) ? chKey(a.href) : null;
       if (!key) { b.remove(); return; }
-      const ch = S.channels[key];
+      const ch = favOf(key);
       b.classList.toggle('fav', !!ch);
       b.firstChild.textContent = ch ? '★' : '☆';
-      b.title = ch ? 'お気に入りチャンネル(クリックで解除)' : 'お気に入りチャンネルに追加';
+      b.title = ch ? 'フォルダ登録済み(クリックで解除)' : 'フォルダに追加';
       if (ch) b.style.setProperty('--tf2c', colorOf(ch)); else b.style.removeProperty('--tf2c');
       const c = b.closest(CONT);
       const t = c && [...c.querySelectorAll('a[href*="/watch?v="]')].find(x => x.querySelector(THUMB));
@@ -157,6 +158,7 @@ button:hover{background:#444;color:#fff}
 .g .c{color:#999;font-size:11px}
 .g .ed{display:none}.g:hover .ed{display:inline}
 .add{color:#f5b301;padding:5px 8px;cursor:pointer}
+.imp{padding:6px 10px 0}.imp button{border:1px solid #555;width:100%}.st{color:#999;font-size:11px;margin-top:4px;min-height:14px}
 .q{margin:8px 10px;padding:6px 8px;background:#121214;border:1px solid #444;border-radius:6px;color:#eee}
 .list{flex:1;overflow:auto;padding:0 6px 10px}
 .it{display:flex;gap:8px;padding:5px;border-radius:6px;align-items:center}
@@ -175,12 +177,13 @@ button:hover{background:#444;color:#fff}
 .sep{height:1px;background:#444;margin:4px 0}
 </style>
 <aside class="panel">
-  <header><b>★ お気に入りチャンネル</b>
+  <header><b>★ 登録チャンネル</b>
     <button data-act="dash" title="履歴・分析">📊</button>
     <button data-act="opts" title="設定">⚙</button>
     <button data-act="toggle" title="閉じる">✕</button></header>
   <section class="cur"></section>
   <section class="groups"></section>
+  <div class="imp"><button data-act="import">⟳ 登録チャンネルを全件取り込む</button><div class="st"></div></div>
   <input class="q" placeholder="チャンネルを検索">
   <section class="list"></section>
 </aside>
@@ -200,16 +203,18 @@ button:hover{background:#444;color:#fff}
     el.classList.toggle('on', !!m);
     if (!m) return;
     const f = S.channels[m.id];
-    el.innerHTML = `<div class="t">${f ? '★' : '☆'} この動画のチャンネル: <b>${esc(m.name)}</b></div>
+    el.innerHTML = `<div class="t">${f && f.groups.length ? '★' : '☆'} この動画のチャンネル: <b>${esc(m.name)}</b></div>
       <div class="chips">${S.groups.map(g => `<button class="chip ${f && f.groups.includes(g.id) ? 'on' : ''}" style="--c:${g.color}" data-act="chip" data-g="${g.id}">${esc(g.name)}</button>`).join('')}</div>`;
   }
 
   function renderGroups() {
     const chs = Object.values(S.channels);
     const cnt = gid => chs.filter(f => f.groups.includes(gid)).length;
-    let h = `<div class="g ${view.gid === 'all' ? 'sel' : ''}" data-act="sel" data-g="all"><span class="dot" style="background:#aaa"></span><span class="n">すべて</span><span class="c">${chs.length}</span></div>`;
+    const none = chs.filter(f => !f.groups.length).length;
+    let h = `<div class="g ${view.gid === 'all' ? 'sel' : ''}" data-act="sel" data-g="all"><span class="dot" style="background:#aaa"></span><span class="n">すべての登録チャンネル</span><span class="c">${chs.length}</span></div>`;
+    h += `<div class="g ${view.gid === 'none' ? 'sel' : ''}" data-act="sel" data-g="none"><span class="dot" style="background:#666"></span><span class="n">未分類</span><span class="c">${none}</span></div>`;
     h += S.groups.map((g, i) => `<div class="g ${view.gid === g.id ? 'sel' : ''}" data-act="sel" data-g="${g.id}">
-      <span class="dot" style="background:${g.color}"></span><span class="n">${esc(g.name)}</span><span class="c">${cnt(g.id)}</span>
+      <span class="dot" style="background:${g.color}"></span><span class="n">📁 ${esc(g.name)}</span><span class="c">${cnt(g.id)}</span>
       <span class="ed"><button data-act="ren" data-g="${g.id}" title="名前変更">✎</button>${i ? `<button data-act="del" data-g="${g.id}" title="削除">🗑</button>` : ''}</span></div>`).join('');
     h += '<div class="add" data-act="addg">＋ フォルダを追加</div>';
     $('.groups').innerHTML = h;
@@ -220,20 +225,21 @@ button:hover{background:#444;color:#fff}
     const keep = list.scrollTop;
     const q = view.q.toLowerCase();
     const items = Object.values(S.channels)
-      .filter(f => (view.gid === 'all' || f.groups.includes(view.gid)) && (!q || f.name.toLowerCase().includes(q)))
+      .filter(f => (view.gid === 'all' || (view.gid === 'none' ? !f.groups.length : f.groups.includes(view.gid))) &&
+        (!q || f.name.toLowerCase().includes(q)))
       .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
     list.innerHTML = items.length ? items.map(f => `<div class="it">
       <a href="/${esc(f.id)}">${avatar(f)}<div style="min-width:0"><div class="t">${esc(f.name)}</div>
         <div class="dots">${f.groups.map(g => groupOf(g) ? `<i style="background:${groupOf(g).color}" title="${esc(groupOf(g).name)}"></i>` : '').join('')}</div></div></a>
-      <button data-act="rm" data-id="${esc(f.id)}" title="お気に入り解除">✕</button></div>`).join('')
-      : '<div class="empty">チャンネルが登録されていません</div>';
+      <button data-act="rowmenu" data-id="${esc(f.id)}" title="フォルダに入れる">📁</button></div>`).join('')
+      : `<div class="empty">${Object.keys(S.channels).length ? '該当するチャンネルがありません' : '「全件取り込む」で登録チャンネルを読み込んでください'}</div>`;
     list.scrollTop = keep;
   }
 
   function renderPanel() {
     const on = S.settings.features.panel;
     panel.classList.toggle('open', on && S.settings.panelOpen);
-    if (!groupOf(view.gid) && view.gid !== 'all') view.gid = 'all';
+    if (!groupOf(view.gid) && view.gid !== 'all' && view.gid !== 'none') view.gid = 'all';
     placeTopBtn();
     renderCur(); renderGroups(); renderList();
   }
@@ -243,7 +249,7 @@ button:hover{background:#444;color:#fff}
     const f = S.channels[meta.id];
     menu.innerHTML = S.groups.map(g => `<div class="mi" data-act="mg" data-g="${g.id}"><span class="ck">${f && f.groups.includes(g.id) ? '✔' : ''}</span><span class="dot" style="background:${g.color}"></span>${esc(g.name)}</div>`).join('')
       + '<div class="sep"></div><div class="mi" data-act="mnew"><span class="ck">＋</span>新規フォルダ</div>'
-      + (f ? '<div class="mi" data-act="mrm"><span class="ck">✕</span>お気に入り解除</div>' : '');
+      + (f && f.groups.length ? '<div class="mi" data-act="mrm"><span class="ck">✕</span>フォルダから外す</div>' : '');
     menu._meta = meta;
     menu.style.left = Math.max(4, Math.min(rect.left, innerWidth - 210)) + 'px';
     menu.style.top = Math.min(rect.bottom + 4, innerHeight - 260) + 'px';
@@ -264,7 +270,8 @@ button:hover{background:#444;color:#fff}
     else if (act === 'opts') chrome.runtime.sendMessage({ type: 'openOptions' });
     else if (act === 'sel') { view.gid = g; renderGroups(); renderList(); }
     else if (act === 'chip') { const m = currentMeta(); if (m) TF.toggleChGroup(m, g); }
-    else if (act === 'rm') TF.removeCh(t.dataset.id);
+    else if (act === 'rowmenu') { const c = S.channels[t.dataset.id]; if (c) showMenu(c, t.getBoundingClientRect()); }
+    else if (act === 'import') importAll();
     else if (act === 'addg') {
       const n = prompt('新しいフォルダ名'); if (n && n.trim()) TF.addGroup(n.trim());
     } else if (act === 'ren') {
@@ -317,9 +324,68 @@ button:hover{background:#444;color:#fff}
   addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
 
+  /* ---------- 登録チャンネルの取り込み ---------- */
+  const setStatus = t => { const el = $('.st'); if (el) el.textContent = t; };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function saveSubs(items) {
+    if (!S || !items.length || !alive()) return;
+    const diff = items.filter(i => {
+      const c = S.channels[i.id];
+      return !c || !c.sub || (i.name && c.name !== i.name) || (i.avatar && !c.avatar);
+    });
+    if (diff.length) TF.upsertSubs(diff);
+  }
+  const okImg = img => (img && img.src && !img.src.startsWith('data:') ? img.src : '');
+
+  // サイドバー「登録チャンネル」セクションから取り込む
+  function collectGuide() {
+    const hdr = document.querySelector('ytd-guide-section-renderer a[href="/feed/channels"]');
+    const sec = hdr && hdr.closest('ytd-guide-section-renderer');
+    if (!sec) return;
+    const items = [];
+    sec.querySelectorAll('ytd-guide-entry-renderer a').forEach(a => {
+      const id = a.matches(CH_SEL) ? chKey(a.href) : null;
+      if (!id) return;
+      const name = (a.getAttribute('title') || a.textContent).trim();
+      items.push({ id, name, avatar: okImg(a.querySelector('img')) });
+    });
+    saveSubs(items);
+  }
+  // /feed/channels(登録チャンネル一覧ページ)から取り込む
+  function collectFeed() {
+    const items = [];
+    document.querySelectorAll('ytd-channel-renderer').forEach(c => {
+      const a = [...c.querySelectorAll(CH_SEL)][0];
+      const id = a && chKey(a.href);
+      if (!id) return;
+      const name = (c.querySelector('ytd-channel-name #text, #info #text')?.textContent || a.textContent).trim();
+      items.push({ id, name, avatar: okImg(c.querySelector('#avatar img, yt-img-shadow img')) });
+    });
+    saveSubs(items);
+    return items.length;
+  }
+  async function runFeedImport() {
+    setStatus('取り込み中… (自動スクロール)');
+    let last = -1, same = 0;
+    while (same < 4) {
+      scrollTo(0, document.documentElement.scrollHeight);
+      await sleep(900);
+      const n = document.querySelectorAll('ytd-channel-renderer').length;
+      if (n === last) same++; else { same = 0; last = n; }
+    }
+    const n = collectFeed();
+    scrollTo(0, 0);
+    setStatus(`${n}件の登録チャンネルを取り込みました`);
+  }
+  function importAll() {
+    if (location.pathname === '/feed/channels') { runFeedImport(); return; }
+    try { sessionStorage.setItem('tf2_import', '1'); } catch {}
+    location.href = '/feed/channels';
+  }
+
   /* ---------- 起動 ---------- */
   let timer = 0;
-  const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { if (alive() && S) { placeTopBtn(); scan(); renderCur(); } }, 400); };
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { if (alive() && S) { placeTopBtn(); scan(); renderCur(); collectGuide(); } }, 400); };
 
   async function refresh() {
     if (!alive()) return;
@@ -334,5 +400,14 @@ button:hover{background:#444;color:#fff}
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener('yt-navigate-finish', () => { schedule(); setTimeout(() => S && renderCur(), 1200); });
 
-  refresh().then(() => document.documentElement.appendChild(host));
+  refresh().then(async () => {
+    document.documentElement.appendChild(host);
+    let flag = false;
+    try { flag = sessionStorage.getItem('tf2_import') === '1'; sessionStorage.removeItem('tf2_import'); } catch {}
+    if (flag && location.pathname === '/feed/channels') {
+      await TF.setSetting('panelOpen', true);
+      await sleep(1500);
+      runFeedImport();
+    }
+  });
 })();
