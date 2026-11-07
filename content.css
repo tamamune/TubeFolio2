@@ -25,3 +25,13 @@
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 40;
   border: 3px solid var(--tf2c, #f5b301); border-radius: 12px; box-sizing: border-box;
 }
+
+/* 登録チャンネル画面: フォルダ絞り込みバー */
+#tf2-feedbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 24px 4px; }
+#tf2-feedbar button {
+  border: 1px solid var(--c, #888); color: var(--yt-spec-text-primary, #fff); background: transparent;
+  border-radius: 16px; padding: 5px 13px; font-size: 14px; cursor: pointer;
+}
+#tf2-feedbar button.on { background: var(--c, #f5b301); color: #222; }
+#tf2-feedbar label { margin-left: auto; font-size: 13px; color: var(--yt-spec-text-secondary, #aaa); cursor: pointer; }
+[tf2-hide] { display: none !important; }

@@ -2,11 +2,12 @@
 const TF = (() => {
   const DEF = () => ({
     settings: {
-      features: { panel: true, badges: true, history: true, analytics: true },
+      features: { panel: true, badges: true, history: true, analytics: true, feedFilter: true },
       driveClientId: '',
       autoSync: true,
       panelOpen: false,
-      lastGroup: 'g_default'
+      lastGroup: 'g_default',
+      hideWatched: false
     },
     groups: [{ id: 'g_default', name: 'お気に入り', color: '#f5b301' }],
     channels: {}, // key(@handle等) -> {id,name,avatar,groups:[gid],addedAt}
@@ -114,16 +115,16 @@ const TF = (() => {
       });
     }, ['channels']),
 
-    addGroup: (name, color) => {
+    addGroup: (name, color, icon) => {
       const id = uid('g_');
       return mutate(s => {
-        s.groups.push({ id, name, color: color || PALETTE[s.groups.length % PALETTE.length] });
+        s.groups.push({ id, name, icon: icon || '', color: color || PALETTE[s.groups.length % PALETTE.length] });
       }, ['groups']).then(() => id);
     },
-    updateGroup: (id, name, color) =>
+    updateGroup: (id, name, color, icon) =>
       mutate(s => {
         const g = s.groups.find(x => x.id === id);
-        if (g) { if (name) g.name = name; if (color) g.color = color; }
+        if (g) { if (name) g.name = name; if (color) g.color = color; if (icon !== undefined) g.icon = icon; }
       }, ['groups']),
     deleteGroup: id =>
       mutate(s => {

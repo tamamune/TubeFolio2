@@ -4,7 +4,8 @@
   window.__tf2 = true;
 
   let S = null;
-  const view = { gid: 'all', q: '' };
+  const view = { gid: 'all', q: '', sort: 'name' };
+  const feed = { gid: 'all' };
   const esc = TF.esc;
   const alive = () => { try { return !!chrome.runtime.id; } catch { return false; } };
 
@@ -159,6 +160,7 @@ button:hover{background:#444;color:#fff}
 .g .ed{display:none}.g:hover .ed{display:inline}
 .add{color:#f5b301;padding:5px 8px;cursor:pointer}
 .imp{padding:6px 10px 0}.imp button{border:1px solid #555;width:100%}.st{color:#999;font-size:11px;margin-top:4px;min-height:14px}
+.qrow{display:flex;gap:6px;margin:8px 10px}.qrow .q{margin:0;flex:1;min-width:0}.sort{background:#121214;color:#eee;border:1px solid #444;border-radius:6px}
 .q{margin:8px 10px;padding:6px 8px;background:#121214;border:1px solid #444;border-radius:6px;color:#eee}
 .list{flex:1;overflow:auto;padding:0 6px 10px}
 .it{display:flex;gap:8px;padding:5px;border-radius:6px;align-items:center}
@@ -184,7 +186,7 @@ button:hover{background:#444;color:#fff}
   <section class="cur"></section>
   <section class="groups"></section>
   <div class="imp"><button data-act="import">⟳ 登録チャンネルを全件取り込む</button><div class="st"></div></div>
-  <input class="q" placeholder="チャンネルを検索">
+  <div class="qrow"><input class="q" placeholder="チャンネルを検索"><select class="sort"><option value="name">名前順</option><option value="added">追加順</option></select></div>
   <section class="list"></section>
 </aside>
 <div class="menu"></div>`;
@@ -204,7 +206,7 @@ button:hover{background:#444;color:#fff}
     if (!m) return;
     const f = S.channels[m.id];
     el.innerHTML = `<div class="t">${f && f.groups.length ? '★' : '☆'} この動画のチャンネル: <b>${esc(m.name)}</b></div>
-      <div class="chips">${S.groups.map(g => `<button class="chip ${f && f.groups.includes(g.id) ? 'on' : ''}" style="--c:${g.color}" data-act="chip" data-g="${g.id}">${esc(g.name)}</button>`).join('')}</div>`;
+      <div class="chips">${S.groups.map(g => `<button class="chip ${f && f.groups.includes(g.id) ? 'on' : ''}" style="--c:${g.color}" data-act="chip" data-g="${g.id}">${esc((g.icon || '') + ' ' + g.name).trim()}</button>`).join('')}</div>`;
   }
 
   function renderGroups() {
@@ -214,7 +216,7 @@ button:hover{background:#444;color:#fff}
     let h = `<div class="g ${view.gid === 'all' ? 'sel' : ''}" data-act="sel" data-g="all"><span class="dot" style="background:#aaa"></span><span class="n">すべての登録チャンネル</span><span class="c">${chs.length}</span></div>`;
     h += `<div class="g ${view.gid === 'none' ? 'sel' : ''}" data-act="sel" data-g="none"><span class="dot" style="background:#666"></span><span class="n">未分類</span><span class="c">${none}</span></div>`;
     h += S.groups.map((g, i) => `<div class="g ${view.gid === g.id ? 'sel' : ''}" data-act="sel" data-g="${g.id}">
-      <span class="dot" style="background:${g.color}"></span><span class="n">📁 ${esc(g.name)}</span><span class="c">${cnt(g.id)}</span>
+      <span class="dot" style="background:${g.color}"></span><span class="n">${esc(g.icon || '📁')} ${esc(g.name)}</span><span class="c">${cnt(g.id)}</span>
       <span class="ed"><button data-act="ren" data-g="${g.id}" title="名前変更">✎</button>${i ? `<button data-act="del" data-g="${g.id}" title="削除">🗑</button>` : ''}</span></div>`).join('');
     h += '<div class="add" data-act="addg">＋ フォルダを追加</div>';
     $('.groups').innerHTML = h;
@@ -227,7 +229,7 @@ button:hover{background:#444;color:#fff}
     const items = Object.values(S.channels)
       .filter(f => (view.gid === 'all' || (view.gid === 'none' ? !f.groups.length : f.groups.includes(view.gid))) &&
         (!q || f.name.toLowerCase().includes(q)))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      .sort((a, b) => view.sort === 'added' ? b.addedAt - a.addedAt : a.name.localeCompare(b.name, 'ja'));
     list.innerHTML = items.length ? items.map(f => `<div class="it">
       <a href="/${esc(f.id)}">${avatar(f)}<div style="min-width:0"><div class="t">${esc(f.name)}</div>
         <div class="dots">${f.groups.map(g => groupOf(g) ? `<i style="background:${groupOf(g).color}" title="${esc(groupOf(g).name)}"></i>` : '').join('')}</div></div></a>
@@ -242,12 +244,13 @@ button:hover{background:#444;color:#fff}
     if (!groupOf(view.gid) && view.gid !== 'all' && view.gid !== 'none') view.gid = 'all';
     placeTopBtn();
     renderCur(); renderGroups(); renderList();
+    renderFeedBar();
   }
 
   /* ---------- グループ選択メニュー(★の▾) ---------- */
   function showMenu(meta, rect) {
     const f = S.channels[meta.id];
-    menu.innerHTML = S.groups.map(g => `<div class="mi" data-act="mg" data-g="${g.id}"><span class="ck">${f && f.groups.includes(g.id) ? '✔' : ''}</span><span class="dot" style="background:${g.color}"></span>${esc(g.name)}</div>`).join('')
+    menu.innerHTML = S.groups.map(g => `<div class="mi" data-act="mg" data-g="${g.id}"><span class="ck">${f && f.groups.includes(g.id) ? '✔' : ''}</span><span class="dot" style="background:${g.color}"></span>${esc((g.icon || '') + ' ' + g.name).trim()}</div>`).join('')
       + '<div class="sep"></div><div class="mi" data-act="mnew"><span class="ck">＋</span>新規フォルダ</div>'
       + (f && f.groups.length ? '<div class="mi" data-act="mrm"><span class="ck">✕</span>フォルダから外す</div>' : '');
     menu._meta = meta;
@@ -273,9 +276,11 @@ button:hover{background:#444;color:#fff}
     else if (act === 'rowmenu') { const c = S.channels[t.dataset.id]; if (c) showMenu(c, t.getBoundingClientRect()); }
     else if (act === 'import') importAll();
     else if (act === 'addg') {
-      const n = prompt('新しいフォルダ名'); if (n && n.trim()) TF.addGroup(n.trim());
+      const n = prompt('新しいフォルダ名');
+      if (n && n.trim()) { const ic = prompt('アイコン(絵文字1つ・省略可)', '📁'); TF.addGroup(n.trim(), undefined, (ic || '').trim()); }
     } else if (act === 'ren') {
-      const cur = groupOf(g); const n = prompt('フォルダ名を変更', cur.name); if (n && n.trim()) TF.updateGroup(g, n.trim());
+      const cur = groupOf(g); const n = prompt('フォルダ名を変更', cur.name);
+      if (n && n.trim()) { const ic = prompt('アイコン(絵文字1つ・省略可)', cur.icon || ''); TF.updateGroup(g, n.trim(), undefined, (ic || '').trim()); }
     } else if (act === 'del') {
       if (confirm(`フォルダ「${groupOf(g).name}」を削除しますか?\n(チャンネルは「${S.groups[0].name}」に移動します)`)) TF.deleteGroup(g);
     } else if (act === 'mg') { TF.toggleChGroup(menu._meta, g); closeMenu(); }
@@ -286,6 +291,7 @@ button:hover{background:#444;color:#fff}
       closeMenu();
     }
   });
+  $('.sort').addEventListener('change', e => { view.sort = e.target.value; renderList(); });
   $('.q').addEventListener('input', e => { view.q = e.target.value; renderList(); });
 
   /* ---------- 視聴履歴の記録 ---------- */
@@ -383,9 +389,64 @@ button:hover{background:#444;color:#fff}
     location.href = '/feed/channels';
   }
 
+  /* ---------- 登録チャンネル画面: フォルダ絞り込み / 視聴済み非表示 ---------- */
+  let barEl = null;
+  const onFeed = () => location.pathname === '/feed/subscriptions';
+  const FEED_ITEMS = 'ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer';
+
+  function unhideAll() { document.querySelectorAll('[tf2-hide]').forEach(c => c.removeAttribute('tf2-hide')); }
+
+  function applyFeedFilter() {
+    const hw = S.settings.hideWatched;
+    document.querySelectorAll(FEED_ITEMS).forEach(c => {
+      let hide = false;
+      if (feed.gid !== 'all') {
+        const a = c.querySelector(CH_SEL);
+        const key = a && chKey(a.href);
+        if (key || c.querySelector('a[href*="/watch?v="]')) {
+          const ch = key && S.channels[key];
+          const inF = feed.gid === 'none' ? !(ch && ch.groups.length) : !!(ch && ch.groups.includes(feed.gid));
+          hide = !!key && !inF;
+        }
+      }
+      if (!hide && hw) {
+        const p = c.querySelector('ytd-thumbnail-overlay-resume-playback-renderer #progress, [class*="WatchedProgressBarSegment"]');
+        if (p && parseFloat(p.style.width) >= 80) hide = true;
+      }
+      c.toggleAttribute('tf2-hide', hide);
+    });
+  }
+
+  function renderFeedBar() {
+    if (!S) return;
+    if (!(onFeed() && S.settings.features.feedFilter)) {
+      if (barEl) { barEl.remove(); barEl = null; }
+      unhideAll();
+      return;
+    }
+    const grid = document.querySelector('ytd-browse[page-subtype="subscriptions"] ytd-rich-grid-renderer') || document.querySelector('ytd-rich-grid-renderer');
+    if (!grid) return;
+    if (feed.gid !== 'all' && feed.gid !== 'none' && !groupOf(feed.gid)) feed.gid = 'all';
+    if (!barEl) {
+      barEl = document.createElement('div');
+      barEl.id = 'tf2-feedbar';
+      barEl.addEventListener('click', e => {
+        const b = e.target.closest('button[data-g]');
+        if (b) { feed.gid = b.dataset.g; renderFeedBar(); }
+      });
+      barEl.addEventListener('change', e => { if (e.target.id === 'tf2-hw' && alive()) TF.setSetting('hideWatched', e.target.checked); });
+    }
+    const chip = (g, label, color) => `<button data-g="${g}" class="${feed.gid === g ? 'on' : ''}" style="--c:${color}">${esc(label)}</button>`;
+    const html = chip('all', 'すべて', '#aaa') + S.groups.map(g => chip(g.id, ((g.icon || '') + ' ' + g.name).trim(), g.color)).join('') + chip('none', '未分類', '#777')
+      + `<label><input type="checkbox" id="tf2-hw" ${S.settings.hideWatched ? 'checked' : ''}> 視聴済みを隠す</label>`;
+    if (barEl._h !== html) { barEl.innerHTML = html; barEl._h = html; }
+    if (barEl.parentElement !== grid) grid.insertBefore(barEl, grid.firstChild);
+    applyFeedFilter();
+  }
+
   /* ---------- 起動 ---------- */
   let timer = 0;
-  const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { if (alive() && S) { placeTopBtn(); scan(); renderCur(); collectGuide(); } }, 400); };
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { if (alive() && S) { placeTopBtn(); scan(); renderCur(); collectGuide(); renderFeedBar(); } }, 400); };
 
   async function refresh() {
     if (!alive()) return;
