@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>TubeFolio2 設定</title>
+<link rel="stylesheet" href="ui.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>★ TubeFolio2 設定</h1>
+
+  <div class="card">
+    <h2>機能の表示・非表示</h2>
+    <div class="sw"><label>左パネル(グループ別お気に入り)<small>YouTube左端の★タブとパネル</small></label><input type="checkbox" data-f="panel"></div>
+    <div class="sw"><label>一覧のお気に入りバッジ<small>サムネイル上に★/☆と枠を表示</small></label><input type="checkbox" data-f="badges"></div>
+    <div class="sw"><label>視聴履歴の記録・閲覧</label><input type="checkbox" data-f="history"></div>
+    <div class="sw"><label>視聴分析</label><input type="checkbox" data-f="analytics"></div>
+  </div>
+
+  <div class="card">
+    <h2>Google Drive 同期</h2>
+    <p class="sub">グループ・お気に入り・機能設定を Drive の非表示領域(appDataFolder)に保存します。視聴履歴はこの端末内のみ保存されます。</p>
+    <p class="sub">OAuth クライアントID(種類: ウェブ アプリケーション)を作成し、Drive API を有効化して、承認済みリダイレクト URI に下記を登録してください。</p>
+    <div class="row"><span class="sub">リダイレクトURI:</span> <code id="redir"></code></div>
+    <div class="row">
+      <input type="text" id="cid" placeholder="xxxxxxxx.apps.googleusercontent.com" style="flex:1;min-width:260px">
+      <button class="btn" id="saveCid">保存</button>
+    </div>
+    <div class="sw"><label>変更時に自動で同期する</label><input type="checkbox" id="auto"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn pri" id="connect">Googleに接続して同期</button>
+      <button class="btn" id="push">Driveへ保存(上書き)</button>
+      <button class="btn" id="pull">Driveから読み込み(上書き)</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>バックアップ</h2>
+    <div class="row">
+      <button class="btn" id="exp">全データを書き出し</button>
+      <button class="btn" id="imp">読み込み…</button>
+      <input type="file" id="file" accept=".json" hidden>
+    </div>
+  </div>
+</div>
+<script src="store.js"></script>
+<script src="options.js"></script>
+</body>
+</html>

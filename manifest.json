@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "TubeFolio2",
+  "version": "0.1.0",
+  "description": "YouTubeのお気に入りをグループ管理し、視聴履歴の閲覧・分析ができる拡張機能。設定はGoogle Driveに保存。",
+  "permissions": ["storage", "unlimitedStorage", "identity", "alarms"],
+  "host_permissions": ["https://www.googleapis.com/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "TubeFolio2 履歴・分析を開く" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["store.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
