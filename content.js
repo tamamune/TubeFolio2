@@ -1,474 +1,233 @@
-// TubeFolio2 content script: 上部バーの★ボタン / 左パネル(チャンネルをグループ管理) / 一覧のチャンネル★ / 視聴履歴
+// TubeFolio2 content script (YouTube)
 (() => {
-  if (window.__tf2) return;
-  window.__tf2 = true;
+  let S = null; // state
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const esc = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  let S = null;
-  const view = { gid: 'all', q: '', sort: 'name' };
-  const feed = { gid: 'all' };
-  const esc = TF.esc;
-  const alive = () => { try { return !!chrome.runtime.id; } catch { return false; } };
+  const OUTER = 'ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, ytd-compact-video-renderer';
+  const CARD = OUTER + ', yt-lockup-view-model';
+  const isSubs = () => location.pathname === '/feed/subscriptions';
+  const isChList = () => location.pathname === '/feed/channels';
 
-  /* ---------- 共通ヘルパ ---------- */
-  const CH_SEL = 'a[href^="/@"], a[href^="/channel/"], a[href^="/c/"], a[href^="/user/"]';
-  function chKey(href) {
-    try {
-      const p = decodeURIComponent(new URL(href, location.origin).pathname);
-      const m = p.match(/^\/(@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)/);
-      return m ? m[1] : null;
-    } catch { return null; }
-  }
-  const curId = () => (location.pathname === '/watch' ? new URLSearchParams(location.search).get('v') : null);
-  const groupOf = gid => S.groups.find(g => g.id === gid);
-  const colorOf = ch => (groupOf(ch.groups[0]) || S.groups[0]).color;
-  const lastGroup = () => (groupOf(S.settings.lastGroup) ? S.settings.lastGroup : S.groups[0].id);
-  const favOf = k => { const c = S.channels[k]; return c && c.groups.length ? c : null; };
-  const initial = n => esc((n || '?').replace(/^[@*\s]+/, '').charAt(0).toUpperCase());
+  const groupOf = id => S.groups.find(g => g.id === id);
+  const cardKey = card => {
+    const a = card.querySelector('a[href^="/@"], a[href^="/channel/UC"]');
+    return a ? TF.keyFromHref(a.getAttribute('href')) : null;
+  };
+  const cardMeta = card => {
+    const a = card.querySelector('ytd-channel-name a, a[href^="/@"]:not(:empty)');
+    const img = card.querySelector('yt-avatar-shape img, #avatar img, img.yt-core-image');
+    return { name: a ? a.textContent.trim() : '', avatar: img && /ggpht|yt3/.test(img.src) ? img.src : '' };
+  };
+  const watchedPct = card => {
+    const p = card.querySelector('ytd-thumbnail-overlay-resume-playback-renderer #progress, yt-thumbnail-overlay-progress-bar-view-model [style*="width"], .ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment');
+    const m = p && (p.style.width || '').match(/([\d.]+)%/);
+    return m ? parseFloat(m[1]) : 0;
+  };
+  const videoId = card => {
+    const a = card.querySelector('a[href*="/watch?v="]');
+    const m = a && a.getAttribute('href').match(/[?&]v=([\w-]{11})/);
+    return m ? m[1] : null;
+  };
 
-  function watchChannelAnchor() {
-    const id = curId();
-    if (!id) return null;
-    const flexy = document.querySelector('ytd-watch-flexy');
-    if (flexy && flexy.getAttribute('video-id') !== id) return null;
-    const a = [...document.querySelectorAll('ytd-watch-metadata #owner ' + CH_SEL.split(', ').join(', ytd-watch-metadata #owner '))]
-      .find(x => x.textContent.trim());
-    return a || null;
-  }
-  function currentMeta() {
-    const a = watchChannelAnchor();
-    if (!a) return null;
-    const id = chKey(a.href);
-    if (!id) return null;
-    const img = document.querySelector('ytd-watch-metadata #owner img');
-    return { id, name: a.textContent.trim(), avatar: img ? img.src : '' };
-  }
-
-  /* ---------- 一覧のチャンネル★ ---------- */
-  const CONT = 'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, yt-lockup-view-model, ytd-video-owner-renderer';
-  const THUMB = 'img, yt-image, yt-thumbnail-view-model, ytd-thumbnail';
-
-  function metaFromBadge(b) {
-    const a = b.previousElementSibling;
-    if (!a || !a.matches || !a.matches(CH_SEL)) return null;
-    const id = chKey(a.href);
-    if (!id) return null;
-    const c = a.closest(CONT) || a.parentElement;
-    const img = c && c.querySelector('a[href^="/@"] img, a[href^="/channel/"] img, a[href^="/c/"] img, a[href^="/user/"] img');
-    return { id, name: a.textContent.trim(), avatar: img ? img.src : '' };
-  }
-
-  function makeBadge(a) {
-    const b = document.createElement('span');
-    b.className = 'tf2-badge';
-    b.innerHTML = '<b class="s">☆</b><b class="m">▾</b>';
-    b.addEventListener('mousedown', e => e.stopPropagation());
-    b.addEventListener('click', e => {
-      e.preventDefault(); e.stopPropagation();
-      if (!alive()) return;
-      const m = metaFromBadge(b);
-      if (!m) return;
-      if (e.target.classList.contains('m')) { showMenu(m, b.getBoundingClientRect()); return; }
-      if (favOf(m.id)) TF.removeCh(m.id); else TF.addCh(m, lastGroup());
-    });
-    a.insertAdjacentElement('afterend', b);
-  }
-
-  function cleanupBadges() {
-    document.querySelectorAll('.tf2-badge').forEach(b => b.remove());
-    document.querySelectorAll('.tf2-thumb').forEach(a => a.classList.remove('tf2-thumb', 'tf2-isfav'));
-  }
-
-  function scan() {
-    if (!S) return;
-    if (!S.settings.features.badges) { cleanupBadges(); return; }
-    document.querySelectorAll(CONT).forEach(c => {
-      const a = [...c.querySelectorAll(CH_SEL)].find(x => x.textContent.trim() && !x.querySelector('img'));
-      if (!a) return;
-      const nx = a.nextElementSibling;
-      if (nx && nx.classList.contains('tf2-badge')) return;
-      makeBadge(a);
-    });
-    paint();
-  }
-
-  function paint() {
-    document.querySelectorAll('.tf2-badge').forEach(b => {
-      const a = b.previousElementSibling;
-      const key = a && a.matches && a.matches(CH_SEL) ? chKey(a.href) : null;
-      if (!key) { b.remove(); return; }
-      const ch = favOf(key);
-      b.classList.toggle('fav', !!ch);
-      b.firstChild.textContent = ch ? '★' : '☆';
-      b.title = ch ? 'フォルダ登録済み(クリックで解除)' : 'フォルダに追加';
-      if (ch) b.style.setProperty('--tf2c', colorOf(ch)); else b.style.removeProperty('--tf2c');
-      const c = b.closest(CONT);
-      const t = c && [...c.querySelectorAll('a[href*="/watch?v="]')].find(x => x.querySelector(THUMB));
-      if (t) {
-        t.classList.add('tf2-thumb');
-        t.classList.toggle('tf2-isfav', !!ch);
-        if (ch) t.style.setProperty('--tf2c', colorOf(ch));
+  // ---------- カード処理 ----------
+  function processCards() {
+    document.querySelectorAll(CARD).forEach(card => {
+      if (card.matches('yt-lockup-view-model') && card.closest(OUTER)) return;
+      const key = cardKey(card);
+      // カード自体のレイアウトには触れず、グループ登録済みならサムネに枠色だけ付ける(ホバープレビュー保護)
+      const gs0 = key && S.channels[key] ? S.channels[key].groups.map(groupOf).filter(Boolean) : [];
+      if (gs0.length) { card.setAttribute('data-tf-on', ''); card.style.setProperty('--tf-c', gs0[0].color); }
+      else if (card.hasAttribute('data-tf-on')) { card.removeAttribute('data-tf-on'); card.style.removeProperty('--tf-c'); }
+      // フィルタ(登録フィード)
+      let hide = false;
+      if (isSubs()) {
+        const ag = S.settings.activeGroup;
+        const gs = key && S.channels[key] ? S.channels[key].groups.filter(id => groupOf(id)) : [];
+        if (ag === 'none') hide = gs.length > 0;
+        else if (ag !== 'all') { const sub = TF.subtree(S.groups, ag); hide = !gs.some(id => sub.has(id)); }
+        if (!hide && S.settings.hideWatched && watchedPct(card) >= 80) hide = true;
       }
+      card.classList.toggle('tf-hide', hide);
     });
+    document.querySelectorAll('ytd-rich-section-renderer').forEach(s =>
+      s.classList.toggle('tf-hide', isSubs() && S.settings.activeGroup !== 'all'));
   }
 
-  /* ---------- 上部バーの★ボタン ---------- */
-  const topBtn = document.createElement('button');
-  topBtn.id = 'tf2-btn';
-  topBtn.title = 'TubeFolio2 お気に入りチャンネル';
-  topBtn.textContent = '★';
-  topBtn.addEventListener('click', () => alive() && TF.setSetting('panelOpen', !S.settings.panelOpen));
+  // ---------- 登録フィードのバー ----------
+  function renderBar() {
+    let bar = $('#tf-bar');
+    if (!isSubs()) { if (bar) bar.remove(); return; }
+    const host = $('ytd-browse[page-subtype="subscriptions"] #primary') || $('ytd-browse[page-subtype="subscriptions"]');
+    if (!host) return;
+    if (!bar) { bar = el('div'); bar.id = 'tf-bar'; host.prepend(bar); }
+    else if (bar.parentElement !== host) host.prepend(bar);
+    const ag = S.settings.activeGroup;
+    const cnt = gid => { const sub = TF.subtree(S.groups, gid); return Object.values(S.channels).filter(c => c.groups.some(id => sub.has(id))).length; };
+    const unfiled = Object.values(S.channels).filter(c => !c.groups.some(id => groupOf(id))).length;
+    const chip = (id, label, n, color) =>
+      `<button class="tf-chip${ag === id ? ' act' : ''}" data-g="${id}" ${color ? `style="--c:${color}"` : ''}>${label}<span>${n}</span></button>`;
+    bar.innerHTML = `
+      <div class="tf-chips">
+        ${chip('all', '🗂️ すべて', Object.keys(S.channels).length)}
+        ${TF.flat(S.groups).map(({ g, depth }) => chip(g.id, `${depth ? '↳ ' : ''}${esc(g.icon)} ${esc(g.name)}`, cnt(g.id), g.color)).join('')}
+        ${chip('none', '📥 未分類', unfiled)}
+      </div>
+      <div class="tf-tools">
+        <label class="tf-sw"><input type="checkbox" id="tf-hw" ${S.settings.hideWatched ? 'checked' : ''}><span></span>視聴済みを隠す</label>
+        <button class="tf-btn" id="tf-play" title="表示中の動画(最大50件)を連続再生">▶ 一括再生</button>
+        <button class="tf-btn" id="tf-imp" title="YouTubeの登録チャンネルを取り込む">⟳ 取り込み</button>
+        <button class="tf-btn" id="tf-mgr">⚙ 管理</button>
+      </div>`;
+    bar.querySelectorAll('.tf-chip').forEach(b => b.onclick = () =>
+      TF.mutate(s => { s.settings.activeGroup = b.dataset.g; }));
+    $('#tf-hw', bar).onchange = e => TF.mutate(s => { s.settings.hideWatched = e.target.checked; });
+    $('#tf-mgr', bar).onclick = () => chrome.runtime.sendMessage({ type: 'openManager' });
+    $('#tf-imp', bar).onclick = () => { location.href = '/feed/channels?tf_import=1'; };
+    $('#tf-play', bar).onclick = () => {
+      const ids = [];
+      document.querySelectorAll(CARD).forEach(c => {
+        if (c.matches('yt-lockup-view-model') && c.closest(OUTER)) return;
+        if (c.classList.contains('tf-hide')) return;
+        const v = videoId(c); if (v && !ids.includes(v)) ids.push(v);
+      });
+      if (!ids.length) return toast('再生できる動画がありません');
+      location.href = '/watch_videos?video_ids=' + ids.slice(0, 50).join(',');
+    };
+  }
 
-  function placeTopBtn() {
-    const on = S && S.settings.features.panel;
-    if (!on) { topBtn.remove(); return; }
-    const end = document.querySelector('ytd-masthead #end');
-    topBtn.classList.toggle('float', !end);
-    const parent = end || document.documentElement;
-    if (topBtn.parentElement !== parent) {
-      if (end) end.insertBefore(topBtn, end.firstChild); else parent.appendChild(topBtn);
+  // ---------- グループ選択ポップオーバー ----------
+  function openPicker(anchor, meta) {
+    closePicker();
+    const pop = el('div'); pop.id = 'tf-pop';
+    const draw = () => {
+      const cur = (S.channels[meta.key] || { groups: [] }).groups;
+      pop.innerHTML = `<div class="tf-pop-h">${esc(meta.name || meta.key)}</div>` +
+        TF.flat(S.groups).map(({ g, depth }) => `<label class="tf-row" style="padding-left:${8 + depth * 16}px"><input type="checkbox" data-g="${g.id}" ${cur.includes(g.id) ? 'checked' : ''}>
+          <b style="background:${g.color}">${esc(g.icon)}</b><span>${esc(g.name)}</span></label>`).join('') +
+        `<div class="tf-new"><input placeholder="新しいグループ名" maxlength="30"><button>追加</button></div>`;
+      pop.querySelectorAll('input[type=checkbox]').forEach(i => i.onchange = () => TF.toggleGroup(meta, i.dataset.g));
+      const inp = $('.tf-new input', pop);
+      const add = async () => { if (inp.value.trim()) { await TF.addGroup(inp.value.trim()); } };
+      $('.tf-new button', pop).onclick = add;
+      inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') add(); };
+      inp.onkeyup = inp.onkeypress = e => e.stopPropagation();
+    };
+    pop._draw = draw; pop._meta = meta;
+    draw();
+    document.body.appendChild(pop);
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = Math.min(r.left, innerWidth - 260) + 'px';
+    pop.style.top = Math.min(r.bottom + 6, innerHeight - pop.offsetHeight - 10) + 'px';
+    setTimeout(() => document.addEventListener('mousedown', outside, true), 0);
+  }
+  function outside(e) { const p = $('#tf-pop'); if (p && !p.contains(e.target)) closePicker(); }
+  function closePicker() { const p = $('#tf-pop'); if (p) p.remove(); document.removeEventListener('mousedown', outside, true); }
+
+  // ---------- チャンネル/動画ページのFAB ----------
+  function renderFab() {
+    let fab = $('#tf-fab');
+    let meta = null;
+    if (/^\/(@|channel\/UC)/.test(location.pathname)) {
+      const key = TF.keyFromHref(location.pathname);
+      const n = $('ytd-channel-name yt-formatted-string, #channel-name yt-formatted-string, yt-dynamic-text-view-model h1');
+      const img = $('yt-decorated-avatar-view-model img, #avatar img');
+      if (key) meta = { key, name: n ? n.textContent.trim() : '', avatar: img ? img.src : '' };
+    } else if (location.pathname === '/watch') {
+      const a = $('ytd-video-owner-renderer a[href^="/@"], #owner a[href^="/@"], #owner a[href^="/channel/UC"]');
+      const key = a && TF.keyFromHref(a.getAttribute('href'));
+      const img = $('#owner img');
+      if (key) meta = { key, name: a.textContent.trim() || ($('#owner ytd-channel-name a') || {}).textContent || '', avatar: img ? img.src : '' };
     }
-    topBtn.classList.toggle('on', !!S.settings.panelOpen);
+    if (!meta) { if (fab) fab.remove(); return; }
+    if (!fab) { fab = el('button'); fab.id = 'tf-fab'; document.body.appendChild(fab); fab.onclick = () => openPicker(fab, fab._meta); }
+    fab._meta = meta;
+    const gs = (S.channels[meta.key] ? S.channels[meta.key].groups : []).map(groupOf).filter(Boolean);
+    fab.innerHTML = gs.length ? gs.map(g => g.icon).join('') + ' <span>グループ編集</span>' : '＋ <span>グループに追加</span>';
+    fab.classList.toggle('on', gs.length > 0);
   }
 
-  /* ---------- 左パネル(Shadow DOM) ---------- */
-  const host = document.createElement('div');
-  host.id = 'tf2-root';
-  const root = host.attachShadow({ mode: 'open' });
-  root.innerHTML = `
-<style>
-:host{all:initial}
-*{box-sizing:border-box;font-family:"Segoe UI","Yu Gothic UI",sans-serif}
-.panel{position:fixed;left:0;top:56px;bottom:0;width:310px;background:#1c1c1f;color:#eee;z-index:2147483001;
-  display:none;flex-direction:column;box-shadow:2px 0 14px rgba(0,0,0,.6);font-size:13px}
-.panel.open{display:flex}
-header{display:flex;align-items:center;gap:4px;padding:8px 10px;background:#2a2a2e;font-size:14px}
-header b{flex:1;color:#f5b301}
-button{background:none;border:0;color:#ccc;cursor:pointer;font-size:14px;padding:3px 6px;border-radius:4px}
-button:hover{background:#444;color:#fff}
-.cur{padding:8px 10px;border-bottom:1px solid #333;display:none}
-.cur.on{display:block}
-.cur .t{font-size:12px;color:#bbb;margin-bottom:6px;line-height:1.35}
-.chips{display:flex;flex-wrap:wrap;gap:4px}
-.chip{border:1px solid var(--c);color:var(--c);border-radius:12px;padding:2px 9px;font-size:12px;cursor:pointer;background:none}
-.chip.on{background:var(--c);color:#222}
-.groups{padding:6px 6px 2px;max-height:34%;overflow:auto;border-bottom:1px solid #333}
-.g{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;cursor:pointer}
-.g:hover{background:#2c2c31}.g.sel{background:#3a3a42}
-.dot{width:10px;height:10px;border-radius:50%;flex:none}
-.g .n{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.g .c{color:#999;font-size:11px}
-.g .ed{display:none}.g:hover .ed{display:inline}
-.add{color:#f5b301;padding:5px 8px;cursor:pointer}
-.imp{padding:6px 10px 0}.imp button{border:1px solid #555;width:100%}.st{color:#999;font-size:11px;margin-top:4px;min-height:14px}
-.qrow{display:flex;gap:6px;margin:8px 10px}.qrow .q{margin:0;flex:1;min-width:0}.sort{background:#121214;color:#eee;border:1px solid #444;border-radius:6px}
-.q{margin:8px 10px;padding:6px 8px;background:#121214;border:1px solid #444;border-radius:6px;color:#eee}
-.list{flex:1;overflow:auto;padding:0 6px 10px}
-.it{display:flex;gap:8px;padding:5px;border-radius:6px;align-items:center}
-.it:hover{background:#2c2c31}
-.it a{display:flex;gap:10px;flex:1;min-width:0;color:inherit;text-decoration:none;align-items:center}
-.av{width:36px;height:36px;border-radius:50%;flex:none;background:#444;display:flex;align-items:center;justify-content:center;font-weight:600;object-fit:cover}
-.it .t{font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.dots{display:flex;gap:3px;margin-top:3px}.dots i{width:8px;height:8px;border-radius:50%}
-.empty{color:#888;text-align:center;padding:24px 0}
-.menu{position:fixed;display:none;background:#26262a;color:#eee;border:1px solid #555;border-radius:8px;padding:6px;
-  z-index:2147483002;min-width:190px;box-shadow:0 4px 18px rgba(0,0,0,.6);font-size:13px}
-.menu.open{display:block}
-.mi{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:5px;cursor:pointer}
-.mi:hover{background:#3a3a42}
-.mi .ck{width:14px;text-align:center}
-.sep{height:1px;background:#444;margin:4px 0}
-</style>
-<aside class="panel">
-  <header><b>★ 登録チャンネル</b>
-    <button data-act="dash" title="履歴・分析">📊</button>
-    <button data-act="opts" title="設定">⚙</button>
-    <button data-act="toggle" title="閉じる">✕</button></header>
-  <section class="cur"></section>
-  <section class="groups"></section>
-  <div class="imp"><button data-act="import">⟳ 登録チャンネルを全件取り込む</button><div class="st"></div></div>
-  <div class="qrow"><input class="q" placeholder="チャンネルを検索"><select class="sort"><option value="name">名前順</option><option value="added">追加順</option></select></div>
-  <section class="list"></section>
-</aside>
-<div class="menu"></div>`;
-
-  const $ = s => root.querySelector(s);
-  const panel = $('.panel'), menu = $('.menu');
-
-  function avatar(ch) {
-    return ch.avatar ? `<img class="av" src="${esc(ch.avatar)}" referrerpolicy="no-referrer">`
-      : `<div class="av" style="background:${colorOf(ch)};color:#222">${initial(ch.name)}</div>`;
+  // ---------- 登録チャンネル取り込み ----------
+  function toast(msg, ms = 3500) {
+    let t = $('#tf-toast'); if (!t) { t = el('div'); t.id = 'tf-toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms);
   }
-
-  function renderCur() {
-    const el = $('.cur');
-    const m = S.settings.features.panel && currentMeta();
-    el.classList.toggle('on', !!m);
-    if (!m) return;
-    const f = S.channels[m.id];
-    el.innerHTML = `<div class="t">${f && f.groups.length ? '★' : '☆'} この動画のチャンネル: <b>${esc(m.name)}</b></div>
-      <div class="chips">${S.groups.map(g => `<button class="chip ${f && f.groups.includes(g.id) ? 'on' : ''}" style="--c:${g.color}" data-act="chip" data-g="${g.id}">${esc((g.icon || '') + ' ' + g.name).trim()}</button>`).join('')}</div>`;
-  }
-
-  function renderGroups() {
-    const chs = Object.values(S.channels);
-    const cnt = gid => chs.filter(f => f.groups.includes(gid)).length;
-    const none = chs.filter(f => !f.groups.length).length;
-    let h = `<div class="g ${view.gid === 'all' ? 'sel' : ''}" data-act="sel" data-g="all"><span class="dot" style="background:#aaa"></span><span class="n">すべての登録チャンネル</span><span class="c">${chs.length}</span></div>`;
-    h += `<div class="g ${view.gid === 'none' ? 'sel' : ''}" data-act="sel" data-g="none"><span class="dot" style="background:#666"></span><span class="n">未分類</span><span class="c">${none}</span></div>`;
-    h += S.groups.map((g, i) => `<div class="g ${view.gid === g.id ? 'sel' : ''}" data-act="sel" data-g="${g.id}">
-      <span class="dot" style="background:${g.color}"></span><span class="n">${esc(g.icon || '📁')} ${esc(g.name)}</span><span class="c">${cnt(g.id)}</span>
-      <span class="ed"><button data-act="ren" data-g="${g.id}" title="名前変更">✎</button>${i ? `<button data-act="del" data-g="${g.id}" title="削除">🗑</button>` : ''}</span></div>`).join('');
-    h += '<div class="add" data-act="addg">＋ フォルダを追加</div>';
-    $('.groups').innerHTML = h;
-  }
-
-  function renderList() {
-    const list = $('.list');
-    const keep = list.scrollTop;
-    const q = view.q.toLowerCase();
-    const items = Object.values(S.channels)
-      .filter(f => (view.gid === 'all' || (view.gid === 'none' ? !f.groups.length : f.groups.includes(view.gid))) &&
-        (!q || f.name.toLowerCase().includes(q)))
-      .sort((a, b) => view.sort === 'added' ? b.addedAt - a.addedAt : a.name.localeCompare(b.name, 'ja'));
-    list.innerHTML = items.length ? items.map(f => `<div class="it">
-      <a href="/${esc(f.id)}">${avatar(f)}<div style="min-width:0"><div class="t">${esc(f.name)}</div>
-        <div class="dots">${f.groups.map(g => groupOf(g) ? `<i style="background:${groupOf(g).color}" title="${esc(groupOf(g).name)}"></i>` : '').join('')}</div></div></a>
-      <button data-act="rowmenu" data-id="${esc(f.id)}" title="フォルダに入れる">📁</button></div>`).join('')
-      : `<div class="empty">${Object.keys(S.channels).length ? '該当するチャンネルがありません' : '「全件取り込む」で登録チャンネルを読み込んでください'}</div>`;
-    list.scrollTop = keep;
-  }
-
-  function renderPanel() {
-    const on = S.settings.features.panel;
-    panel.classList.toggle('open', on && S.settings.panelOpen);
-    if (!groupOf(view.gid) && view.gid !== 'all' && view.gid !== 'none') view.gid = 'all';
-    placeTopBtn();
-    renderCur(); renderGroups(); renderList();
-    renderFeedBar();
-  }
-
-  /* ---------- グループ選択メニュー(★の▾) ---------- */
-  function showMenu(meta, rect) {
-    const f = S.channels[meta.id];
-    menu.innerHTML = S.groups.map(g => `<div class="mi" data-act="mg" data-g="${g.id}"><span class="ck">${f && f.groups.includes(g.id) ? '✔' : ''}</span><span class="dot" style="background:${g.color}"></span>${esc((g.icon || '') + ' ' + g.name).trim()}</div>`).join('')
-      + '<div class="sep"></div><div class="mi" data-act="mnew"><span class="ck">＋</span>新規フォルダ</div>'
-      + (f && f.groups.length ? '<div class="mi" data-act="mrm"><span class="ck">✕</span>フォルダから外す</div>' : '');
-    menu._meta = meta;
-    menu.style.left = Math.max(4, Math.min(rect.left, innerWidth - 210)) + 'px';
-    menu.style.top = Math.min(rect.bottom + 4, innerHeight - 260) + 'px';
-    menu.classList.add('open');
-  }
-  const closeMenu = () => menu.classList.remove('open');
-  addEventListener('click', e => { if (!e.composedPath().includes(menu) && !(e.target.closest && e.target.closest('.tf2-badge'))) closeMenu(); }, true);
-  addEventListener('scroll', closeMenu, true);
-  addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-
-  /* ---------- パネル操作 ---------- */
-  root.addEventListener('click', async e => {
-    const t = e.target.closest('[data-act]');
-    if (!t || !alive()) return;
-    const act = t.dataset.act, g = t.dataset.g;
-    if (act === 'toggle') TF.setSetting('panelOpen', !S.settings.panelOpen);
-    else if (act === 'dash') chrome.runtime.sendMessage({ type: 'openDashboard' });
-    else if (act === 'opts') chrome.runtime.sendMessage({ type: 'openOptions' });
-    else if (act === 'sel') { view.gid = g; renderGroups(); renderList(); }
-    else if (act === 'chip') { const m = currentMeta(); if (m) TF.toggleChGroup(m, g); }
-    else if (act === 'rowmenu') { const c = S.channels[t.dataset.id]; if (c) showMenu(c, t.getBoundingClientRect()); }
-    else if (act === 'import') importAll();
-    else if (act === 'addg') {
-      const n = prompt('新しいフォルダ名');
-      if (n && n.trim()) { const ic = prompt('アイコン(絵文字1つ・省略可)', '📁'); TF.addGroup(n.trim(), undefined, (ic || '').trim()); }
-    } else if (act === 'ren') {
-      const cur = groupOf(g); const n = prompt('フォルダ名を変更', cur.name);
-      if (n && n.trim()) { const ic = prompt('アイコン(絵文字1つ・省略可)', cur.icon || ''); TF.updateGroup(g, n.trim(), undefined, (ic || '').trim()); }
-    } else if (act === 'del') {
-      if (confirm(`フォルダ「${groupOf(g).name}」を削除しますか?\n(チャンネルは「${S.groups[0].name}」に移動します)`)) TF.deleteGroup(g);
-    } else if (act === 'mg') { TF.toggleChGroup(menu._meta, g); closeMenu(); }
-    else if (act === 'mrm') { TF.removeCh(menu._meta.id); closeMenu(); }
-    else if (act === 'mnew') {
-      const n = prompt('新しいフォルダ名');
-      if (n && n.trim()) { const id = await TF.addGroup(n.trim()); await TF.toggleChGroup(menu._meta, id); }
-      closeMenu();
-    }
-  });
-  $('.sort').addEventListener('change', e => { view.sort = e.target.value; renderList(); });
-  $('.q').addEventListener('input', e => { view.q = e.target.value; renderList(); });
-
-  /* ---------- 視聴履歴の記録 ---------- */
-  let sess = null, dirty = false, lastFlush = 0;
-  function readWatchMeta(id) {
-    const flexy = document.querySelector('ytd-watch-flexy');
-    if (flexy && flexy.getAttribute('video-id') !== id) return null;
-    const title = document.querySelector('ytd-watch-metadata h1')?.textContent.trim();
-    if (!title) return null;
-    const a = watchChannelAnchor();
-    return { title, channel: a ? a.textContent.trim() : '', ch: a ? chKey(a.href) : '' };
-  }
-  function flush() {
-    if (!sess || !dirty || sess.sec < 5) return;
-    dirty = false; lastFlush = Date.now();
-    if (alive()) TF.logSession({ ...sess }).catch(() => {});
-  }
-  function tick() {
-    if (!alive() || !S) return;
-    if (!S.settings.features.history) { sess = null; return; }
-    const id = curId();
-    if (sess && sess.id !== id) { flush(); sess = null; dirty = false; }
-    if (!id) return;
-    if (!sess) sess = { sid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), id, ch: '', at: Date.now(), sec: 0, title: '', channel: '', dur: 0, pos: 0 };
-    const v = document.querySelector('video.html5-main-video');
-    if (!v) return;
-    if (document.querySelector('#movie_player')?.classList.contains('ad-showing')) return;
-    if (!v.paused && !v.ended) { sess.sec++; dirty = true; }
-    if (v.duration && isFinite(v.duration)) sess.dur = Math.round(v.duration);
-    sess.pos = Math.round(v.currentTime || 0);
-    const m = readWatchMeta(id);
-    if (m) { sess.title = m.title; sess.channel = m.channel; sess.ch = m.ch; }
-    if (dirty && Date.now() - lastFlush > 10000) flush();
-  }
-  setInterval(tick, 1000);
-  addEventListener('pagehide', flush);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
-
-  /* ---------- 登録チャンネルの取り込み ---------- */
-  const setStatus = t => { const el = $('.st'); if (el) el.textContent = t; };
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  function saveSubs(items) {
-    if (!S || !items.length || !alive()) return;
-    const diff = items.filter(i => {
-      const c = S.channels[i.id];
-      return !c || !c.sub || (i.name && c.name !== i.name) || (i.avatar && !c.avatar);
-    });
-    if (diff.length) TF.upsertSubs(diff);
-  }
-  const okImg = img => (img && img.src && !img.src.startsWith('data:') ? img.src : '');
-
-  // サイドバー「登録チャンネル」セクションから取り込む
-  function collectGuide() {
-    const hdr = document.querySelector('ytd-guide-section-renderer a[href="/feed/channels"]');
-    const sec = hdr && hdr.closest('ytd-guide-section-renderer');
-    if (!sec) return;
-    const items = [];
-    sec.querySelectorAll('ytd-guide-entry-renderer a').forEach(a => {
-      const id = a.matches(CH_SEL) ? chKey(a.href) : null;
-      if (!id) return;
-      const name = (a.getAttribute('title') || a.textContent).trim();
-      items.push({ id, name, avatar: okImg(a.querySelector('img')) });
-    });
-    saveSubs(items);
-  }
-  // /feed/channels(登録チャンネル一覧ページ)から取り込む
-  function collectFeed() {
-    const items = [];
-    document.querySelectorAll('ytd-channel-renderer').forEach(c => {
-      const a = [...c.querySelectorAll(CH_SEL)][0];
-      const id = a && chKey(a.href);
-      if (!id) return;
-      const name = (c.querySelector('ytd-channel-name #text, #info #text')?.textContent || a.textContent).trim();
-      items.push({ id, name, avatar: okImg(c.querySelector('#avatar img, yt-img-shadow img')) });
-    });
-    saveSubs(items);
-    return items.length;
-  }
-  async function runFeedImport() {
-    setStatus('取り込み中… (自動スクロール)');
+  let importing = false;
+  async function importChannels() {
+    if (importing) return; importing = true;
     let last = -1, same = 0;
     while (same < 4) {
-      scrollTo(0, document.documentElement.scrollHeight);
-      await sleep(900);
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      await new Promise(r => setTimeout(r, 900));
       const n = document.querySelectorAll('ytd-channel-renderer').length;
-      if (n === last) same++; else { same = 0; last = n; }
+      toast(`取り込み中… ${n}件`, 8000);
+      same = n === last ? same + 1 : 0; last = n;
     }
-    const n = collectFeed();
-    scrollTo(0, 0);
-    setStatus(`${n}件の登録チャンネルを取り込みました`);
-  }
-  function importAll() {
-    if (location.pathname === '/feed/channels') { runFeedImport(); return; }
-    try { sessionStorage.setItem('tf2_import', '1'); } catch {}
-    location.href = '/feed/channels';
-  }
-
-  /* ---------- 登録チャンネル画面: フォルダ絞り込み / 視聴済み非表示 ---------- */
-  let barEl = null;
-  const onFeed = () => location.pathname === '/feed/subscriptions';
-  const FEED_ITEMS = 'ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer';
-
-  function unhideAll() { document.querySelectorAll('[tf2-hide]').forEach(c => c.removeAttribute('tf2-hide')); }
-
-  function applyFeedFilter() {
-    const hw = S.settings.hideWatched;
-    document.querySelectorAll(FEED_ITEMS).forEach(c => {
-      let hide = false;
-      if (feed.gid !== 'all') {
-        const a = c.querySelector(CH_SEL);
-        const key = a && chKey(a.href);
-        if (key || c.querySelector('a[href*="/watch?v="]')) {
-          const ch = key && S.channels[key];
-          const inF = feed.gid === 'none' ? !(ch && ch.groups.length) : !!(ch && ch.groups.includes(feed.gid));
-          hide = !!key && !inF;
-        }
-      }
-      if (!hide && hw) {
-        const p = c.querySelector('ytd-thumbnail-overlay-resume-playback-renderer #progress, [class*="WatchedProgressBarSegment"]');
-        if (p && parseFloat(p.style.width) >= 80) hide = true;
-      }
-      c.toggleAttribute('tf2-hide', hide);
+    const list = [];
+    document.querySelectorAll('ytd-channel-renderer').forEach(r => {
+      const a = r.querySelector('a#main-link, #info a, a[href^="/@"], a[href^="/channel/UC"]');
+      const key = a && TF.keyFromHref(a.getAttribute('href'));
+      if (!key) return;
+      const name = TF.clean(((r.querySelector('#text, #channel-title') || {}).textContent || ''));
+      const img = r.querySelector('img');
+      list.push({ key, name, avatar: img && /^https:\/\/(yt3|lh3)\.|ggpht/.test(img.src) ? img.src : '' });
     });
+    await TF.upsertChannels(list);
+    window.scrollTo(0, 0);
+    importing = false;
+    toast(`✓ ${list.length}件のチャンネルを取り込みました`, 6000);
+    if (location.search.includes('tf_import')) setTimeout(() => { location.href = '/feed/subscriptions'; }, 1500);
+  }
+  function checkImport() {
+    if (isChList() && location.search.includes('tf_import') && !importing) setTimeout(importChannels, 1200);
   }
 
-  function renderFeedBar() {
-    if (!S) return;
-    if (!(onFeed() && S.settings.features.feedFilter)) {
-      if (barEl) { barEl.remove(); barEl = null; }
-      unhideAll();
-      return;
-    }
-    const grid = document.querySelector('ytd-browse[page-subtype="subscriptions"] ytd-rich-grid-renderer') || document.querySelector('ytd-rich-grid-renderer');
-    if (!grid) return;
-    if (feed.gid !== 'all' && feed.gid !== 'none' && !groupOf(feed.gid)) feed.gid = 'all';
-    if (!barEl) {
-      barEl = document.createElement('div');
-      barEl.id = 'tf2-feedbar';
-      barEl.addEventListener('click', e => {
-        const b = e.target.closest('button[data-g]');
-        if (b) { feed.gid = b.dataset.g; renderFeedBar(); }
-      });
-      barEl.addEventListener('change', e => { if (e.target.id === 'tf2-hw' && alive()) TF.setSetting('hideWatched', e.target.checked); });
-    }
-    const chip = (g, label, color) => `<button data-g="${g}" class="${feed.gid === g ? 'on' : ''}" style="--c:${color}">${esc(label)}</button>`;
-    const html = chip('all', 'すべて', '#aaa') + S.groups.map(g => chip(g.id, ((g.icon || '') + ' ' + g.name).trim(), g.color)).join('') + chip('none', '未分類', '#777')
-      + `<label><input type="checkbox" id="tf2-hw" ${S.settings.hideWatched ? 'checked' : ''}> 視聴済みを隠す</label>`;
-    if (barEl._h !== html) { barEl.innerHTML = html; barEl._h = html; }
-    if (barEl.parentElement !== grid) grid.insertBefore(barEl, grid.firstChild);
-    applyFeedFilter();
+  // ---------- ホバー時に出る単一のフローティングボタン(カードに要素を追加しない) ----------
+  let hb = null, hbCard = null;
+  function hoverBtn() {
+    if (hb) return hb;
+    hb = el('button', 'tf-pick'); hb.title = 'グループに追加'; hb.style.display = 'none';
+    hb.addEventListener('mouseleave', e => { if (!hbCard || !hbCard.contains(e.relatedTarget)) hideHb(); });
+    hb.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (hbCard) { const k = cardKey(hbCard); if (k) openPicker(hb, { key: k, ...cardMeta(hbCard) }); } });
+    document.body.appendChild(hb);
+    return hb;
   }
+  function hideHb() { if (hb) hb.style.display = 'none'; hbCard = null; }
+  function paintHb(card, key) {
+    const b = hoverBtn();
+    const gs = (S.channels[key] ? S.channels[key].groups : []).map(groupOf).filter(Boolean);
+    b.innerHTML = gs.length ? gs.slice(0, 4).map(g => `<i style="background:${g.color}"></i>`).join('') : '＋';
+    b.classList.toggle('on', gs.length > 0);
+    const t = card.querySelector('ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail') || card;
+    const r = t.getBoundingClientRect();
+    b.style.left = (r.left + 8) + 'px'; b.style.top = (r.top + 8) + 'px'; b.style.display = 'flex';
+  }
+  document.addEventListener('mouseover', e => {
+    if (!e.target.closest) return;
+    if (e.target.closest('#tf-pop, .tf-pick')) return;
+    let card = e.target.closest(OUTER);
+    if (!card) { const l = e.target.closest('yt-lockup-view-model'); if (l) card = l; }
+    if (!card) return hideHb();
+    if (card === hbCard) return;
+    const key = cardKey(card);
+    if (!key) return hideHb();
+    hbCard = card; paintHb(card, key);
+  }, true);
+  window.addEventListener('scroll', hideHb, { passive: true });
 
-  /* ---------- 起動 ---------- */
-  let timer = 0;
-  const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { if (alive() && S) { placeTopBtn(); scan(); renderCur(); collectGuide(); renderFeedBar(); } }, 400); };
+  // ---------- 更新ループ ----------
+  let tmr = 0;
+  const refresh = () => { if (!S) return; processCards(); renderBar(); renderFab(); const p = $('#tf-pop'); if (p && p._draw) p._draw(); };
+  const schedule = () => { clearTimeout(tmr); tmr = setTimeout(refresh, 250); };
 
-  async function refresh() {
-    if (!alive()) return;
+  async function init() {
     S = await TF.get();
-    renderPanel();
-    scan();
+    chrome.storage.onChanged.addListener(async () => { S = await TF.get(); refresh(); });
+    new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('yt-navigate-finish', () => { schedule(); checkImport(); });
+    refresh(); checkImport();
   }
-
-  chrome.storage.onChanged.addListener((ch, area) => {
-    if (area === 'local' && ['settings', 'groups', 'channels'].some(k => k in ch)) refresh();
-  });
-  new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
-  document.addEventListener('yt-navigate-finish', () => { schedule(); setTimeout(() => S && renderCur(), 1200); });
-
-  refresh().then(async () => {
-    document.documentElement.appendChild(host);
-    let flag = false;
-    try { flag = sessionStorage.getItem('tf2_import') === '1'; sessionStorage.removeItem('tf2_import'); } catch {}
-    if (flag && location.pathname === '/feed/channels') {
-      await TF.setSetting('panelOpen', true);
-      await sleep(1500);
-      runFeedImport();
-    }
-  });
+  init();
 })();

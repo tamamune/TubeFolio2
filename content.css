@@ -1,37 +1,78 @@
-/* 上部バーの★ボタン */
-#tf2-btn {
-  width: 40px; height: 40px; margin-right: 8px; border: 0; border-radius: 50%;
-  background: transparent; color: var(--yt-spec-text-primary, #fff); font-size: 20px; cursor: pointer;
+:root {
+  --tf-bg: #ffffff; --tf-fg: #0f0f0f; --tf-sub: #606060; --tf-line: rgba(0,0,0,.1);
+  --tf-chip: #f2f2f2; --tf-acc: #3a86ff; --tf-shadow: 0 8px 28px rgba(0,0,0,.18);
 }
-#tf2-btn:hover { background: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, .15)); }
-#tf2-btn.on { color: #f5b301; background: rgba(245, 179, 1, .18); }
-#tf2-btn.float { position: fixed; top: 8px; right: 220px; z-index: 2147482000; }
+html[dark] {
+  --tf-bg: #212121; --tf-fg: #f1f1f1; --tf-sub: #aaa; --tf-line: rgba(255,255,255,.12);
+  --tf-chip: #2f2f2f; --tf-shadow: 0 8px 28px rgba(0,0,0,.6);
+}
+.tf-hide { display: none !important; }
 
-/* 動画一覧: チャンネル名の隣の★ */
-.tf2-badge {
-  display: inline-flex; align-items: stretch; vertical-align: middle; margin-left: 5px;
-  border-radius: 5px; overflow: hidden; cursor: pointer; font: 12px/1 sans-serif;
-  background: rgba(128, 128, 128, .3); color: var(--yt-spec-text-secondary, #aaa);
+/* 登録フィードのバー */
+#tf-bar {
+  position: sticky; top: 56px; z-index: 50; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  margin: 0 0 12px; padding: 10px 14px; background: color-mix(in srgb, var(--tf-bg) 86%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--tf-line); border-radius: 16px;
+  font: 500 13px/1.2 Roboto, "Yu Gothic UI", sans-serif; color: var(--tf-fg);
 }
-.tf2-badge b { font-weight: normal; padding: 3px 5px; }
-.tf2-badge .m { display: none; font-size: 9px; border-left: 1px solid rgba(128, 128, 128, .5); }
-.tf2-badge:hover .m { display: block; }
-.tf2-badge:hover { background: rgba(128, 128, 128, .5); }
-.tf2-badge.fav { background: var(--tf2c, #f5b301); color: #222; }
+.tf-chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 400px; }
+.tf-chip {
+  --c: var(--tf-acc); display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid transparent;
+  border-radius: 999px; background: var(--tf-chip); color: var(--tf-fg); font: inherit; cursor: pointer; transition: .15s;
+}
+.tf-chip span { font-size: 11px; opacity: .65; background: var(--tf-line); padding: 1px 7px; border-radius: 999px; }
+.tf-chip:hover { border-color: var(--c); }
+.tf-chip.act { background: var(--c); color: #fff; box-shadow: 0 4px 12px color-mix(in srgb, var(--c) 45%, transparent); }
+.tf-chip.act span { background: rgba(255,255,255,.25); opacity: 1; }
+.tf-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tf-btn {
+  padding: 7px 13px; border: 1px solid var(--tf-line); border-radius: 10px; background: var(--tf-chip);
+  color: var(--tf-fg); font: inherit; cursor: pointer; transition: .15s;
+}
+.tf-btn:hover { background: var(--tf-acc); color: #fff; border-color: var(--tf-acc); }
+.tf-sw { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--tf-sub); }
+.tf-sw input { display: none; }
+.tf-sw span { width: 34px; height: 20px; border-radius: 99px; background: var(--tf-line); position: relative; transition: .2s; }
+.tf-sw span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.tf-sw input:checked + span { background: var(--tf-acc); }
+.tf-sw input:checked + span::after { left: 16px; }
 
-/* お気に入りチャンネルの動画サムネイルの枠 */
-.tf2-thumb { position: relative; }
-.tf2-thumb.tf2-isfav::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 40;
-  border: 3px solid var(--tf2c, #f5b301); border-radius: 12px; box-sizing: border-box;
+/* カード上のボタン */
+[data-tf-on] ytd-thumbnail, [data-tf-on] yt-thumbnail-view-model { box-shadow: 0 0 0 2px var(--tf-c); border-radius: 12px; }
+.tf-pick {
+  position: fixed; z-index: 2147482000; min-width: 28px; height: 28px; padding: 0 8px; display: flex; align-items: center; gap: 3px;
+  border: 0; border-radius: 999px; background: rgba(0,0,0,.62); color: #fff; font: 600 14px/1 sans-serif; cursor: pointer;
+  backdrop-filter: blur(6px); transition: transform .15s;
 }
+.tf-pick i { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255,255,255,.85); }
+.tf-pick:hover { transform: scale(1.1); }
 
-/* 登録チャンネル画面: フォルダ絞り込みバー */
-#tf2-feedbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 24px 4px; }
-#tf2-feedbar button {
-  border: 1px solid var(--c, #888); color: var(--yt-spec-text-primary, #fff); background: transparent;
-  border-radius: 16px; padding: 5px 13px; font-size: 14px; cursor: pointer;
+/* ポップオーバー */
+#tf-pop {
+  position: fixed; z-index: 2147483000; width: 250px; padding: 8px; background: var(--tf-bg); color: var(--tf-fg);
+  border: 1px solid var(--tf-line); border-radius: 16px; box-shadow: var(--tf-shadow); font: 13px/1.3 Roboto, "Yu Gothic UI", sans-serif;
 }
-#tf2-feedbar button.on { background: var(--c, #f5b301); color: #222; }
-#tf2-feedbar label { margin-left: auto; font-size: 13px; color: var(--yt-spec-text-secondary, #aaa); cursor: pointer; }
-[tf2-hide] { display: none !important; }
+.tf-pop-h { padding: 6px 8px 8px; font-weight: 700; border-bottom: 1px solid var(--tf-line); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; cursor: pointer; }
+.tf-row:hover { background: var(--tf-chip); }
+.tf-row b { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; font-size: 13px; }
+.tf-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-new { display: flex; gap: 6px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--tf-line); }
+.tf-new input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--tf-line); border-radius: 10px; background: var(--tf-chip); color: var(--tf-fg); outline: none; }
+.tf-new input:focus { border-color: var(--tf-acc); }
+.tf-new button { padding: 0 12px; border: 0; border-radius: 10px; background: var(--tf-acc); color: #fff; cursor: pointer; font-weight: 600; }
+
+/* FAB / トースト */
+#tf-fab {
+  position: fixed; right: 20px; bottom: 20px; z-index: 2000; display: flex; gap: 6px; align-items: center; padding: 11px 16px;
+  border: 1px solid var(--tf-line); border-radius: 999px; background: var(--tf-bg); color: var(--tf-fg);
+  font: 600 13px/1 Roboto, "Yu Gothic UI", sans-serif; box-shadow: var(--tf-shadow); cursor: pointer; transition: transform .15s;
+}
+#tf-fab:hover { transform: translateY(-2px); }
+#tf-fab.on { border-color: var(--tf-acc); }
+#tf-toast {
+  position: fixed; left: 50%; bottom: 28px; z-index: 2147483000; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  padding: 12px 20px; border-radius: 12px; background: #111; color: #fff; font: 500 13px/1 Roboto, "Yu Gothic UI", sans-serif;
+  box-shadow: var(--tf-shadow); transition: .25s;
+}
+#tf-toast.show { opacity: 1; transform: translate(-50%, 0); }
