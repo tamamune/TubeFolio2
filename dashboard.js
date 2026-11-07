@@ -36,7 +36,7 @@
       if (day !== last) { html += `<div class="day">${day}</div>`; last = day; }
       const pct = h.dur ? Math.min(100, Math.round((h.pos / h.dur) * 100)) : 0;
       html += `<div class="hi">
-        <span class="star" title="${S.favorites[h.id] ? 'お気に入り' : ''}">${S.favorites[h.id] ? '★' : ''}</span>
+        <span class="star" title="${S.channels[h.ch] ? 'お気に入りチャンネル' : ''}">${S.channels[h.ch] ? '★' : ''}</span>
         <a href="${link(h.id)}" target="_blank"><img loading="lazy" src="https://i.ytimg.com/vi/${esc(h.id)}/mqdefault.jpg"></a>
         <div class="m"><a class="t" href="${link(h.id)}" target="_blank">${esc(h.title || h.id)}</a>
           <div class="sub">${esc(h.channel)} ・ ${d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} ・ 視聴 ${fmt(h.sec)}${h.dur ? ' / ' + fmt(h.dur) : ''}</div>
@@ -73,11 +73,11 @@
     const vids = new Set(rows.map(h => h.id));
     const chans = new Set(rows.map(h => h.channel).filter(Boolean));
     const days = new Set(rows.map(h => new Date(h.at).toDateString())).size || 1;
-    const favWatched = [...vids].filter(id => S.favorites[id]).length;
-    const favRate = vids.size ? Math.round((favWatched / vids.size) * 100) : 0;
+    const favSec = rows.filter(h => S.channels[h.ch]).reduce((a, h) => a + h.sec, 0);
+    const favRate = total ? Math.round((favSec / total) * 100) : 0;
     const kp = [
       [fmt(total), '総視聴時間'], [rows.length, '視聴回数'], [vids.size, '視聴した動画数'], [chans.size, 'チャンネル数'],
-      [fmt(total / days), '視聴した日の平均/日'], [favRate + '%', 'お気に入り動画の視聴率']
+      [fmt(total / days), '視聴した日の平均/日'], [favRate + '%', 'お気に入りチャンネルの視聴時間割合']
     ];
     $('#kpis').innerHTML = kp.map(([b, s]) => `<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
 
@@ -102,8 +102,8 @@
     hbars($('#topCh'), agg(rows, h => h.channel, h => h.channel), fmt);
     hbars($('#topVid'), agg(rows, h => h.id, h => h.title || h.id), fmt);
 
-    const favs = Object.values(S.favorites);
-    hbars($('#byGroup'), S.groups.map(g => ({ n: g.name, v: favs.filter(f => f.groups.includes(g.id)).length })).filter(i => i.v), v => v + '本');
+    const favs = Object.values(S.channels);
+    hbars($('#byGroup'), S.groups.map(g => ({ n: g.name, v: favs.filter(f => f.groups.includes(g.id)).length })).filter(i => i.v), v => v + 'ch');
   }
 
   function render() {

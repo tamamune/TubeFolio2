@@ -60,7 +60,7 @@ async function writeRemote(t, id, obj) {
 
 const snapshot = s => ({
   app: 'TubeFolio2', v: 1, updatedAt: s.updatedAt,
-  features: s.settings.features, groups: s.groups, favorites: s.favorites
+  features: s.settings.features, groups: s.groups, channels: s.channels
 });
 
 /* ---------- 同期 ---------- */

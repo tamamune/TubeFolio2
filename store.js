@@ -9,8 +9,8 @@ const TF = (() => {
       lastGroup: 'g_default'
     },
     groups: [{ id: 'g_default', name: '未分類', color: '#f5b301' }],
-    favorites: {}, // id -> {id,title,channel,thumb,groups:[gid],addedAt}
-    history: [],   // {sid,id,title,channel,at,sec,dur,pos}
+    channels: {}, // key(@handle等) -> {id,name,avatar,groups:[gid],addedAt}
+    history: [],   // {sid,id,ch,title,channel,at,sec,dur,pos}
     updatedAt: 0
   });
   const PALETTE = ['#f5b301', '#ef5350', '#ab47bc', '#5c6bc0', '#29b6f6', '#26a69a', '#9ccc65', '#ff7043'];
@@ -18,13 +18,13 @@ const TF = (() => {
   let q = Promise.resolve();
 
   async function get() {
-    const raw = await chrome.storage.local.get(['settings', 'groups', 'favorites', 'history', 'updatedAt']);
+    const raw = await chrome.storage.local.get(['settings', 'groups', 'channels', 'history', 'updatedAt']);
     const d = DEF();
     const st = raw.settings || {};
     return {
       settings: { ...d.settings, ...st, features: { ...d.settings.features, ...(st.features || {}) } },
       groups: raw.groups && raw.groups.length ? raw.groups : d.groups,
-      favorites: raw.favorites || {},
+      channels: raw.channels || {},
       history: raw.history || [],
       updatedAt: raw.updatedAt || 0
     };
@@ -32,7 +32,7 @@ const TF = (() => {
 
   // fn(state) で state を直接書き換える。keys は保存するキー。
   function mutate(fn, keys, sync) {
-    if (sync === undefined) sync = keys.includes('groups') || keys.includes('favorites');
+    if (sync === undefined) sync = keys.includes('groups') || keys.includes('channels');
     const run = async () => {
       const s = await get();
       await fn(s);
@@ -55,7 +55,7 @@ const TF = (() => {
       await chrome.storage.local.set({
         settings: s.settings,
         groups: snap.groups && snap.groups.length ? snap.groups : s.groups,
-        favorites: snap.favorites || {},
+        channels: snap.channels || {},
         updatedAt: snap.updatedAt || Date.now()
       });
     };
@@ -70,38 +70,34 @@ const TF = (() => {
   const api = {
     get, mutate, apply, PALETTE,
 
-    addFav: (meta, gid) =>
+    addCh: (meta, gid) =>
       mutate(s => {
         const g = s.groups.some(x => x.id === gid) ? gid : defaultGroup(s);
-        const old = s.favorites[meta.id];
-        s.favorites[meta.id] = {
+        const old = s.channels[meta.id];
+        s.channels[meta.id] = {
           id: meta.id,
-          title: meta.title || (old && old.title) || meta.id,
-          channel: meta.channel || (old && old.channel) || '',
-          thumb: `https://i.ytimg.com/vi/${meta.id}/mqdefault.jpg`,
+          name: meta.name || (old && old.name) || meta.id,
+          avatar: meta.avatar || (old && old.avatar) || '',
           groups: old ? Array.from(new Set([...old.groups, g])) : [g],
           addedAt: old ? old.addedAt : Date.now()
         };
         s.settings.lastGroup = g;
-      }, ['favorites', 'settings'], true),
+      }, ['channels', 'settings'], true),
 
-    toggleFavGroup: (meta, gid) =>
+    toggleChGroup: (meta, gid) =>
       mutate(s => {
-        const old = s.favorites[meta.id];
+        const old = s.channels[meta.id];
         if (!old) {
-          s.favorites[meta.id] = {
-            id: meta.id, title: meta.title || meta.id, channel: meta.channel || '',
-            thumb: `https://i.ytimg.com/vi/${meta.id}/mqdefault.jpg`, groups: [gid], addedAt: Date.now()
-          };
+          s.channels[meta.id] = { id: meta.id, name: meta.name || meta.id, avatar: meta.avatar || '', groups: [gid], addedAt: Date.now() };
         } else {
           old.groups = old.groups.includes(gid) ? old.groups.filter(x => x !== gid) : [...old.groups, gid];
-          if (meta.title && !old.title) old.title = meta.title;
-          if (!old.groups.length) delete s.favorites[meta.id];
+          if (meta.avatar && !old.avatar) old.avatar = meta.avatar;
+          if (!old.groups.length) delete s.channels[meta.id];
         }
         s.settings.lastGroup = gid;
-      }, ['favorites', 'settings'], true),
+      }, ['channels', 'settings'], true),
 
-    removeFav: id => mutate(s => { delete s.favorites[id]; }, ['favorites']),
+    removeCh: id => mutate(s => { delete s.channels[id]; }, ['channels']),
 
     addGroup: (name, color) => {
       const id = uid('g_');
@@ -119,12 +115,12 @@ const TF = (() => {
         if (id === defaultGroup(s)) return;
         s.groups = s.groups.filter(g => g.id !== id);
         const def = defaultGroup(s);
-        Object.values(s.favorites).forEach(f => {
+        Object.values(s.channels).forEach(f => {
           f.groups = f.groups.filter(x => x !== id);
           if (!f.groups.length) f.groups = [def];
         });
         if (s.settings.lastGroup === id) s.settings.lastGroup = def;
-      }, ['groups', 'favorites', 'settings'], true),
+      }, ['groups', 'channels', 'settings'], true),
 
     setFeature: (name, val) =>
       mutate(s => { s.settings.features[name] = !!val; }, ['settings'], true),

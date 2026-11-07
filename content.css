@@ -1,20 +1,27 @@
-/* 動画一覧のお気に入りバッジ */
-.tf2-anchor { position: relative; }
-.tf2-badge {
-  position: absolute; top: 6px; left: 6px; z-index: 50;
-  display: flex; align-items: stretch;
-  background: rgba(0, 0, 0, .65); color: rgba(255, 255, 255, .8);
-  border-radius: 6px; overflow: hidden; cursor: pointer;
-  font: 14px/1 sans-serif; opacity: .9;
+/* 上部バーの★ボタン */
+#tf2-btn {
+  width: 40px; height: 40px; margin-right: 8px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--yt-spec-text-primary, #fff); font-size: 20px; cursor: pointer;
 }
-.tf2-badge b { font-weight: normal; padding: 5px 7px; }
-.tf2-badge .m { display: none; padding: 5px 5px; font-size: 10px; border-left: 1px solid rgba(255, 255, 255, .3); }
+#tf2-btn:hover { background: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, .15)); }
+#tf2-btn.on { color: #f5b301; background: rgba(245, 179, 1, .18); }
+#tf2-btn.float { position: fixed; top: 8px; right: 220px; z-index: 2147482000; }
+
+/* 動画一覧: チャンネル名の隣の★ */
+.tf2-badge {
+  display: inline-flex; align-items: stretch; vertical-align: middle; margin-left: 5px;
+  border-radius: 5px; overflow: hidden; cursor: pointer; font: 12px/1 sans-serif;
+  background: rgba(128, 128, 128, .3); color: var(--yt-spec-text-secondary, #aaa);
+}
+.tf2-badge b { font-weight: normal; padding: 3px 5px; }
+.tf2-badge .m { display: none; font-size: 9px; border-left: 1px solid rgba(128, 128, 128, .5); }
 .tf2-badge:hover .m { display: block; }
-.tf2-badge:hover { opacity: 1; background: rgba(0, 0, 0, .85); }
-.tf2-badge.fav { background: var(--tf2c, #f5b301); color: #222; opacity: 1; }
-.tf2-badge.fav:hover { filter: brightness(1.1); }
-/* お気に入り登録済みサムネイルの枠 */
-.tf2-anchor.tf2-isfav::after {
+.tf2-badge:hover { background: rgba(128, 128, 128, .5); }
+.tf2-badge.fav { background: var(--tf2c, #f5b301); color: #222; }
+
+/* お気に入りチャンネルの動画サムネイルの枠 */
+.tf2-thumb { position: relative; }
+.tf2-thumb.tf2-isfav::after {
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 40;
   border: 3px solid var(--tf2c, #f5b301); border-radius: 12px; box-sizing: border-box;
 }

@@ -32,7 +32,7 @@
 
   $('#exp').addEventListener('click', async () => {
     const S = await TF.get();
-    const blob = new Blob([JSON.stringify({ app: 'TubeFolio2', v: 1, groups: S.groups, favorites: S.favorites, history: S.history, features: S.settings.features }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ app: 'TubeFolio2', v: 1, groups: S.groups, channels: S.channels, history: S.history, features: S.settings.features }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `tubefolio2-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
   });
@@ -45,10 +45,10 @@
       if (!confirm('現在のデータを読み込んだ内容で置き換えます。よろしいですか?')) return;
       await TF.mutate(s => {
         if (d.groups && d.groups.length) s.groups = d.groups;
-        if (d.favorites) s.favorites = d.favorites;
+        if (d.channels) s.channels = d.channels;
         if (d.history) s.history = d.history;
         if (d.features) s.settings.features = { ...s.settings.features, ...d.features };
-      }, ['groups', 'favorites', 'history', 'settings'], true);
+      }, ['groups', 'channels', 'history', 'settings'], true);
       alert('読み込みました');
     } catch (err) { alert('読み込み失敗: ' + err.message); }
     e.target.value = '';
