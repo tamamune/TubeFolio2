@@ -310,9 +310,6 @@ html[data-tf-g-cols] ytd-rich-item-renderer ytd-channel-name, html[data-tf-g-col
 #tf-test .tft-r input[type=checkbox] { width: 18px; height: 18px; justify-self: center; accent-color: var(--tf-acc); cursor: pointer; }
 
 /* ショート棚の列数(動画の列数とは別) */
-html[data-tf-g-scols] ytd-rich-section-renderer, html[data-tf-g-scols] ytd-rich-shelf-renderer, html[data-tf-g-scols] ytd-reel-shelf-renderer {
-  --ytd-rich-grid-items-per-row: var(--tf-scols, 6) !important; --ytd-rich-grid-slim-items-per-row: var(--tf-scols, 6) !important; --ytd-rich-grid-item-min-width: 90px !important;
-}
 .tfc-l2 { margin-left: 12px; }
 
 /* 新C: 3色の枠(フォルダ登録=フォルダ色 / 登録のみ=青 / 未登録=赤) */
@@ -369,3 +366,96 @@ html[data-tf-g-title3] ytd-rich-item-renderer h3.yt-lockup-metadata-view-model__
 #tf-colhT, #tf-colhR { width: max-content; max-width: 98vw; box-sizing: border-box; }
 #tf-colhT .tfh-panel, #tf-colhR .tfh-panel { width: max-content; max-width: 96vw; box-sizing: border-box; }
 .tfh-panel .tfc-seg { width: max-content; }
+
+/* ===== テスト4: ガラス調の縦長サイドバー(CSSネスト) ===== */
+#tf-gsb-root { position: fixed; z-index: 2147483000; left: 16px; top: 72px; color: #f4efe9; font: 14px/1.4 Roboto, "Yu Gothic UI", sans-serif; text-align: left; }
+#tf-gsb-root, #tf-gsb-root * { box-sizing: border-box; }
+#tf-gsb-root {
+.gs{width:244px;border-radius:30px;padding:14px 12px 12px;display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.06) 60%,rgba(255,170,90,.18));border:1px solid rgba(255,255,255,.28);box-shadow:0 20px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.35);backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);transition:width .3s ease}
+.i{width:20px;text-align:center;font-style:normal;opacity:.9;flex:none}
+.gs-head{display:flex;align-items:center;gap:10px;padding:4px 4px 8px}
+.gs-logo{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7a5a,#d8321f);display:grid;place-items:center;font-weight:700;flex:none}
+.gs-brand{flex:1;min-width:0;white-space:nowrap}.gs-brand b{display:block;font-size:14px}.gs-brand small{font-size:11px;opacity:.65}
+.gs-toggle{width:26px;height:26px;border-radius:50%;border:0;background:#fff;color:#222;cursor:pointer;font-size:16px;line-height:1;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.gs-search{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14)}
+.gs-search input{flex:1;min-width:0;background:none;border:0;outline:0;color:inherit;font:inherit}.gs-search input::placeholder{color:rgba(255,255,255,.65)}
+kbd{font:10px system-ui;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.14);opacity:.8;white-space:nowrap}
+.gs-sec{font-size:10px;letter-spacing:.12em;opacity:.6;padding:12px 10px 4px;white-space:nowrap}
+.gs-nav{display:flex;flex-direction:column;gap:2px}
+.gs-it{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;position:relative;transition:background .15s}
+.gs-it:hover{background:rgba(255,255,255,.1)}
+.gs-it.act{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.gs-it em{font-style:normal;flex:1}
+.bd{font-style:normal;font-size:11px;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.88);color:#222;font-weight:600}
+.bd.r{background:#e5432d;color:#fff}
+.dot{width:8px;height:8px;border-radius:50%;background:#e5432d;margin-right:4px}
+.chev{opacity:.7;transition:transform .2s}.gs-it.open .chev{transform:rotate(180deg)}
+.gs-sub{margin:0 0 4px 22px;padding-left:12px;border-left:1px solid rgba(255,255,255,.25);display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s}
+.gs-sub.shut{grid-template-rows:0fr}.gs-sub>div{overflow:hidden;min-height:0}
+.gs-sub a{display:flex;align-items:center;gap:9px;padding:7px 8px;font-size:13px;white-space:nowrap;cursor:pointer;opacity:.92}
+.c{width:8px;height:8px;border-radius:50%}.c.g{background:#3fc58a}.c.o{background:#ee6a4a}.c.p{background:#9b6bf0}
+.gs-night{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-top:6px;white-space:nowrap}.gs-night em{font-style:normal;flex:1}
+.sw{width:38px;height:22px;border-radius:999px;border:0;background:rgba(255,255,255,.85);position:relative;cursor:pointer;flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:left .2s}
+.sw.on{background:#3fc58a}.sw.on::after{left:19px}
+.gs-user{display:flex;align-items:center;gap:10px;padding:10px 8px 4px;border-top:1px solid rgba(255,255,255,.18);white-space:nowrap}
+.gs-user div{flex:1;min-width:0}.gs-user b{display:block;font-size:13px}.gs-user small{font-size:11px;opacity:.65}
+.av{width:34px;height:34px;border-radius:50%;background:#f0c9a0;color:#442;display:grid;place-items:center;font-weight:700;position:relative;flex:none}
+.av i{position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;background:#3fc58a;border:2px solid #4a3d30}
+.upd{opacity:.6}
+.gs.mini{width:64px;align-items:center;border-radius:32px;padding:14px 6px 12px}
+.gs.mini .gs-brand,.gs.mini kbd,.gs.mini em,.gs.mini .bd,.gs.mini .gs-sub,.gs.mini .chev,.gs.mini .gs-user div,.gs.mini .upd,.gs.mini .gs-search input{display:none}
+.gs.mini .gs-sec{height:1px;padding:0;margin:8px 0;background:rgba(255,255,255,.25);font-size:0;width:28px}
+.gs.mini .gs-nav{align-items:center}
+.gs.mini .gs-head{flex-direction:column;gap:8px;padding:2px 0 6px;position:relative}
+.gs.mini .gs-toggle{position:absolute;right:-22px;top:6px;width:22px;height:22px}
+.gs.mini .gs-search{padding:9px;border-radius:50%;background:none;border:0}
+.gs.mini .gs-it{padding:9px;border-radius:50%;justify-content:center}
+.gs.mini .gs-it .dot,.gs.mini .gs-it .bd{display:block;position:absolute;top:2px;right:2px;margin:0;font-size:0;padding:0;width:9px;height:9px;background:#e5432d}
+.gs.mini .gs-night{justify-content:center;padding:10px 0}.gs.mini .sw{display:none}
+.gs.mini .gs-user{justify-content:center;padding:10px 0 2px}
+.gs.mini .gs-it:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 14px);top:50%;transform:translateY(-50%);padding:5px 12px;border-radius:10px;background:rgba(235,230,224,.92);color:#222;font-size:12px;font-weight:600;white-space:nowrap;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+}
+#tf-gsb-root .gs { position: relative; }
+#tf-gsb-root .gs-x { position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; border: 0; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; cursor: pointer; line-height: 1; }
+#tf-gsb-root { cursor: grab; touch-action: none; }
+#tf-gsb-root.drag { cursor: grabbing; user-select: none; }
+#tf-gsb-root .gs-it, #tf-gsb-root button, #tf-gsb-root input { cursor: pointer; }
+#tf-gsb-root input { cursor: text; }
+/* ロゴだけの丸いアイコン */
+#tf-gsb-root .gs.min { width: 56px; height: 56px; padding: 0; gap: 0; border-radius: 50%; align-items: center; justify-content: center; transition: none; }
+#tf-gsb-root .gs.min > *:not(.gs-head):not(.gs-x) { display: none; }
+#tf-gsb-root .gs.min .gs-head { padding: 0; }
+#tf-gsb-root .gs.min .gs-head > *:not(.gs-logo) { display: none; }
+#tf-gsb-root .gs.min .gs-x { top: -6px; right: -6px; }
+/* 新D: サムネの左上の角だけに、新Cの3色(フォルダ色 / 登録=青 / 未登録=赤)の枠を描く。
+   サムネとの隙間4px、角は同心円(外側の角丸 = サムネの角丸12px + 隙間4px = 16px)、線の長さは固定64px */
+.tf-sub.tfx-nest, .tf-unsub.tfx-nest { position: relative; }
+.tf-sub.tfx-nest::before, .tf-unsub.tfx-nest::before {
+  content: ""; position: absolute; z-index: 2; pointer-events: none; box-sizing: border-box;
+  top: calc(var(--tf-tt, 0px) - 4px); left: calc(var(--tf-tl, 0px) - 4px); width: 64px; height: 64px;
+  border-style: solid; border-width: 3px 0 0 3px; border-radius: calc(var(--tf-tr, 12px) + 4px) 0 0 0; border-color: #1a73e8;
+}
+.tf-sub.tfx-nest[data-tf-on]::before { border-color: var(--tf-c, #1a73e8); }
+.tf-unsub.tfx-nest::before { border-color: #e5322d; }
+
+/* フォルダ画面の表示中は、後ろのYouTubeページを見せない(ミニバーのとき、ヘッダーの後ろにページの内容が透けて重なるのを防ぐ) */
+html[data-tf-view] ytd-page-manager, html[data-tf-view] ytd-page-manager *, html[data-tf-view] ytd-browse, html[data-tf-view] ytd-browse *, html[data-tf-view] #tf-bar, html[data-tf-view] #tf-feed, html[data-tf-view] #tf-feed * { visibility: hidden !important; }
+/* 画面の上端(ヘッダーの後ろ)に残る背景は、ページの色で塗りつぶす */
+html[data-tf-view] ytd-app { background: var(--yt-spec-base-background, var(--tf-bg)) !important; }
+
+
+/* 棚(ニュース速報・トピックなどの動画の棚)も動画の列数で並べる。列数・本数はJS(fixShelves)が --tf-eff に入れる */
+html[data-tf-g-cols] ytd-browse[page-subtype="home"] ytd-rich-grid-row, html[data-tf-g-cols] ytd-browse[page-subtype="home"] ytd-rich-grid-row > #contents { display: contents !important; }
+html[data-tf-g-cols] ytd-browse[page-subtype="home"] ytd-rich-shelf-renderer:not([is-shorts]) #contents { display: grid !important; grid-template-columns: repeat(var(--tf-eff, var(--tf-cols, 5)), minmax(0, 1fr)) !important; column-gap: 16px !important; }
+html[data-tf-g-cols] ytd-browse[page-subtype="home"] ytd-rich-shelf-renderer:not([is-shorts]) #contents > ytd-rich-item-renderer { width: auto !important; max-width: none !important; min-width: 0 !important; margin-left: 0 !important; margin-right: 0 !important; }
+/* 自動展開した動画の棚: YouTube側は展開したままなので、下のボタンの矢印は「列数ぶんだけ表示中」のときに下向きへ反転させる */
+ytd-rich-shelf-renderer.tf-nshelf:not(.tf-more-open) :is(#show-more-button, [id*="show-more" i]) :is(yt-icon, .yt-spec-button-shape-next__icon) { transform: rotate(180deg); }
+/* 自動展開した棚の下のボタン: 文字をCSSで差し替える(列数ぶんだけ表示中=「もっと見る」/ 全件表示中=「一部を表示」) */
+ytd-rich-shelf-renderer.tf-nshelf button .yt-spec-button-shape-next__button-text-content { font-size: 0 !important; }
+ytd-rich-shelf-renderer.tf-nshelf button .yt-spec-button-shape-next__button-text-content::after { font: 500 14px Roboto, "Yu Gothic UI", sans-serif; }
+ytd-rich-shelf-renderer.tf-nshelf[data-tf-lbl="more"] button .yt-spec-button-shape-next__button-text-content::after { content: "もっと見る"; }
+ytd-rich-shelf-renderer.tf-nshelf[data-tf-lbl="less"] button .yt-spec-button-shape-next__button-text-content::after { content: "一部を表示"; }
+
+/* ヘッダーのテストボタン(配置 / サムネ / テスト)は常時出さない。⚙ メニューの「テスト機能」から開く */
+#tf-testbtn, #tf-thbtn, #tf-plbtn { display: none !important; }
