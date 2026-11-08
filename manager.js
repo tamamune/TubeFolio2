@@ -112,7 +112,7 @@
       const isOpen = open.has(g.id);
       const total = chans().filter(c => inTree(c, g.id)).length;
       return `<div class="tn${view === g.id ? ' act' : ''}" data-g="${g.id}" draggable="true" style="--c:${g.color};--d:${depth}">
-        <span class="cv${kids.length || direct.length ? '' : ' none'}">${isOpen ? '▾' : '▸'}</span><span class="ic">${esc(g.icon)}</span>
+        <span class="cv${kids.length || direct.length ? '' : ' none'}">${isOpen ? '▾' : '▸'}</span><span class="ic">${TF.iconHtml(g.icon)}</span>
         <span class="nm">${esc(g.name)}</span><span class="n">${total}</span><span class="sub" title="サブフォルダを作成">＋</span><span class="ed" title="編集">✎</span></div>` +
         (isOpen ? treeHtml(g.id, depth + 1) + direct.map(c => `<div class="tc" data-k="${esc(c.key)}" data-from="${g.id}" draggable="true" style="--d:${depth + 1}">${avHtml(c, 'av mini')}<span class="nm">${esc(nameOf(c))}</span></div>`).join('') : '');
     }).join('');
@@ -123,10 +123,33 @@
     observeAvatars($('#nav'));
   }
 
+  // ---- チャンネル個別表示(YouTube左のフォルダ一覧からチャンネルを選んだとき・右ページのみで表示) ----
+  const vidCache = new Map();
+  function drawChannel() {
+    const key = view.slice(3), c = S.channels[key];
+    if (!c) { view = 'all'; return draw(); }
+    $('#stats').hidden = $('#grid').hidden = $('#bulk').hidden = $('#empty').hidden = true;
+    document.querySelector('header').hidden = true; // 検索・並び替え等はチャンネル表示では使わない
+    const box = $('#chview'); box.hidden = false;
+    const paint = vs => {
+      const g = $('#chvids'); if (!g || view !== 'ch:' + key) return;
+      g.innerHTML = vs && vs.length ? vs.map(v => `<a class="vcard" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_blank"><img loading="lazy" src="https://i.ytimg.com/vi/${esc(v.id)}/mqdefault.jpg"><b>${esc(v.title)}</b><small>${agoText(Date.parse(v.published))}</small></a>`).join('') : '<div class="note">動画を取得できませんでした</div>';
+    };
+    box.innerHTML = `<div class="chh">${avHtml(c, 'av big')}<div class="chi"><h2>${esc(nameOf(c))}</h2><small>${esc(c.key)}</small>
+      <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}</span>`; }).join('')}</div>
+      <a class="btn" href="${esc(chUrl(c.key))}" target="_blank">YouTubeでチャンネルを開く ↗</a></div></div>
+      <div id="chvids" class="vgrid"><div class="note">読み込み中…</div></div>`;
+    observeAvatars(box);
+    if (vidCache.has(key)) return paint(vidCache.get(key));
+    chrome.runtime.sendMessage({ type: 'chVideos', key }, r => { const vs = r && !r.error ? r.videos : []; if (vs.length) vidCache.set(key, vs); paint(vs); });
+  }
+
   function drawGrid() {
+    if (view.startsWith('ch:')) return drawChannel();
+    $('#chview').hidden = true; $('#stats').hidden = false; $('#grid').hidden = false; document.querySelector('header').hidden = false;
     const l = visible();
     const g = grp(view);
-    $('#ttl').textContent = view === 'all' ? 'すべてのチャンネル' : view === 'none' ? '未分類' : (g.icon + ' ' + g.name);
+    $('#ttl').textContent = view === 'all' ? 'すべてのチャンネル' : view === 'none' ? '未分類' : (TF.iconText(g.icon) + ' ' + g.name);
     $('#sub').textContent = `${l.length} チャンネル` + (g ? ' ・ サブフォルダ内も含む' : '');
     $('#empty').hidden = l.length > 0;
     if (!l.length) $('#empty').innerHTML = chans().length ? '該当するチャンネルがありません' :
@@ -134,17 +157,17 @@
     $('#grid').innerHTML = l.map(c => `<div class="card${sel.has(c.key) ? ' sel' : ''}" draggable="true" data-k="${esc(c.key)}">
       <input type="checkbox" class="chk" ${sel.has(c.key) ? 'checked' : ''}>
       ${avHtml(c)}
-      <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank">${esc(nameOf(c))}</a>
+      <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank" draggable="false">${esc(nameOf(c))}</a>
         <small>${esc(c.key)}</small>
         <div class="acts">${act[c.key] ? TYPES.map(([f, lb]) => `<span style="--c:${BK.find(b => b[0] === bucketOf(act[c.key][f]))[3]}">${lb.slice(0, 2)} ${agoText(act[c.key][f])}</span>`).join('') : ''}</div>
-        <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${esc(x.icon)} ${esc(x.name)}</span>`; }).join('')}</div></div></div>`).join('');
+        <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}</span>`; }).join('')}</div></div></div>`).join('');
     observeAvatars($('#grid'));
     drawBulk(); drawStats();
   }
   function drawBulk() {
     $('#bulk').hidden = !sel.size;
     $('#bcnt').textContent = `${sel.size}件選択中`;
-    $('#bgroups').innerHTML = TF.flat(S.groups).map(({ g, depth }) => `<button data-g="${g.id}" style="--c:${g.color}">${depth ? '↳ ' : ''}${esc(g.icon)} ${esc(g.name)} に追加</button>`).join('') +
+    $('#bgroups').innerHTML = TF.flat(S.groups).map(({ g, depth }) => `<button data-g="${g.id}" style="--c:${g.color}">${depth ? '↳ ' : ''}${TF.iconHtml(g.icon)} ${esc(g.name)} に追加</button>`).join('') +
       (grp(view) ? `<button data-rm="${view}" style="--c:#ef4444">このフォルダから外す</button>` : '');
   }
   const draw = () => { drawNav(); drawGrid(); };
@@ -245,10 +268,18 @@
 
   // ---- フォルダ編集 ----
   function drawPickers() {
-    $('#icons').innerHTML = TF.ICONS.map(i => `<button type="button" data-i="${i}" class="${edit.icon === i ? 'act' : ''}">${i}</button>`).join('');
+    $('#icons').innerHTML = TF.ICONS.map(i => `<button type="button" data-i="${i}" class="${edit.icon === i ? 'act' : ''}">${i}</button>`).join('') +
+      '<div class="isep">アニメ風</div>' + TF.ANIME.map(a => `<button type="button" data-i="${a.uri}" title="${a.name}" class="${edit.icon === a.uri ? 'act' : ''}">${TF.iconHtml(a.uri)}</button>`).join('');
     $('#colors').innerHTML = TF.PALETTE.map(c => `<button type="button" data-c="${c}" class="${edit.color === c ? 'act' : ''}" style="background:${c}"></button>`).join('');
+    $('#gprev').innerHTML = TF.isImgIcon(edit.icon) ? TF.iconHtml(edit.icon) : '';
   }
-  $('#icons').onclick = e => { const b = e.target.closest('button'); if (b) { edit.icon = b.dataset.i; drawPickers(); } };
+  $('#icons').onclick = e => { const b = e.target.closest('button'); if (b) { edit.icon = b.dataset.i; $('#gimg').value = ''; drawPickers(); } };
+  $('#gimg').oninput = () => { const v = $('#gimg').value.trim(); if (/^https?:\/\//i.test(v)) { edit.icon = v; drawPickers(); } };
+  $('#gimgfile').onclick = () => $('#gimgf').click();
+  $('#gimgf').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try { edit.icon = await TF.fileToIcon(f); $('#gimg').value = ''; drawPickers(); } catch (x) { toast('画像を読み込めませんでした'); }
+  };
   $('#colors').onclick = e => { const b = e.target.closest('button'); if (b) { edit.color = b.dataset.c; drawPickers(); } };
   function openDlg(id, parent) {
     const g = id && id !== 'new' ? grp(id) : null;
@@ -258,15 +289,31 @@
     const bad = g ? TF.subtree(S.groups, g.id) : new Set();
     const cur = g ? (g.parent || '') : (parent || '');
     $('#gparent').innerHTML = '<option value="">（なし：最上位）</option>' + TF.flat(S.groups).filter(x => !bad.has(x.g.id))
-      .map(({ g: x, depth }) => `<option value="${x.id}" ${cur === x.id ? 'selected' : ''}>${'　'.repeat(depth)}${esc(x.icon)} ${esc(x.name)}</option>`).join('');
+      .map(({ g: x, depth }) => `<option value="${x.id}" ${cur === x.id ? 'selected' : ''}>${'　'.repeat(depth)}${esc(TF.iconText(x.icon))} ${esc(x.name)}</option>`).join('');
+    $('#gimg').value = g && TF.isImgIcon(g.icon) && !/^data:/i.test(g.icon) ? g.icon : '';
     $('#gdel').style.visibility = g && S.groups.length > 1 ? 'visible' : 'hidden';
     drawPickers(); $('#dlg').showModal();
   }
   $('#addGroup').onclick = () => openDlg('new');
+  const paintSync = s => { const e = $('#drvst'); if (!e) return; const t = s ? ({ syncing: '同期中…', ok: '☁ ' + s.msg, error: '⚠ ' + s.msg }[s.state] || '') : ''; e.textContent = t; e.title = s && s.at ? new Date(s.at).toLocaleString() : ''; };
+  chrome.storage.local.get('syncStatus').then(r => paintSync(r.syncStatus));
+  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.syncStatus) paintSync(ch.syncStatus.newValue); });
+  $('#drvsync').onclick = () => chrome.runtime.sendMessage({ type: 'syncNow', interactive: true });
+  const ib = $('#ytimp');
+  chrome.runtime.onMessage.addListener(m => { if (m && m.type === 'importProgress' && ib.disabled) ib.textContent = `取り込み中… ${m.n}件`; });
+  ib.onclick = () => {
+    ib.disabled = true; ib.textContent = '取り込み中…';
+    chrome.runtime.sendMessage({ type: 'importSubs' }, r => {
+      ib.disabled = false; ib.textContent = '⟳ YouTubeから取り込む';
+      if (r && !r.error) toast(`✓ ${r.count}件のチャンネルを取り込みました`);
+      else if (confirm('バックグラウンド取り込みに失敗しました(' + ((r && r.error) || '不明') + ')。YouTubeのタブを開いて取り込みますか?')) window.open('https://www.youtube.com/feed/channels?tf_import=1', '_blank');
+    });
+  };
   $('#gcancel').onclick = () => $('#dlg').close();
   $('#gform').onsubmit = () => {
     const name = $('#gname').value.trim(); if (!name) return;
     const parent = $('#gparent').value || null;
+    if (!edit.id && edit.icon === TF.ICONS[0]) edit.icon = TF.suggestIcon(name) || edit.icon;
     TF.mutate(s => {
       if (edit.id) Object.assign(s.groups.find(g => g.id === edit.id), { name, icon: edit.icon, color: edit.color, parent });
       else s.groups.push({ id: TF.uid(), name, icon: edit.icon, color: edit.color, parent });
@@ -308,8 +355,13 @@
   (async function init() {
     S = await TF.get();
     const st = await chrome.storage.local.get(['meta', 'activity']); meta = st.meta || {}; act = st.activity || {};
+    // YouTube内に埋め込み表示のとき: 表示フォルダは YouTube左メニュー側(tfView)で選ぶ
+    const embed = location.search.includes('embed=1');
+    const okView = () => { if (view !== 'all' && view !== 'none' && !grp(view) && !(view.startsWith('ch:') && S.channels[view.slice(3)])) view = 'all'; };
+    if (embed) { document.body.classList.add('embed'); const tv = (await chrome.storage.local.get('tfView')).tfView; if (tv) view = tv; okView(); }
     draw();
     chrome.storage.onChanged.addListener(async ch => {
+      if (embed && ch.tfView) { view = ch.tfView.newValue || 'all'; sel.clear(); S = await TF.get(); okView(); return draw(); }
       if (!(ch.groups || ch.channels || ch.settings)) return; // meta更新では再描画しない
       S = await TF.get();
       if (view !== 'all' && view !== 'none' && !grp(view)) view = 'all';

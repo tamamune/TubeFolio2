@@ -3,11 +3,15 @@
   "name": "TubeFolio2",
   "version": "0.1.0",
   "description": "YouTube登録チャンネルをグループ(複数所属可)で整理。登録フィードの絞り込み、視聴済み非表示、グループ一括再生に対応。",
-  "permissions": ["storage", "unlimitedStorage"],
+  "permissions": ["storage", "unlimitedStorage", "cookies", "declarativeNetRequestWithHostAccess", "identity", "alarms"],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAk6PqaqdIUcs0asRRXLlzfq3mbKBTQPXg309uABMHzpyxwsdlG6rVeaXvdUudN6u9/grY/FQVhy5pPGuoJEjO9FmvY7109cMiK0HNEij7ooGets5keA6YJ2NLGMLPOza70E//TFi9kbnaTH5MDon10wuL+zOqTcmBZMVkL6MXb/HdR9nHZ3uVUH98FfR6F60wqBl8s9lcdqToZYiQNyViYH9dTPDSy2Fb/dO22/d4qzI7L1pQ0OA+qluGrh9k/V3xLCVRfydi+6P75x3Ap4PHoWLx2R/kitFm8cEdVmL1SbTbcUf+cvM9aRLPObNeNOGCzXKGjGM45NWIgITHShoxLwIDAQAB",
+  "web_accessible_resources": [{ "resources": ["manager.html", "manager.css", "manager.js", "store.js", "theme.js"], "matches": ["https://www.youtube.com/*"] }],
   "host_permissions": ["https://www.youtube.com/*"],
   "background": { "service_worker": "background.js" },
-  "action": { "default_title": "TubeFolio2 グループ管理を開く" },
+  "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
+  "action": { "default_title": "TubeFolio2 グループ管理を開く", "default_icon": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" } },
   "content_scripts": [
+    { "matches": ["https://www.youtube.com/*"], "js": ["nav-main.js"], "run_at": "document_start", "world": "MAIN" },
     {
       "matches": ["https://www.youtube.com/*"],
       "js": ["store.js", "content.js"],

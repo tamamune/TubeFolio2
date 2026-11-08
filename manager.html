@@ -26,7 +26,8 @@
       <div class="tools">
         <div class="search"><span>🔍</span><input id="q" placeholder="チャンネルを検索"></div>
         <select id="sort"><option value="added">追加順</option><option value="name">名前順 (A-Z)</option></select>
-        <a class="btn pri" href="https://www.youtube.com/feed/channels?tf_import=1" target="_blank">⟳ YouTubeから取り込む</a>
+        <button class="btn" id="drvsync" title="Google Driveと同期">☁ 同期</button><span id="drvst" style="font-size:12px;opacity:.7"></span>
+        <button class="btn pri" id="ytimp">⟳ YouTubeから取り込む</button>
       </div>
     </header>
     <div id="bulk" class="bulk" hidden>
@@ -37,6 +38,7 @@
     <section id="stats" class="stats"></section>
     <section id="grid" class="grid"></section>
     <div id="empty" class="empty" hidden></div>
+    <section id="chview" hidden></section>
   </main>
 </div>
 <dialog id="dlg">
@@ -45,6 +47,7 @@
     <label>名前<input id="gname" maxlength="30" required></label>
     <label>親フォルダ<select id="gparent"></select></label>
     <label>アイコン</label><div id="icons" class="icons"></div>
+    <div class="gimgrow"><input id="gimg" placeholder="外部画像のURL (https://…)"><button type="button" id="gimgfile">画像ファイル</button><input type="file" id="gimgf" accept="image/*" hidden><span id="gprev"></span></div>
     <label>色</label><div id="colors" class="colors"></div>
     <div class="dact"><button type="button" id="gdel" class="danger">削除</button><span></span>
       <button type="button" id="gcancel">キャンセル</button><button class="pri" value="ok">保存</button></div>

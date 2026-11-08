@@ -4,6 +4,8 @@
   const get = () => { try { return localStorage.getItem('tfTheme') || 'auto'; } catch (e) { return 'auto'; } };
   const apply = t => { t === 'auto' ? root.removeAttribute('data-theme') : root.setAttribute('data-theme', t); };
   apply(get());
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('embed') === '1') { root.setAttribute('data-embed', ''); root.setAttribute('data-theme', qp.get('dark') === '1' ? 'dark' : 'light'); } // YouTube内: YouTubeのテーマに合わせる
   document.addEventListener('DOMContentLoaded', () => {
     const b = document.getElementById('theme');
     const icon = { auto: '🖥️', light: '☀️', dark: '🌙' };
