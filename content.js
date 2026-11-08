@@ -47,6 +47,17 @@
     const rad = parseFloat(getComputedStyle(best).borderTopLeftRadius) || 12;
     return { rect: best.getBoundingClientRect(), rad: Math.min(rad, 40) };
   }
+  // マウスを乗せるとYouTubeがサムネを動かす(プレビュー拡大)ので、枠(新A〜D)の位置を測り直して、サムネにそろえる
+  function remeasureCard(card) {
+    if (!card || !/\btfx-(nest|br|corner|tri)\b/.test(card.className)) return;
+    const th = card.querySelector('a[href*="/watch?v="] img, a[href^="/shorts/"] img, ytd-thumbnail img, yt-thumbnail-view-model img') || card.querySelector('img'); if (!th) return;
+    const bx = thBox(th), r = bx.rect, c = card.getBoundingClientRect();
+    if (r.width > 20) { const st = card.style; st.setProperty('--tf-tt', (r.top - c.top).toFixed(1) + 'px'); st.setProperty('--tf-tl', (r.left - c.left).toFixed(1) + 'px'); st.setProperty('--tf-tr', bx.rad.toFixed(1) + 'px'); st.setProperty('--tf-tw', r.width.toFixed(1) + 'px'); st.setProperty('--tf-th', r.height.toFixed(1) + 'px'); }
+  }
+  ['mouseover', 'mouseout'].forEach(ev => document.addEventListener(ev, e => {
+    const card = e.target.closest && e.target.closest('.tf-sub, .tf-unsub, .tf-mix'); if (!card || Date.now() - (card._tfHv || 0) < 120) return;
+    card._tfHv = Date.now(); [0, 120, 300, 600].forEach(ms => setTimeout(() => remeasureCard(card), ms));
+  }, true));
   function processShorts() {
     const els = isHome() ? [...document.querySelectorAll(SHORTS_SEL)].filter(e => !(e.parentElement && e.parentElement.closest(SHORTS_SEL))) : [];
     const ts = S.settings.testS || {}, t = S.settings.test || {};
@@ -90,7 +101,7 @@
   //  ・それでも足りないときは、本数に合わせて列を詰める(右が空かないように)
   //  ・動画の棚は列数どおりのgrid、ショートの棚は列数を超える分を隠す
   const SH_MORE = /もっと見る|show more|さらに表示/i, SH_LESS = /一部を表示|show less/i;
-  const shLbl = b => (b.getAttribute('aria-label') || '') + b.textContent;
+  const shLbl = b => { const c = b.cloneNode(true); c.querySelectorAll('.tf-lbl').forEach(x => x.remove()); return (b.dataset.tfAria || (b.getAttribute('aria-label') || '')) + c.textContent; }; // 自前ラベルは除いて、YouTube本来の文字で状態を判定する
   const shBtn = sh => [...sh.querySelectorAll('button')].find(b => !b.closest('ytd-rich-item-renderer') && (SH_MORE.test(shLbl(b)) || SH_LESS.test(shLbl(b))));
   // 自動展開した棚の「もっと見る/一部を表示」ボタンは、YouTubeに渡さず、こちらで列数ぶん/全件を切り替える(ボタンが作り直されても効くよう、document全体で受ける)
   document.addEventListener('click', e => {
@@ -106,13 +117,15 @@
     document.querySelectorAll('ytd-browse[page-subtype="home"] ytd-rich-shelf-renderer').forEach(sh => {
       const short = sh.hasAttribute('is-shorts');
       const M = short ? (g.scols ? (g.sN || 6) : 0) : (g.cols ? (g.colsN || 5) : 0);
-      const items = [...sh.querySelectorAll('#contents > ytd-rich-item-renderer')];
+      const items = [...sh.querySelectorAll('ytd-rich-item-renderer')]; // 段(ytd-rich-grid-row)に分かれていても、全件を対象にする
       const btn = shBtn(sh);
       const ytCollapsed = !!btn && SH_MORE.test(shLbl(btn)) && !SH_LESS.test(shLbl(btn));
       // 動画の棚: YouTube側は展開したままにする(折りたたむと追加分が捨てられる)。折りたたまれたら、また展開し直す
-      if (M && !short && btn && ytCollapsed && items.length < M && !sh._tfAuto && Date.now() - (sh._tfAt || 0) > 800) {
+      if (M && !short && btn && ytCollapsed && (sh._tfTry || 0) < 3 && !sh._tfAuto && Date.now() - (sh._tfAt || 0) > 800) { // 折りたたまれている棚は、件数が列数と同じでも、1回展開して残りを読み込ませる
+        sh._tfTry = (sh._tfTry || 0) + 1;
         sh._tfAt = Date.now(); sh._tfAuto = true; sh.classList.add('tf-nshelf'); btn.click(); setTimeout(() => { sh._tfAuto = false; }, 400);
       }
+      if (M && !short && btn) sh.classList.add('tf-nshelf'); // 列数を指定した動画の棚は、下のボタンをこちらで管理する
       const mine = sh.classList.contains('tf-nshelf') && !short && !!M;
       const all = sh.dataset.tfMore === '1';
       const eff = M ? Math.max(1, Math.min(M, items.length)) : '';
@@ -121,14 +134,25 @@
         if (it.hasAttribute('hidden') && M && (i < eff || (mine && all))) it.removeAttribute('hidden');
         setS(it, 'display', !M ? '' : i < eff ? 'block' : short ? 'none' : mine ? (all ? 'block' : 'none') : (ytCollapsed ? 'none' : ''));
       });
-      if (mine && btn) { // 下のボタン: 列数より多く読み込めたときだけ出し、文字と矢印を今の状態に合わせる
-        const c = btn.closest('ytd-button-renderer') || btn.parentElement;
-        if (c) { if (items.length > eff) c.style.removeProperty('display'); else c.style.setProperty('display', 'none', 'important'); }
-        sh.dataset.tfLbl = all ? 'less' : 'more'; // 文字はCSS(::after)で差し替える(YouTube側の再描画で戻されないように)
-        const t = all ? '一部を表示' : 'もっと見る'; if (btn.getAttribute('aria-label') && btn.getAttribute('aria-label') !== t) btn.setAttribute('aria-label', t);
+      if (mine) { // 下のボタン: 列数より多く読み込めたときだけ出し、文字を今の状態に合わせる(同じ文言のボタンが複数あっても、すべてに適用)
+        [...sh.querySelectorAll('button')].filter(x => !x.closest('ytd-rich-item-renderer') && (SH_MORE.test(shLbl(x)) || SH_LESS.test(shLbl(x)))).forEach(bt => {
+          const c = bt.closest('ytd-button-renderer') || bt.parentElement;
+          if (c) { if (items.length > eff) c.style.removeProperty('display'); else c.style.setProperty('display', 'none', 'important'); }
+          // 文字は、ボタンの中に自前のラベルを重ねて表示する(YouTube側の文字・矢印は透明にして隠す。DOMの作りに依存しない)
+          let lb = bt.querySelector(':scope > .tf-lbl'); if (!lb) { lb = document.createElement('span'); lb.className = 'tf-lbl'; bt.appendChild(lb); bt.classList.add('tf-lblbtn'); }
+          const lk = all ? 'less' : 'more'; if (lb.dataset.k !== lk) { lb.dataset.k = lk; lb.innerHTML = '<span>' + (all ? '一部を表示' : 'もっと見る') + '</span><i class="tf-chv"></i>'; } // 矢印は文字ではなくCSSで描く(上下の位置を中央にそろえるため)
+        });
         sh.classList.toggle('tf-more-open', all);
       }
     });
+  }
+  // 左端の診断: ツールバー・チップ・最初のサムネの位置と、その親要素の余白・位置指定をクリップボードにコピーする
+  async function copyLayoutDiag() {
+    const info = (e, stop) => { const out = []; for (let n = e; n && n !== stop && out.length < 8; n = n.parentElement) { const c = getComputedStyle(n), r = n.getBoundingClientRect(); out.push(`${n.tagName.toLowerCase()}${n.id ? '#' + n.id : ''} L${Math.round(r.left)} W${Math.round(r.width)} pad:${c.paddingLeft} mar:${c.marginLeft} pos:${c.position}${c.transform !== 'none' ? ' tf:' + c.transform : ''}${n.style.paddingLeft ? ' inlinePad:' + n.style.paddingLeft : ''}`); } return out; };
+    const chips = $('ytd-browse[page-subtype="home"] #chips-wrapper'), chip = chips && $('yt-chip-cloud-chip-renderer', chips), th = $('ytd-browse[page-subtype="home"] ytd-rich-item-renderer img[src*="ytimg"]');
+    const rep = { toolbar: $('#tf-hbar') ? info($('#tf-hbar'), $('ytd-browse')) : null, firstChip: chip ? info(chip, $('ytd-browse')) : 'なし', firstThumb: th ? info(th, $('ytd-rich-grid-renderer')) : 'なし', win: innerWidth };
+    const txt = JSON.stringify(rep, null, 1);
+    try { await navigator.clipboard.writeText(txt); toast('左端の診断をコピーしました。チャットに貼ってください'); } catch (e) { console.log('[TubeFolio2 layout diag]', txt); toast('コピーできませんでした。コンソールに出力しました'); }
   }
   // 棚の診断: 棚ごとの項目数・隠れている数・構造をクリップボードにコピーする(表示が足りない原因調べ用)
   async function copyShelfDiag() {
@@ -177,6 +201,7 @@
       const isSubCh = key ? !!S.channels[key] : null; // null = チャンネルを判定できないカード
       if (isHome()) {
         card.classList.toggle('tf-sub', isSubCh === true); card.classList.toggle('tf-unsub', isSubCh === false);
+        card.classList.toggle('tf-mix', isSubCh === null && !!card.querySelector('a[href*="list=RD"]')); // ミックスリスト: チャンネルが決まらないので、灰色の線で示す
         const tv = S.settings.test || {}; TFX.forEach(k => card.classList.toggle('tfx-' + k, !!tv[k])); // 動画用のテスト設定を、このカードに反映
         const nm = [...card.querySelectorAll('a[href^="/@"], a[href^="/channel/UC"]')].find(a => !a.querySelector('img, yt-avatar-shape') && a.textContent.trim());
         if (nm && !nm.classList.contains('tf-cn')) nm.classList.add('tf-cn');
@@ -194,7 +219,7 @@
           if (r.width > 20) { const st = card.style; st.setProperty('--tf-tt', (r.top - c.top).toFixed(1) + 'px'); st.setProperty('--tf-tl', (r.left - c.left).toFixed(1) + 'px'); st.setProperty('--tf-tr', bx.rad.toFixed(1) + 'px'); st.setProperty('--tf-tw', r.width.toFixed(1) + 'px'); st.setProperty('--tf-th', r.height.toFixed(1) + 'px'); st.setProperty('--tf-bw', r.width >= 330 ? '2.667px' : '2px'); }
         }
         card.querySelectorAll('img').forEach(i => { if (!i.classList.contains('tf-avimg') && /yt3\.(ggpht|googleusercontent)\.com/.test(i.src)) i.classList.add('tf-avimg'); });
-      } else if (card.classList.contains('tf-sub') || card.classList.contains('tf-unsub')) card.classList.remove('tf-sub', 'tf-unsub');
+      } else if (card.classList.contains('tf-sub') || card.classList.contains('tf-unsub') || card.classList.contains('tf-mix')) card.classList.remove('tf-sub', 'tf-unsub', 'tf-mix');
       // フィルタ(登録フィード)
       let hide = false;
       if (isHome()) {
@@ -209,6 +234,7 @@
         else if (ag !== 'all') { const sub = TF.subtree(S.groups, ag); hide = !gs.some(id => sub.has(id)); }
         if (!hide && S.settings.hideWatched && watchedPct(card) >= 80) hide = true;
       }
+      if (S.settings.hideMix && card.querySelector('a[href*="list=RD"]')) hide = true; // ミックスリスト(自動で作られる再生リスト)を隠す
       card.classList.toggle('tf-hide', hide);
     });
     document.querySelectorAll('ytd-rich-section-renderer').forEach(s =>
@@ -275,15 +301,23 @@
     g.onclick = () => ($('#tf-set') ? closeSettings() : openSettings(g));
     host.appendChild(g);
   }
-  function posView() { const v = $("#tf-view"), pm = $("ytd-page-manager"); if (!v || !pm) return; const l = Math.max(0, Math.round(pm.getBoundingClientRect().left)) + "px"; if (v.style.left !== l) v.style.left = l; }
-  function closeView() { cancelAnimationFrame(closeView._t); const v = $("#tf-view"); if (v) v.remove(); document.documentElement.removeAttribute('data-tf-view'); renderNav(); renderGuideBtn(); }
-  function openView() {
+  function posView() { const v = $("#tf-view"), pm = $("ytd-page-manager"); if (!v || !pm) return; const l = Math.max(0, Math.round(pm.getBoundingClientRect().left)) + "px"; if (v.style.left !== l) v.style.left = l; const hb = $("#tf-hbar"); if (v.dataset.pg && hb) { const t = Math.round(hb.getBoundingClientRect().bottom) + "px"; if (v.style.top !== t) v.style.top = t; } }
+  function closeView() { cancelAnimationFrame(closeView._t); const v = $("#tf-view"); if (v) v.remove(); document.documentElement.removeAttribute('data-tf-view'); document.documentElement.removeAttribute('data-tf-pg'); document.documentElement.removeAttribute('data-tf-pgk'); renderNav(); renderGuideBtn(); }
+  // YouTubeの上のバー(ヘッダー)の実際の背景色。フォルダ画面の背景を、これと同じ色にそろえる
+  function pageBg() {
+    const solid = c => { const m = c && /\((.+)\)/.exec(c); if (!m) return false; const p = m[1].split(',').map(s => parseFloat(s)); return p.length < 4 || p[3] >= 0.95; };
+    for (const s of ['ytd-masthead #background', '#masthead-container', 'ytd-masthead', 'ytd-app', 'body', 'html']) { const e = $(s); const c = e && getComputedStyle(e).backgroundColor; if (solid(c)) return c; }
+    return '';
+  }
+  function openView(file, extra) {
     closeView();
     const pm = $('ytd-page-manager'), r = pm ? pm.getBoundingClientRect() : { left: 240 };
     const v = el('div'); v.id = 'tf-view';
     v.style.left = Math.max(0, r.left) + 'px';
-    v.innerHTML = '<button id="tf-view-x" title="閉じる">✕</button><iframe src="' + chrome.runtime.getURL('manager.html?embed=1&dark=' + (document.documentElement.hasAttribute('dark') ? 1 : 0)) + '"></iframe>';
-    document.documentElement.setAttribute('data-tf-view', '');
+    { const bg = pageBg(); if (bg) v.style.background = bg; }
+    v.innerHTML = '<button id="tf-view-x" title="閉じる">✕</button><iframe src="' + chrome.runtime.getURL((file === 'page.html' ? 'manager.html' : (file || 'manager.html')) + '?embed=1&dark=' + (document.documentElement.hasAttribute('dark') ? 1 : 0) + '&bg=' + encodeURIComponent(pageBg()) + (extra || '')) + '"></iframe>';
+    // 空のページ(ツールバーのボタン)は、ツールバーの下だけを置き換える(ツールバーはそのまま)。フォルダ画面は、これまでどおり全体を置き換える
+    if (file === 'page.html') { v.dataset.pg = '1'; document.documentElement.setAttribute('data-tf-pg', ''); } else document.documentElement.setAttribute('data-tf-view', '');
     document.body.appendChild(v);
     cancelAnimationFrame(closeView._t); const loop = () => { posView(); closeView._t = requestAnimationFrame(loop); }; loop(); // 左メニューの開閉(ミニ/フル)に追従
     $('#tf-view-x', v).onclick = closeView;
@@ -364,60 +398,143 @@
     if (!b) { b = el('button', null, '🧪 配置'); b.id = 'tf-plbtn'; b.title = '「列数」ボタンの置き場所テスト'; b.onclick = () => ($('#tf-pl') ? closePlacePanel() : openPlacePanel(b)); }
     if (b.nextElementSibling !== t) t.before(b);
   }
-  // ---------- テスト4: ガラス調の縦長サイドバー(動画「Glassy SideBar V5」の再現) ----------
-  function closeGsb() { const p = $('#tf-gsb-root'); if (p) p.remove(); }
-  function openGsb() {
-    closeGsb();
-    const r = el('div'); r.id = 'tf-gsb-root';
-    r.innerHTML = `<aside class="gs">
-      <div class="gs-head"><div class="gs-logo">▶</div><div class="gs-brand"><b>TubeFolio2</b><small>登録チャンネル管理</small></div><button class="gs-toggle" data-a="t" aria-label="開閉">‹</button></div>
-      <label class="gs-search"><span class="i">⌕</span><input placeholder="ページを検索"><kbd>Ctrl K</kbd></label>
-      <nav class="gs-nav">
-        <div class="gs-sec">メイン</div>
-        <a class="gs-it" data-tip="ホーム"><span class="i">▦</span><em>ホーム</em></a>
-        <a class="gs-it act" data-tip="アクティビティ"><span class="i">ϟ</span><em>アクティビティ</em><i class="bd">12</i></a>
-        <a class="gs-it" data-tip="履歴"><span class="i">▭</span><em>履歴</em></a>
-        <a class="gs-it" data-tip="スケジュール"><span class="i">▤</span><em>スケジュール</em><i class="dot"></i></a>
-        <div class="gs-sec">ワークスペース</div>
-        <a class="gs-it" data-tip="メッセージ"><span class="i">◌</span><em>メッセージ</em><i class="bd r">3</i></a>
-        <a class="gs-it open" data-a="p" data-tip="グループ"><span class="i">❖</span><em>グループ</em><span class="chev">⌃</span></a>
-        <div class="gs-sub"><div><a><i class="c g"></i>音楽</a><a><i class="c o"></i>勉強</a><a><i class="c p"></i>ゲーム</a></div></div>
-        <a class="gs-it" data-tip="分析"><span class="i">ılı</span><em>分析</em></a>
-        <a class="gs-it" data-tip="設定"><span class="i">⚙</span><em>設定</em></a>
-      </nav>
-      <div class="gs-night"><span class="i">☼</span><em>ナイトモード</em><button class="sw" data-a="n" aria-label="ナイトモード"></button></div>
-      <div class="gs-user"><span class="av">T<i></i></span><div><b>Tamamune</b><small>tamamune@example.com</small></div><span class="upd">⇅</span></div>
-      <button class="gs-x" data-a="x" aria-label="閉じる">×</button>
-    </aside>`;
-    r.addEventListener('click', e => {
-      const g = $('.gs', r), a = e.target.closest('[data-a]'), it = e.target.closest('.gs-it');
-      if (a && a.dataset.a === 'x') return closeGsb();
-      if (a && a.dataset.a === 't') { g.classList.toggle('mini'); a.textContent = g.classList.contains('mini') ? '›' : '‹'; return; }
-      if (a && a.dataset.a === 'n') return a.classList.toggle('on');
-      if (a && a.dataset.a === 'p') { a.classList.toggle('open'); $('.gs-sub', r).classList.toggle('shut'); return; }
-      if (it) { r.querySelectorAll('.gs-it.act').forEach(x => x.classList.remove('act')); it.classList.add('act'); }
-    });
-    // ドラッグで移動(ボタン・入力欄・項目以外の部分をつかむ)。位置は覚えておく
-    try { const pos = JSON.parse(localStorage.getItem('tfGsbPos') || 'null'); if (pos) { r.style.left = pos.x + 'px'; r.style.top = pos.y + 'px'; } } catch (e) { /* 無視 */ }
-    // アイコンだけ/通常の切り替え: 右上の丸いボタン、または空いた所をダブルクリック。状態は覚えておく
-    // 大きさ: 通常 / アイコンの列(‹ ボタン) / ロゴだけの丸(空いた所をダブルクリック。丸をクリックで戻る)。状態は覚えておく
-    const G = () => $('.gs', r);
-    const save = () => { try { localStorage.setItem('tfGsbMode', G().classList.contains('min') ? 'min' : G().classList.contains('mini') ? 'mini' : 'full'); } catch (e) { /* 無視 */ } };
-    const setMini = on => { G().classList.toggle('mini', on); $('.gs-toggle', r).textContent = on ? '›' : '‹'; save(); };
-    const setMin = on => { G().classList.toggle('min', on); save(); };
-    try { const m = localStorage.getItem('tfGsbMode'); if (m === 'mini') setMini(true); else if (m === 'min') setMin(true); } catch (e) { /* 無視 */ }
-    $('.gs-toggle', r).addEventListener('click', e => { e.stopImmediatePropagation(); setMini(!G().classList.contains('mini')); }, true);
-    r.addEventListener('dblclick', e => { if (!e.target.closest('button, input, a, .sw') && !G().classList.contains('min')) setMin(true); });
-    r.addEventListener('pointerdown', e => {
-      if (e.button !== 0 || e.target.closest('button, input, a, .sw')) return;
-      const b = r.getBoundingClientRect(), dx = e.clientX - b.left, dy = e.clientY - b.top;
-      r.setPointerCapture(e.pointerId); r.classList.add('drag'); e.preventDefault();
-      let moved = false;
-      const mv = ev => { if (Math.abs(ev.clientX - dx - b.left) + Math.abs(ev.clientY - dy - b.top) > 4) moved = true; r.style.left = Math.max(0, Math.min(innerWidth - 60, ev.clientX - dx)) + 'px'; r.style.top = Math.max(0, Math.min(innerHeight - 60, ev.clientY - dy)) + 'px'; };
-      const up = () => {
-        r.removeEventListener('pointermove', mv); r.removeEventListener('pointerup', up); r.classList.remove('drag'); if (!moved && G().classList.contains('min')) setMin(false);
-        try { localStorage.setItem('tfGsbPos', JSON.stringify({ x: parseInt(r.style.left, 10), y: parseInt(r.style.top, 10) })); } catch (e) { /* 無視 */ }
-      };
+  // ---------- 右下のガラス調サイドバー(ハブ): 普段はロゴだけの丸。マウスを乗せると開き、各項目に乗せるとさらに中身が開く ----------
+  const HUB_ITEMS = [['folder', '▤', 'フォルダ'], ['cols', '▦', '列数'], ['sync', '☁', '同期'], ['imp', '⟳', '取り込み'], ['mgr', '❖', '管理'], ['set', '⚙', '設定'], ['test', '🧪', 'テスト']];
+  function closeFly() { const f = $('#tf-gsb-fly'); if (f) f.remove(); const b = $('#tf-gsb-root .gs-bulge'); if (b) b.classList.remove('on'); document.querySelectorAll('#tf-gsb-root .gs-it.act').forEach(x => x.classList.remove('act')); }
+  function hubFlyHtml(key) {
+    if (key === 'folder') {
+      const rows = TF.flat(S.groups).map(({ g, depth }) => { const sub = TF.subtree(S.groups, g.id); const n = Object.values(S.channels).filter(c => c.groups.some(id => sub.has(id))).length; return `<button data-a="grp" data-g="${g.id}" class="${S.settings.activeGroup === g.id ? 'act' : ''}" style="padding-left:${12 + depth * 14}px">${TF.iconHtml(g.icon)} ${esc(g.name)}<i>${n}</i></button>`; }).join('');
+      return `<div class="fh">フォルダ</div><button data-a="grp" data-g="all" class="${S.settings.activeGroup === 'all' ? 'act' : ''}">すべて</button>${rows}<button data-a="view" class="sep">📂 フォルダ設定を開く</button>`;
+    }
+    if (key === 'cols') {
+      const seg = k => `<div class="fseg">${[0, 3, 4, 5, 6, 7, 8].map(n => `<button data-a="col" data-k="${k}" data-n="${n}" class="${colNow(k) === n ? 'act' : ''}">${n || '標準'}</button>`).join('')}</div>`;
+      return `<div class="fh">動画の列数</div>${seg('v')}<div class="fh">ショート棚の列数</div>${seg('s')}`;
+    }
+    if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button><div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
+    if (key === 'imp') return `<div class="fh">登録チャンネル</div><button data-a="imp">⟳ YouTubeから取り込む</button>`;
+    if (key === 'mgr') return `<div class="fh">グループ管理</div><button data-a="mgr">❖ 管理画面を開く</button>`;
+    if (key === 'set') return `<div class="fh">表示</div><button data-a="hw" class="${S.settings.hideWatched ? 'act' : ''}">視聴済みを隠す ${S.settings.hideWatched ? '✓' : ''}</button><button data-a="hm" class="${S.settings.hideMix ? 'act' : ''}">ミックスリストを隠す ${S.settings.hideMix ? '✓' : ''}</button><button data-a="hc" class="${S.settings.hideCreate !== false ? 'act' : ''}">「作成」ボタンを隠す ${S.settings.hideCreate !== false ? '✓' : ''}</button><button data-a="more" class="sep">⚙ そのほかの設定</button>`;
+    if (key === 'test') return `<div class="fh">テスト機能</div><button data-a="t1">登録/未登録の見分け</button><button data-a="t2">サムネの大きさ</button><button data-a="t3">列数ボタンの置き場所</button><button data-a="diag">棚の診断をコピー</button>`;
+    return '';
+  }
+  let hubSt = '';
+  function hubAct(a, d, anchor) {
+    if (a === 'grp') { TF.mutate(s => { s.settings.activeGroup = d.g; }); if (location.pathname !== '/feed/subscriptions') location.href = '/feed/subscriptions'; }
+    else if (a === 'view') { closeFly(); openView(); }
+    else if (a === 'col') setCols(+d.n, d.k);
+    else if (a === 'sync') { hubSt = '同期中…'; const e = $('#tf-fly-st'); if (e) e.textContent = hubSt; chrome.runtime.sendMessage({ type: 'syncNow', interactive: true }, r => { hubSt = r && r.ok ? '☁ 同期しました' : '⚠ ' + ((r && r.error) || '失敗'); const x = $('#tf-fly-st'); if (x) x.textContent = hubSt; }); }
+    else if (a === 'hw') TF.mutate(s => { s.settings.hideWatched = !s.settings.hideWatched; });
+    else if (a === 'hm') TF.mutate(s => { s.settings.hideMix = !s.settings.hideMix; });
+    else if (a === 'hc') TF.mutate(s => { s.settings.hideCreate = s.settings.hideCreate === false; });
+    else if (a === 'more') { closeFly(); openSettings(anchor, true); }
+    else if (a === 't1') { closeFly(); openTest(anchor); }
+    else if (a === 't2') { closeFly(); openThumbPanel(anchor); }
+    else if (a === 't3') { closeFly(); openPlacePanel(anchor); }
+    else if (a === 'diag') copyShelfDiag();
+  }
+  // ---------- 仮の横長ツールバー(ホームの「すべて / ゲーム…」のチップの上) ----------
+  // サムネ(カード)の実際の幅に合わせて、タイトルと情報の文字の大きさを変える(列数を増やしてサムネが小さくなったとき、文字が大きすぎてタイトルが出なくなるのを防ぐ)
+  function fitFonts() {
+    const it = document.querySelector('ytd-browse[page-subtype="home"] ytd-rich-item-renderer, ytd-browse[page-subtype="subscriptions"] ytd-rich-item-renderer, ytd-browse[page-subtype="subscriptions"] ytd-grid-video-renderer'); if (!it) return;
+    const w = it.getBoundingClientRect().width; if (w < 60) return;
+    const k = Math.max(.86, Math.min(1, w / 380)), root = document.documentElement; // 380px以上は標準、それより小さいほど文字も少しずつ小さく(下限は86%)
+    const t = (14 * k).toFixed(1) + 'px', m = (12 * k).toFixed(1) + 'px';
+    if (root.style.getPropertyValue('--tf-title-fs') !== t) root.style.setProperty('--tf-title-fs', t);
+    if (root.style.getPropertyValue('--tf-meta-fs') !== m) root.style.setProperty('--tf-meta-fs', m);
+    root.setAttribute('data-tf-fit', '');
+  }
+  // 各ボタン → 空のページ(後で中身を作る)。キーとタイトル
+  const HBAR_PAGES = { new: '新着動画', live: 'ライブ・配信', shorts: 'ショート', rec: '検索ツール', later: '後で見る', bm: 'ブックマーク' };
+  function renderHBar() {
+    const html = document.documentElement;
+    const chips = isHome() ? $('ytd-browse[page-subtype="home"] #chips-wrapper') : null;
+    let b = $('#tf-hbar');
+    const skip = S.settings.hbar === false || location.pathname.startsWith('/shorts') || location.pathname.startsWith('/watch'); // ショートと再生画面では出さない
+    const inView = html.hasAttribute('data-tf-view');
+    const fixed = !skip && (!chips || inView); // ホーム以外のページ、または空のページ/フォルダ画面を開いている間は、ヘッダーの下に固定
+    if (skip || (!chips && !fixed)) { if (b) b.remove(); html.removeAttribute('data-tf-hbar'); html.removeAttribute('data-tf-hfix'); return; }
+    if (!b) {
+      b = el('div'); b.id = 'tf-hbar';
+      b.innerHTML = Object.entries(HBAR_PAGES).map(([k, t]) => `<button data-a="pg" data-p="${k}">${t}</button>`).join('') + `<button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
+      b.addEventListener('click', e => {
+        const x = e.target.closest('button[data-a]'); if (!x) return;
+        const a = x.dataset.a;
+        if (a === 'pg') { document.documentElement.setAttribute('data-tf-pgk', x.dataset.p); openView('page.html', '&p=' + encodeURIComponent(x.dataset.p) + '&t=' + encodeURIComponent(HBAR_PAGES[x.dataset.p] || '')); document.documentElement.setAttribute('data-tf-pgk', x.dataset.p); }
+        else if (a === 'tools') TF.mutate(s => { s.settings.hideChips = s.settings.hideChips === false; }); // 初期値は「閉じる」(未設定=閉じている)
+      });
+    }
+    { const bg = pageBg(); if (bg) html.style.setProperty('--tf-pagebg', bg); }
+    if (fixed) {
+      if (b.parentElement !== document.body) document.body.appendChild(b);
+      b.classList.add('tf-hfix'); b.style.paddingLeft = ''; b.style.marginLeft = '';
+      const pm = $('ytd-page-manager'), mh = parseFloat(getComputedStyle(html).getPropertyValue('--ytd-masthead-height')) || 56;
+      html.style.setProperty('--tf-hfix-l', Math.max(0, Math.round(pm ? pm.getBoundingClientRect().left : 0)) + 'px'); html.style.setProperty('--tf-mh', mh + 'px');
+      html.setAttribute('data-tf-hfix', ''); html.removeAttribute('data-tf-hbar'); html.removeAttribute('data-tf-nochips');
+      return;
+    }
+    b.classList.remove('tf-hfix'); html.removeAttribute('data-tf-hfix');
+    if (b.parentElement !== chips) chips.insertBefore(b, chips.firstChild); // チップの行の上に(同じ入れ物の中なので、位置のずれが出ない)
+    // 左端をそろえる: 最初のサムネの左端に、ツールバーのボタンと「すべて」のチップの左端を合わせる。
+    // ツールバーとチップは同じ入れ物(#chips-wrapper)の中なので、その左の余白を1か所で決める(画面の幅や左メニューの開閉が変わっても測り直す)
+    { const th0 = document.querySelector('ytd-browse[page-subtype="home"] ytd-rich-item-renderer img[src*="ytimg"], ytd-browse[page-subtype="home"] ytd-rich-item-renderer yt-thumbnail-view-model img');
+      const chip = $('yt-chip-cloud-chip-renderer', chips);
+      if (th0 && chip) {
+        const target = thBox(th0).rect.left, cur = parseFloat(chips.style.paddingLeft) || 0, base = chip.getBoundingClientRect().left - cur, pl = Math.round(target - base);
+        if (target > 0 && Math.abs(pl - cur) > 0.5 && pl >= 0 && pl < 200) chips.style.paddingLeft = pl + 'px';
+      }
+      { const curm = parseFloat(b.style.marginLeft) || 0; if (th0) { const tl = thBox(th0).rect.left, ml = Math.round(tl - (b.getBoundingClientRect().left - curm)); if (Math.abs(ml - curm) > 0.5 && ml > -200 && ml < 200) b.style.marginLeft = ml + 'px'; } } }
+    { const cl = $('yt-chip-cloud-renderer', chips); if (cl && cl.style.marginLeft) cl.style.marginLeft = ''; }
+    // ツールバーと最初のサムネの間の空きを、実際に測って24pxに詰める(サムネが切れない程度に残す)(YouTube側の余白の作りに依存しない)。スクロール中は測らない
+    { const se = document.scrollingElement, contents = document.querySelector('ytd-browse[page-subtype="home"] ytd-rich-grid-renderer #contents');
+      const im = contents && contents.querySelector('ytd-rich-item-renderer img[src*="ytimg"]');
+      const stt = S.settings.hideChips !== false; if (contents && renderHBar._st !== stt) { renderHBar._st = stt; contents.style.marginTop = ''; } // 「ツール」の開閉のたびに、引き上げ量をリセットして測り直す
+      if (im && se && se.scrollTop < 5) {
+        const gap = thBox(im).rect.top - 7 - Math.max(b.getBoundingClientRect().bottom, chips.getBoundingClientRect().bottom, ...[...chips.querySelectorAll("yt-chip-cloud-renderer, yt-chip-cloud-chip-renderer")].map(x => x.getBoundingClientRect().bottom)), // チップの行を開いているときは、チップの下端を基準にする
+           cur = parseFloat(contents.style.marginTop) || 0, want = Math.round(cur - (gap - 24));
+        if (Math.abs(want - cur) > 1 && want > -160 && want < 80) contents.style.marginTop = want + 'px';
+      } }
+    // ツールバーの位置は固定(CSSのtop)。測って動かすと、状態によって数pxずれるため、動かさない
+    if (b.style.top) b.style.top = '';
+    html.toggleAttribute('data-tf-nochips', S.settings.hideChips !== false); { const tb = $('#tfh-tools', b); const tt = S.settings.hideChips !== false ? 'ツール ▾' : 'ツール ▴'; if (tb && tb.textContent !== tt) tb.textContent = tt; }
+    html.style.setProperty('--tf-glass-h', (S.settings.hideChips === false ? Math.round(chips.getBoundingClientRect().height + 12 + 42) : Math.round(chips.getBoundingClientRect().bottom + 12)) + 'px'); // すりガラスの高さ(ツールバー+チップの行+少し)。「ツール」を開いているときは、さらに42px下げる
+    html.setAttribute('data-tf-hbar', ''); { const bg = pageBg(); if (bg) html.style.setProperty('--tf-pagebg', bg); }
+  }
+  function renderHub() {
+    const want = window === window.top && S && S.settings.hub !== false;
+    let r = $('#tf-gsb-root');
+    if (!want) { if (r) { closeFly(); r.remove(); } return; }
+    if (r) { const f = $('#tf-gsb-fly'); if (f && f.dataset.k) { const h = hubFlyHtml(f.dataset.k); if (f._h !== h) { const keep = f.scrollTop; f._h = h; f.innerHTML = h; f.scrollTop = keep; } } return; }
+    r = el('div'); r.id = 'tf-gsb-root';
+    r.innerHTML = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="tf-goo" x="-60%" y="-20%" width="220%" height="140%"><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/><feColorMatrix in="b" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9"/></filter></svg><aside class="gs mini min"><div class="gs-bg"><i class="gs-rail"></i><i class="gs-bulge"></i></div><div class="gs-head"><div class="gs-logo">▶</div><div class="gs-brand"><b>TubeFolio2</b><small>登録チャンネル管理</small></div></div>
+      <nav class="gs-nav">${HUB_ITEMS.map(([k, ic, nm]) => `<a class="gs-it" data-k="${k}" data-tip="${nm}"><span class="i">${ic}</span><em>${nm}</em></a>`).join('')}</nav></aside>`;
+    const G = () => $('.gs', r); let tm = 0;
+    let pinned = false;
+    const open = () => { clearTimeout(tm); G().classList.remove('min'); };
+    const shut = () => { clearTimeout(tm); if (pinned) return; tm = setTimeout(() => { closeFly(); G().classList.add('min'); }, 450); };
+    const showFly = it => {
+      clearTimeout(tm); let f = $('#tf-gsb-fly');
+      if (!f) { f = el('div'); f.id = 'tf-gsb-fly'; document.body.appendChild(f); f.addEventListener('mouseenter', () => clearTimeout(tm)); f.addEventListener('mouseleave', shut); f.addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (b) hubAct(b.dataset.a, b.dataset, f._anchor || it); }); }
+      f.dataset.k = it.dataset.k; f._anchor = it; { const h = hubFlyHtml(it.dataset.k); if (f._h !== h) { f._h = h; f.innerHTML = h; } }
+      const ir = it.getBoundingClientRect(), gr = G().getBoundingClientRect();
+      // 次のバー: 山(バルジ)の高さに合わせて、山のすぐ左に開く
+      f.style.maxHeight = Math.max(160, innerHeight - 16) + 'px'; f.style.right = (innerWidth - gr.left + 4) + 'px'; f.style.bottom = 'auto'; f.style.top = '0px';
+      const fh = f.offsetHeight; f.style.top = Math.max(8, Math.min(ir.top + ir.height / 2 - fh / 2, innerHeight - fh - 8)) + 'px';
+      const bl = $('.gs-bulge', r), bt = ir.top - gr.top + ir.height / 2 - 23, k = Math.max(0, Math.min(1, (bt + 23) / gr.height));
+      if (bl) { bl.style.top = bt + 'px'; bl.style.background = `rgb(${Math.round(120 + (134 - 120) * k)},${Math.round(114 + (96 - 114) * k)},${Math.round(108 + (58 - 108) * k)})`; bl.classList.add('on'); }
+      r.querySelectorAll('.gs-it.act').forEach(x => x.classList.remove('act')); it.classList.add('act');
+    };
+    r.addEventListener('mouseenter', open); r.addEventListener('mouseleave', shut);
+    // ロゴのクリックでも開く(開いたままにする)。もう一度クリックか、外をクリックで閉じる
+    r.addEventListener('click', e => { if (!e.target.closest('.gs-logo') || r._moved) return; pinned = !pinned; if (pinned) open(); else { closeFly(); G().classList.add('min'); } });
+    document.addEventListener('mousedown', e => { if (pinned && !r.contains(e.target) && !e.target.closest('#tf-gsb-fly')) { pinned = false; closeFly(); G().classList.add('min'); } }, true);
+    r.querySelectorAll('.gs-it').forEach(it => it.addEventListener('mouseenter', () => showFly(it)));
+    r.addEventListener('pointerdown', e => { // ドラッグで移動(右下からの距離を覚える)
+      if (e.button !== 0 || e.target.closest('.gs-it')) return;
+      const b = r.getBoundingClientRect(), sx = e.clientX, sy = e.clientY, r0 = innerWidth - b.right, b0 = innerHeight - b.bottom;
+      r.setPointerCapture(e.pointerId); e.preventDefault();
+      r._moved = false;
+      const mv = ev => { if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 4) r._moved = true; r.style.right = Math.max(0, Math.min(innerWidth - 60, r0 - (ev.clientX - sx))) + 'px'; r.style.bottom = Math.max(0, Math.min(innerHeight - 60, b0 - (ev.clientY - sy))) + 'px'; closeFly(); };
+      const up = () => { r.removeEventListener('pointermove', mv); r.removeEventListener('pointerup', up); }; // 位置は覚えない(更新すると右下に戻る)
       r.addEventListener('pointermove', mv); r.addEventListener('pointerup', up);
     });
     document.body.appendChild(r);
@@ -535,42 +652,52 @@
 
   function closeSettings() { const p = $('#tf-set'); if (p) p.remove(); document.removeEventListener('mousedown', outsideSet, true); }
   function outsideSet(e) { const p = $('#tf-set'); if (p && !p.contains(e.target) && !e.target.closest('#tf-gear')) closeSettings(); }
-  async function openSettings(anchor) {
+  async function openSettings(anchor, center) {
     closeSettings();
     const p = el('div'); p.id = 'tf-set';
     const st = (await chrome.storage.local.get('syncStatus')).syncStatus;
     const stTxt = st ? ({ syncing: '同期中…', ok: '☁ ' + st.msg, error: '⚠ ' + st.msg }[st.state] || '') : '未同期';
     p.innerHTML = `
       <div class="tf-pop-h">TubeFolio2 設定</div>
+      <div class="tf-ssub">表示</div>
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-hw" ${S.settings.hideWatched ? 'checked' : ''}><span></span>視聴済みを隠す</label>
+      <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-hm" ${S.settings.hideMix ? 'checked' : ''}><span></span>ミックスリストを隠す</label>
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-hc" ${S.settings.hideCreate !== false ? 'checked' : ''}><span></span>「作成」ボタンを隠す</label>
       <button class="tf-srow tf-sbtn" id="tfs-ai">✨ フォルダのアイコンを名前から自動設定</button>
-      <div class="tf-ssub">テスト機能(ふだんは出さず、ここから開きます)</div>
-      <button class="tf-srow tf-sbtn" id="tfs-t1">🧪 登録/未登録の見分けテスト</button>
-      <button class="tf-srow tf-sbtn" id="tfs-t2">🧪 サムネの大きさテスト</button>
-      <button class="tf-srow tf-sbtn" id="tfs-t3">🧪 列数ボタンの置き場所テスト</button>
-      <button class="tf-srow tf-sbtn" id="tfs-t4">🧪 縦長サイドバーのテスト</button>
-      <button class="tf-srow tf-sbtn" id="tfs-diag">🔍 棚の診断をコピー(表示が足りないとき)</button>
       <label class="tf-srow tf-ssel"><span>新着とみなす期間(フォルダ横の件数)</span><select id="tfs-nd">${[1, 3, 7, 14].map(n => `<option value="${n}"${(S.settings.newDays || 3) === n ? ' selected' : ''}>${n}日以内</option>`).join('')}</select></label>
       <label class="tf-srow tf-ssel"><span>フォルダ内のチャンネルを押したとき</span><select id="tfs-cc"><option value="pane"${S.settings.chClick !== 'youtube' ? ' selected' : ''}>右のページに表示</option><option value="youtube"${S.settings.chClick === 'youtube' ? ' selected' : ''}>YouTubeでチャンネルを開く</option></select></label>
+      <div class="tf-ssub">データ</div>
       <button class="tf-srow tf-sbtn" id="tfs-view">📂 フォルダ設定をここに表示(仮)</button>
       <button class="tf-srow tf-sbtn" id="tfs-mgr">⚙ グループ管理を開く</button>
       <button class="tf-srow tf-sbtn" id="tfs-imp">⟳ 登録チャンネルを取り込む</button>
       <button class="tf-srow tf-sbtn" id="tfs-sync">☁ Google Driveと同期</button>
+      <details class="tf-dev"><summary>開発者向け(テスト・診断)</summary>
+      <button class="tf-srow tf-sbtn" id="tfs-t1">🧪 登録/未登録の見分けテスト</button>
+      <button class="tf-srow tf-sbtn" id="tfs-t2">🧪 サムネの大きさテスト</button>
+      <button class="tf-srow tf-sbtn" id="tfs-t3">🧪 列数ボタンの置き場所テスト</button>
+      <button class="tf-srow tf-sbtn" id="tfs-t4">${S.settings.hub === false ? '🧪 右下のサイドバーを表示する' : '🧪 右下のサイドバーを隠す'}</button>
+      <button class="tf-srow tf-sbtn" id="tfs-diag">🔍 棚の診断をコピー(表示が足りないとき)</button>
+      <button class="tf-srow tf-sbtn" id="tfs-ldiag">🔍 左端の診断をコピー(位置がずれるとき)</button>
+      </details>
       <div class="tf-ssub" id="tfs-st">${esc(stTxt)}</div>`;
     document.body.appendChild(p);
     const r = anchor.getBoundingClientRect();
-    p.style.left = Math.max(8, Math.min(r.right - 270, innerWidth - 280)) + 'px'; p.style.top = (r.bottom + 8) + 'px';
+    p.style.left = Math.max(8, Math.min(r.right - 270, innerWidth - 280)) + 'px'; p.style.top = (r.bottom + 8) + 'px'; p.style.maxHeight = Math.max(160, innerHeight - r.bottom - 20) + 'px'; // 画面に収まらないときはメニューの中をスクロールできるように
+    if (center) { // ハブから開いたときは、画面の中央にガラス調で表示する
+      p.classList.add('tf-glass'); p.style.maxHeight = Math.max(200, innerHeight - 80) + 'px'; p.style.left = Math.max(8, (innerWidth - p.offsetWidth) / 2) + 'px'; p.style.top = Math.max(8, (innerHeight - p.offsetHeight) / 2) + 'px';
+    }
     $('#tfs-hw', p).onchange = e => TF.mutate(s => { s.settings.hideWatched = e.target.checked; });
     // テスト機能のパネルは、ヘッダーに常時ボタンを出さず、⚙のメニューから開く
     [['#tfs-t1', '#tf-test', openTest, closeTest], ['#tfs-t2', '#tf-th', openThumbPanel, closeThumbPanel], ['#tfs-t3', '#tf-pl', openPlacePanel, closePlacePanel]].forEach(([btn, pid, open, close]) => {
       $(btn, p).onclick = () => { closeSettings(); const g = $('#tf-gear'); if (!g) return; $(pid) ? close() : open(g); };
     });
     $('#tfs-diag', p).onclick = () => { closeSettings(); copyShelfDiag(); };
-    $('#tfs-t4', p).onclick = () => { closeSettings(); $('#tf-gsb-root') ? closeGsb() : openGsb(); };
+    $('#tfs-ldiag', p).onclick = () => { closeSettings(); copyLayoutDiag(); };
+    $('#tfs-t4', p).onclick = () => { closeSettings(); TF.mutate(s => { s.settings.hub = s.settings.hub === false; }); };
     $('#tfs-ai', p).onclick = async () => { const n = await TF.autoIcons(); toast(n ? `${n}件のフォルダにアイコンを設定しました` : '設定できるフォルダはありませんでした(⭐のフォルダだけ対象)'); };
     $('#tfs-nd', p).onchange = e => TF.mutate(s => { s.settings.newDays = +e.target.value; });
     $('#tfs-cc', p).onchange = e => TF.mutate(s => { s.settings.chClick = e.target.value; });
+    $('#tfs-hm', p).onchange = e => TF.mutate(s => { s.settings.hideMix = e.target.checked; });
     $('#tfs-hc', p).onchange = e => TF.mutate(s => { s.settings.hideCreate = e.target.checked; });
     $('#tfs-view', p).onclick = () => { closeSettings(); openView(); };
     $('#tfs-mgr', p).onclick = () => { chrome.runtime.sendMessage({ type: 'openManager' }); closeSettings(); };
@@ -943,7 +1070,7 @@
 
   // ---------- 更新ループ ----------
   let tmr = 0;
-  const refresh = () => { if (!S) return; document.documentElement.toggleAttribute('data-tf-hide-create', S.settings.hideCreate !== false); renderNav(); renderGuideBtn(); processCards(); processShorts(); alignShelves(); fixShelves(); renderBar(); renderFab(); renderGear(); renderTestBtn(); renderThumbBtn(); renderPlaceBtn(); renderCols(); applyThumb(); applyTest(); renderTBar(); renderFeed(); const p = $('#tf-pop'); if (p && p._draw) p._draw(); };
+  const refresh = () => { if (!S) return; document.documentElement.toggleAttribute('data-tf-hide-create', S.settings.hideCreate !== false); renderNav(); renderGuideBtn(); processCards(); processShorts(); alignShelves(); fixShelves(); renderBar(); renderFab(); renderGear(); renderTestBtn(); renderThumbBtn(); renderPlaceBtn(); renderHub(); renderHBar(); renderCols(); applyThumb(); fitFonts(); applyTest(); renderTBar(); renderFeed(); const p = $('#tf-pop'); if (p && p._draw) p._draw(); };
   const schedule = () => { clearTimeout(tmr); tmr = setTimeout(refresh, 250); };
 
   async function init() {

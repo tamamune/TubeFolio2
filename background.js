@@ -42,7 +42,8 @@ async function videos(id) {
   const v = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(e => ({
     id: (e[1].match(/<yt:videoId>([^<]+)/) || [])[1],
     title: unxml((e[1].match(/<title>([^<]*)/) || [])[1] || ''),
-    published: (e[1].match(/<published>([^<]+)/) || [])[1]
+    published: (e[1].match(/<published>([^<]+)/) || [])[1],
+    short: /<link rel="alternate" href="[^"]*\/shorts\//.test(e[1])
   })).filter(x => x.id).sort((a, b) => b.published.localeCompare(a.published));
   vcache.set(id, { t: Date.now(), v });
   return v;
@@ -142,7 +143,7 @@ function collect(data, out) {
       let av = ((r.thumbnail || {}).thumbnails || []).slice(-1)[0];
       av = av ? av.url.replace(/^\/\//, 'https://') : '';
       const t = r.title || {};
-      if (key) out.set(key, { key, name: TF.clean(t.simpleText || (t.runs || []).map(x => x.text).join('')), avatar: av });
+      if (key) out.set(key, { key, name: TF.clean(t.simpleText || (t.runs || []).map(x => x.text).join('')), avatar: av, id: /^UC[w-]{22}$/.test(r.channelId || '') ? r.channelId : '' });
     }
     if (o.continuationItemRenderer) {
       const tok = (((o.continuationItemRenderer.continuationEndpoint || {}).continuationCommand) || {}).token;
@@ -173,13 +174,58 @@ function importSubs() {
     }
     if (!out.size) throw new Error('no channels (ログインしていないか、YouTube側の形式が変わりました)');
     await TF.upsertChannels([...out.values()]);
+    await bulkMetaIds([...out.values()]); // チャンネルID(UC…)を保存しておく(新着一覧が、チャンネルページを開かずにRSSを取れる)
     return { count: out.size };
   })().finally(() => { importP = null; }));
 }
 
+
+// ---- 新着一覧(登録チャンネル全体)。新着動画 / ライブ・配信 / ショート のページ用 ----
+// 各チャンネルのRSS(最新15件)から、N日分の動画を集める。ショートは、RSSのリンク(/shorts/)で分かる。
+// それ以外は、動画ページで「ライブ配信か」を判定する(動画IDごとに保存: vkind)。結果は短時間キャッシュ(feedCache)。
+// 取得の途中でも、集まった分をページに返せる(feedStatus の items)。
+let feedProg = { running: false, phase: '', done: 0, total: 0, items: [] };
+async function pool(items, n, fn) {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const x = items[i++]; try { await fn(x); } catch (e) { /* 1件の失敗は無視 */ } } }));
+}
+async function isLive(id) {
+  try { return /"isLiveContent":true/.test(await (await fetch(`https://www.youtube.com/watch?v=${id}`, { credentials: 'omit' })).text()); } catch (e) { return false; }
+}
+let feedP = null;
+function feedAll(days, force) {
+  if (feedP) return feedP;
+  feedP = (async () => {
+    const st = await chrome.storage.local.get(['channels', 'vkind', 'feedCache']);
+    if (!force && st.feedCache && st.feedCache.days === days && Date.now() - st.feedCache.t < 10 * 60 * 1000) return st.feedCache;
+    const channels = st.channels || {}, keys = Object.keys(channels), vkind = st.vkind || {};
+    // チャンネルIDが未取得のチャンネルが多いときは、登録チャンネルの取り込み(1回の通信でまとめて取れる)でIDを集める
+    { const { meta = {} } = await chrome.storage.local.get('meta'); const noId = keys.filter(k => !k.startsWith('UC') && !(meta[k] && meta[k].id));
+      if (noId.length > 20) { feedProg = { running: true, phase: 'チャンネルIDを取得中', done: 0, total: 0, items: [] }; try { await importSubs(); } catch (e) { /* ログインしていない等。個別に解決する */ } } }
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0); const cut = d0.getTime() - (days - 1) * 86400000;
+    feedProg = { running: true, phase: '新着を取得中', done: 0, total: keys.length, items: [] };
+    const items = feedProg.items;
+    await pool(keys, 10, async k => {
+      try {
+        const r = await resolve(k);
+        if (r.id) (await videos(r.id)).filter(x => Date.parse(x.published) >= cut).forEach(x => items.push({ id: x.id, title: x.title, published: x.published, key: k, ch: (channels[k] && channels[k].name) || r.name || k, avatar: (channels[k] && channels[k].avatar) || r.avatar || '', kind: x.short ? 's' : (vkind[x.id] || 'v') }));
+      } finally { feedProg.done++; }
+    });
+    const need = items.filter(x => x.kind === 'v' && !vkind[x.id]);
+    feedProg.phase = 'ライブ配信を判定中'; feedProg.done = 0; feedProg.total = need.length;
+    await pool(need, 10, async x => { const l = await isLive(x.id); vkind[x.id] = l ? 'l' : 'v'; x.kind = vkind[x.id]; feedProg.done++; });
+    const ids = Object.keys(vkind); if (ids.length > 4000) ids.slice(0, ids.length - 4000).forEach(i => delete vkind[i]);
+    const out = { t: Date.now(), days, items: items.slice() };
+    await chrome.storage.local.set({ vkind, feedCache: out });
+    return out;
+  })().finally(() => { feedProg = { running: false, phase: '', done: 0, total: 0, items: [] }; feedP = null; });
+  return feedP;
+}
 const shortsOwnerCache = new Map();
 chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
+  if (m.type === 'feedAll') { feedAll(m.days || 4, !!m.force).then(send).catch(e => send({ error: String(e) })); return true; }
+  if (m.type === 'feedStatus') { send(feedProg); return; }
   if (m.type === 'newCounts') { // 各チャンネルの「N日以内の新着動画」件数(RSS・20分キャッシュ)
     const cut = Date.now() - (m.days || 3) * 86400000;
     Promise.all((m.keys || []).map(k => limit(async () => {
@@ -219,3 +265,12 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
     return true;
   }
 });
+
+// チャンネルIDを、まとめて meta に保存する(1件ずつ保存すると、800件超で遅いため)
+async function bulkMetaIds(list) {
+  await (metaQ = metaQ.then(async () => {
+    const { meta = {} } = await chrome.storage.local.get('meta');
+    list.forEach(c => { if (c.id) meta[c.key] = { ...meta[c.key], id: c.id }; });
+    await chrome.storage.local.set({ meta });
+  }));
+}
