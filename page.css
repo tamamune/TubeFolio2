@@ -3,7 +3,7 @@
 :root[data-theme="dark"] { --bg: #0f0f0f; --fg: #f1f1f1; --sub: #aaa; --line: rgba(255,255,255,.1); --chip: rgba(255,255,255,.1); --chip2: rgba(255,255,255,.2); color-scheme: dark; }
 html, body { margin: 0; min-height: 100%; }
 body { background: var(--bg); color: var(--fg); font: 400 14px/20px Roboto, Arial, "Yu Gothic UI", sans-serif; }
-main { padding: 16px 24px 60px; }
+main { padding: calc(16px + var(--pt, 0px)) 24px 60px; }
 h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .empty { margin: 16px 0 0; padding: 48px 0; text-align: center; color: var(--sub); border: 1px dashed var(--line); border-radius: 12px; }
 .head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
@@ -37,3 +37,38 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .card:hover .tx b { text-decoration: underline; }
 
 .day.livenow .dh h2 { color: #ff4e45; }
+[hidden] { display: none !important; }
+/* 日付ごとの折りたたみ */
+.day .dh { cursor: pointer; user-select: none; }
+.day .dh .fd { display: inline-block; width: 18px; color: var(--sub); transition: transform .2s; }
+.day.fold .dh .fd { transform: rotate(-90deg); }
+.day.fold > .grid, .day.fold > .none { display: none !important; }
+/* 視聴: 再生リストの行(細い横長)。押すと、中の動画が開く。「ライブラリ」の中は、保存した再生リストが並ぶ */
+.pl { margin: 0 0 6px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.plh { display: flex; align-items: baseline; gap: 10px; padding: 7px 12px; cursor: pointer; user-select: none; }
+.plh:hover { background: var(--chip); }
+.plh .fd { width: 16px; color: var(--sub); transition: transform .2s; transform: rotate(-90deg); }
+.pl.open > .plh .fd { transform: none; }
+.plh b { font-size: 14px; font-weight: 500; } .plh small { color: var(--sub); font-size: 12px; }
+.plb { padding: 2px 10px 12px; }
+.pl.lib > .plh b { font-weight: 700; }
+.pl .pl { margin: 6px 0 0; }
+/* ライブラリの中: 保存した再生リストを、サムネのカードで並べる */
+.libgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 8px; }
+.plc { cursor: grab; border-radius: 10px; padding: 6px; }
+.plc:hover, .plc.act { background: var(--chip); }
+.plc .plt { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 8px; object-fit: cover; background: var(--chip); }
+.plc .plt.ph { display: grid; place-items: center; font-size: 30px; }
+.plc b { display: block; margin-top: 6px; font-size: 14px; font-weight: 500; line-height: 19px; max-height: 38px; overflow: hidden; }
+.plc small { display: block; color: var(--sub); font-size: 12px; }
+.libvid { margin-top: 16px; padding-top: 8px; border-top: 1px solid var(--line); } .libvid h3 { margin: 8px 0; font-size: 16px; font-weight: 500; }
+.pl[draggable="true"] > .plh { cursor: grab; }
+.dragging { opacity: .4; }
+/* 再生リストの見出し(本数・合計時間・空き時間にぴったり再生など) */
+.pltools { margin: 2px 0 10px; padding: 4px 2px; background: none; }
+.plctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
+.plctl .fmin { width: 64px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--fg); font: inherit; }
+.plctl button { height: 30px; padding: 0 14px; border: 0; border-radius: 15px; color: #fff; font: 600 13px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; }
+.plctl .b1 { background: #3ea6ff; } .plctl .b2 { background: #7b78d6; } .plctl .b3 { background: #cc0000; } .plctl .b4 { background: #7a3fb5; }
+.plctl button:hover { filter: brightness(1.12); } .plctl .fmsg { color: var(--sub); }
+.libvid h3 small { color: var(--sub); font-size: 13px; font-weight: 400; margin-left: 10px; }

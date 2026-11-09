@@ -38,7 +38,7 @@ html[dark] {
 .tf-sw input:checked + span::after { left: 16px; }
 
 /* カード上のボタン */
-[data-tf-on] ytd-thumbnail, [data-tf-on] yt-thumbnail-view-model { box-shadow: 0 0 0 2px var(--tf-c); border-radius: 12px; }
+/* フォルダ色の全周の枠は付けない(フォルダ色は、新Dの左上の角の線で示す) */
 .tf-pick {
   position: fixed; z-index: 2147482000; min-width: 28px; height: 28px; padding: 0 8px; display: flex; align-items: center; gap: 3px;
   border: 0; border-radius: 999px; background: rgba(0,0,0,.62); color: #fff; font: 600 14px/1 sans-serif; cursor: pointer;
@@ -334,7 +334,7 @@ kbd{font:10px system-ui;padding:2px 6px;border-radius:6px;background:rgba(255,25
 #tf-gsb-root .gs.min .gs-head { padding: 0; }
 #tf-gsb-root .gs.min .gs-head > *:not(.gs-logo) { display: none; }
 #tf-gsb-root .gs.min .gs-x { top: -6px; right: -6px; }
-/* 新D: サムネの左上の角だけに、新Cの3色(フォルダ色 / 登録=青 / 未登録=赤)の枠を描く。
+/* 新D: サムネの角だけに、登録=青 / 未登録=赤 の線を描く(フォルダ色は使わない)。
    サムネとの隙間4px、角は同心円(外側の角丸 = サムネの角丸12px + 隙間4px = 16px)、線の長さは固定64px */
 .tf-sub.tfx-nest, .tf-unsub.tfx-nest { position: relative; }
 .tf-sub.tfx-nest::before, .tf-unsub.tfx-nest::before {
@@ -342,7 +342,6 @@ kbd{font:10px system-ui;padding:2px 6px;border-radius:6px;background:rgba(255,25
   top: calc(var(--tf-tt, 0px) - 4px); left: calc(var(--tf-tl, 0px) - 4px); width: 64px; height: 64px;
   border-style: solid; border-width: 3px 0 0 3px; border-radius: calc(var(--tf-tr, 12px) + 4px) 0 0 0; border-color: #1a73e8;
 }
-.tf-sub.tfx-nest[data-tf-on]::before { border-color: var(--tf-c, #1a73e8); }
 .tf-unsub.tfx-nest::before { border-color: #e5322d; }
 
 /* フォルダ画面の表示中は、後ろのYouTubeページを見せない(ミニバーのとき、ヘッダーの後ろにページの内容が透けて重なるのを防ぐ) */
@@ -607,3 +606,4 @@ html[data-tf-pg] #frosted-glass.with-chipbar { height: var(--ytd-masthead-height
 /* ページ(iframe)を開いている間は、その右端にスクロールバーが出る。バーが重ならないように、右の余白を広げる */
 html[data-tf-pg] #tf-hbar.tf-hfloat[data-mode="bottom"], html[data-tf-view] #tf-hbar.tf-hfloat[data-mode="bottom"] { right: 30px; }
 html[data-tf-pg] #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min, html[data-tf-view] #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min { right: auto; }
+

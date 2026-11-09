@@ -282,7 +282,7 @@ function feedAll(days, force, kind = 'v') {
   if (feedPs[kind]) return feedPs[kind];
   feedPs[kind] = (async () => {
     const ck = 'feedCache_' + kind;
-    const st = await chrome.storage.local.get(['channels', ck, 'spub']);
+    const st = await chrome.storage.local.get(['channels', ck, 'spub', 'meta']);
     if (!force && st[ck] && st[ck].days === days && Date.now() - st[ck].t < (kind === 'l' ? 2 : 10) * 60 * 1000) return st[ck];
     const channels = st.channels || {}, keys = Object.keys(channels), spub = st.spub || {};
     // チャンネルIDが未取得のチャンネルが多いときは、登録チャンネルの取り込み(1回の通信でまとめて取れる)でIDを集める
@@ -291,9 +291,14 @@ function feedAll(days, force, kind = 'v') {
     const d0 = new Date(); d0.setHours(0, 0, 0, 0); const cut = d0.getTime() - (days - 1) * 86400000;
     const prog = feedProgs[kind] = { running: true, phase: '新着を取得中', done: 0, total: keys.length, items: [] };
     const items = prog.items;
-    await pool(keys, 24, async k => {
+    // 新着が見つかりやすい順(最近投稿したチャンネル → 不明 → 長く投稿のないチャンネル)に取得して、新しい動画が先に画面へ出るようにする
+    { const mm = st.meta || {}, score = k => { const v = mm[k] && mm[k][kind]; return v > cut ? v : v === undefined ? cut : v === 0 ? -1 : v / 1e6; }; keys.sort((a, b) => score(b) - score(a)); }
+    await pool(keys, 32, async k => {
       try {
-        const r = await resolve(k); if (!r.id) return;
+        // ショート・ライブ配信は、集計済みで「投稿なし」(0)と分かっているチャンネルは、7日間は調べない(ライブは約半数、ショートも一部が該当し、通信が大きく減る)
+        const mt = (st.meta || {})[k]; if (kind !== 'v' && mt && mt[kind] === 0 && mt.t && Date.now() - mt.t < 7 * 86400000) return;
+        // チャンネルIDは、読み込み済みの集計データ(meta)から取る。resolve()は毎回、保存データ全体を読み直し、足りないときはチャンネルのページ全体(約1MB)を取りに行くので、ここでは使わない
+        const m0 = (st.meta || {})[k]; const r = k.startsWith('UC') ? { id: k } : (m0 && m0.id) ? m0 : await resolve(k); if (!r.id) return;
         const list = await tabVideos(r.id, kind);
         const base = { key: k, ch: (channels[k] && channels[k].name) || r.name || k, avatar: (channels[k] && channels[k].avatar) || r.avatar || '', kind };
         if (kind === 's') { // ショートは日付が無いので、新しい順に1本ずつ投稿日を調べ、期間より古くなったら止める
@@ -317,6 +322,10 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
   if (m.type === 'feedAll') { feedAll(m.days || 4, !!m.force, m.kind).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'feedStatus') { send(feedProgs[m.kind || 'v'] || idleProg()); return; }
+  if (m.type === 'plLists') { plLists().then(lists => send({ lists })).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'plVideos') { Promise.all((m.ids || []).map(plVideos)).then(rs => { const seen = new Set(), items = []; rs.flat().forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); items.push(x); } }); send({ items }); }).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'feedClear') { // 新着一覧の保存結果(feedCache_*)・ショートの投稿日(spub)・メモリのキャッシュを消す。Drive同期の対象外の一時データだけ
+    tcache.clear(); chrome.storage.local.remove(['feedCache_v', 'feedCache_s', 'feedCache_l', 'spub']).then(() => send({ ok: true })).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'newCounts') { // 各チャンネルの「N日以内の新着動画」件数(RSS・20分キャッシュ)
     const cut = Date.now() - (m.days || 3) * 86400000;
     Promise.all((m.keys || []).map(k => limit(async () => {
@@ -357,4 +366,72 @@ async function bulkMetaIds(list) {
     list.forEach(c => { if (c.id) meta[c.key] = { ...meta[c.key], id: c.id }; });
     await chrome.storage.local.set({ meta });
   }));
+}
+
+// ---- 視聴ページ: ログイン中のアカウントの再生リスト(ライブラリ) ----
+// 再生リスト一覧(FEplaylist_aggregation)と、各再生リストの動画(VL+ID)を、ログイン情報つきで取得する。
+let ytApi = null;
+async function ytCtx() {
+  if (ytApi) return ytApi;
+  const html = await (await fetch(ORIGIN + '/', { credentials: 'include' })).text();
+  const key = (html.match(/"INNERTUBE_API_KEY":"([^"]+)"/) || [])[1], ver = (html.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/) || [])[1];
+  if (!key) throw new Error('YouTubeの情報を取得できません');
+  return (ytApi = { key, ver: ver || '2.20260101.00.00' });
+}
+async function authBrowse(browseId, continuation) {
+  const c = await ytCtx(), headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+  const body = { context: { client: { clientName: 'WEB', clientVersion: c.ver, hl: 'ja', gl: 'JP' } } };
+  if (continuation) body.continuation = continuation; else body.browseId = browseId;
+  const r = await fetch(`${ORIGIN}/youtubei/v1/browse?key=${c.key}&prettyPrint=false`, { method: 'POST', credentials: 'include', headers, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error('browse ' + r.status + (r.status === 401 || r.status === 403 ? '(ログインが必要です)' : ''));
+  return r.json();
+}
+const txt = o => !o ? '' : (o.simpleText || o.content || (o.runs || []).map(x => x.text).join('') || '');
+const lastThumb = t => t && t.thumbnails && t.thumbnails.length ? t.thumbnails[t.thumbnails.length - 1].url : '';
+// 再生リスト一覧: [{ id, title, count, thumb }]。ライブラリ(後で見る・高く評価した動画)は、ページ側でひとつにまとめる
+async function plLists() {
+  const out = new Map(); let tok = null;
+  for (let i = 0; i < 20; i++) {
+    const j = await authBrowse('FEplaylist_aggregation', tok); tok = null;
+    (function walk(o) {
+      if (!o || typeof o !== 'object') return;
+      if (o.continuationCommand && o.continuationCommand.token && !tok) tok = o.continuationCommand.token;
+      const p = o.playlistRenderer || o.gridPlaylistRenderer;
+      if (p && p.playlistId) { out.set(p.playlistId, { id: p.playlistId, title: txt(p.title), owner: txt(p.shortBylineText) || txt(p.longBylineText), count: txt(p.videoCountText) || txt(p.videoCountShortText) || p.videoCount || '', thumb: lastThumb(p.thumbnails && p.thumbnails[0]) || lastThumb(p.thumbnail) || lastThumb(p.thumbnailRenderer && p.thumbnailRenderer.playlistVideoThumbnailRenderer && p.thumbnailRenderer.playlistVideoThumbnailRenderer.thumbnail) }); return; }
+      const lv = o.lockupViewModel;
+      if (lv && /PLAYLIST/.test(lv.contentType || '') && lv.contentId) {
+        const m = lv.metadata && lv.metadata.lockupMetadataViewModel, ci = lv.contentImage && lv.contentImage.collectionThumbnailViewModel, im = ci && ci.primaryThumbnail && ci.primaryThumbnail.thumbnailViewModel && ci.primaryThumbnail.thumbnailViewModel.image;
+        const badge = JSON.stringify(lv.contentImage || {}).match(/"text":"([^"]*(?:本|videos?)[^"]*)"/);
+        const rows0 = (m && m.metadata && m.metadata.contentMetadataViewModel && m.metadata.contentMetadataViewModel.metadataRows) || [], own0 = rows0[0] && rows0[0].metadataParts && rows0[0].metadataParts[0] ? txt(rows0[0].metadataParts[0].text) : '';
+        out.set(lv.contentId, { id: lv.contentId, title: m ? txt(m.title) : '', owner: own0, count: badge ? badge[1] : '', thumb: im && im.sources && im.sources.length ? im.sources[im.sources.length - 1].url : '' });
+        return;
+      }
+      Object.values(o).forEach(walk);
+    })(j);
+    if (!tok) break;
+  }
+  return [...out.values()];
+}
+// 再生リストの動画: [{ id, title, ch, len, thumb }]
+async function plVideos(listId) {
+  const out = []; let tok = null;
+  for (let i = 0; i < 5 && out.length < 300; i++) {
+    const j = tok ? await authBrowse(null, tok) : await authBrowse('VL' + listId); tok = null;
+    (function walk(o) {
+      if (!o || typeof o !== 'object') return;
+      if (o.continuationCommand && o.continuationCommand.token && !tok) tok = o.continuationCommand.token;
+      const v = o.playlistVideoRenderer;
+      if (v && v.videoId) { const ov = (v.thumbnailOverlays || []).find(x => x.thumbnailOverlayResumePlaybackRenderer); out.push({ id: v.videoId, title: txt(v.title), ch: txt(v.shortBylineText), len: txt(v.lengthText), pct: ov ? ov.thumbnailOverlayResumePlaybackRenderer.percentDurationWatched || 0 : 0, thumb: lastThumb(v.thumbnail) }); return; }
+      const lv = o.lockupViewModel;
+      if (lv && /VIDEO/.test(lv.contentType || '') && lv.contentId) {
+        const m = lv.metadata && lv.metadata.lockupMetadataViewModel, im = lv.contentImage && lv.contentImage.thumbnailViewModel && lv.contentImage.thumbnailViewModel.image;
+        const rows = (m && m.metadata && m.metadata.contentMetadataViewModel && m.metadata.contentMetadataViewModel.metadataRows) || [];
+        out.push({ id: lv.contentId, title: m ? txt(m.title) : '', ch: rows[0] && rows[0].metadataParts && rows[0].metadataParts[0] ? txt(rows[0].metadataParts[0].text) : '', len: '', thumb: im && im.sources && im.sources.length ? im.sources[im.sources.length - 1].url : '' });
+        return;
+      }
+      Object.values(o).forEach(walk);
+    })(j);
+    if (!tok) break;
+  }
+  return out;
 }

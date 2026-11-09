@@ -292,13 +292,15 @@
     for (const s of ['ytd-masthead #background', '#masthead-container', 'ytd-masthead', 'ytd-app', 'body', 'html']) { const e = $(s); const c = e && getComputedStyle(e).backgroundColor; if (solid(c)) return c; }
     return '';
   }
+  // 上に浮いたツールバーが、ページの見出し(更新ボタンなど)に重なるときは、その高さぶん、ページの内容を下げる
+  function toolbarPad(file) { const hb = $('#tf-hbar.tf-hfloat'); if (file !== 'page.html' || !hb) return ''; const r = hb.getBoundingClientRect(); if (r.height < 10 || r.top > 220) return ''; const pt = Math.round(r.bottom - 56 + 8); return pt > 0 ? '&pt=' + pt : ''; }
   function openView(file, extra) {
     closeView();
     const pm = $('ytd-page-manager'), r = pm ? pm.getBoundingClientRect() : { left: 240 };
     const v = el('div'); v.id = 'tf-view';
     v.style.left = Math.max(0, r.left) + 'px';
     { const bg = pageBg(); if (bg) v.style.background = bg; }
-    v.innerHTML = '<iframe src="' + chrome.runtime.getURL((file === 'page.html' ? 'manager.html' : (file || 'manager.html')) + '?embed=1&dark=' + (document.documentElement.hasAttribute('dark') ? 1 : 0) + '&bg=' + encodeURIComponent(pageBg()) + (extra || '')) + '"></iframe>';
+    v.innerHTML = '<iframe src="' + chrome.runtime.getURL((file === 'page.html' ? 'manager.html' : (file || 'manager.html')) + '?embed=1&dark=' + (document.documentElement.hasAttribute('dark') ? 1 : 0) + '&bg=' + encodeURIComponent(pageBg()) + (extra || '') + toolbarPad(file)) + '"></iframe>';
     // 空のページ(ツールバーのボタン)は、ツールバーの下だけを置き換える(ツールバーはそのまま)。フォルダ画面は、これまでどおり全体を置き換える
     if (file === 'page.html') { v.dataset.pg = '1'; document.documentElement.setAttribute('data-tf-pg', ''); } else document.documentElement.setAttribute('data-tf-view', '');
     document.body.appendChild(v);
@@ -345,7 +347,7 @@
     if (key === 'imp') return `<div class="fh">登録チャンネル</div><button data-a="imp">⟳ YouTubeから取り込む</button>`;
     if (key === 'mgr') return `<div class="fh">グループ管理</div><button data-a="mgr">❖ 管理画面を開く</button>`;
     if (key === 'set') return `<div class="fh">表示</div><button data-a="hw" class="${S.settings.hideWatched ? 'act' : ''}">視聴済みを隠す ${S.settings.hideWatched ? '✓' : ''}</button><button data-a="hm" class="${S.settings.hideMix ? 'act' : ''}">ミックスリストを隠す ${S.settings.hideMix ? '✓' : ''}</button><button data-a="hbh" class="${S.settings.hbarHome === 'closed' ? 'act' : ''}">ホームではバーを閉じる ${S.settings.hbarHome === 'closed' ? '✓' : ''}</button><button data-a="hc" class="${S.settings.hideCreate === true ? 'act' : ''}">「作成」ボタンを隠す ${S.settings.hideCreate === true ? '✓' : ''}</button><button data-a="more" class="sep">⚙ そのほかの設定</button>`;
-    if (key === 'test') return `<div class="fh">テスト機能</div><button data-a="diag">棚の診断をコピー</button>`;
+    if (key === 'test') return `<div class="fh">ページ</div><button data-a="pgt" data-p="new">🆕 新着動画</button><button data-a="pgt" data-p="live">📡 ライブ・配信</button><button data-a="pgt" data-p="shorts">⚡ ショート</button><div class="fh">テスト機能</div><button data-a="diag">棚の診断をコピー</button>`;
     return '';
   }
   let hubSt = '';
@@ -374,10 +376,13 @@
     root.setAttribute('data-tf-fit', '');
   }
   // 各ボタン → 空のページ(後で中身を作る)。キーとタイトル
-  const HBAR_PAGES = { new: '新着動画', live: 'ライブ・配信', shorts: 'ショート', rec: '検索ツール', later: '後で見る', bm: 'ブックマーク' };
+  const HBAR_PAGES = { new: '新着動画', live: 'ライブ・配信', shorts: 'ショート', later: '視聴', rec: '検索', bm: 'ブックマーク' };
   // ツールバーの置き方(試験用)。ボタン「配置」で順に切り替える
   const HBAR_MODES = [['home', '標準'], ['fixed', '固定バー'], ['bottom', '下バー']];
   const HBAR_ICONS = { new: '🆕', live: '📡', shorts: '⚡', rec: '🔎', later: '🕒', bm: '🔖' };
+  // 新着動画 / ライブ・配信 / ショート のボタンは、ツールバーには出さず、テスト機能(⚙ の「開発者向け」と、ハブの「テスト」)から開く
+  const TEST_PAGES = ['new', 'live', 'shorts'];
+  function openPg(p) { document.documentElement.setAttribute('data-tf-pgk', p); openView('page.html', '&p=' + encodeURIComponent(p) + '&t=' + encodeURIComponent(HBAR_PAGES[p] || '')); document.documentElement.setAttribute('data-tf-pgk', p); }
   // ツール(旧ハブの機能)。上のバーの右側のボタンを押すと、その下にメニューが開く
   function showBarFly(it) {
     const f = el('div'); f.id = 'tf-gsb-fly'; f.className = 'tf-barfly'; document.body.appendChild(f);
@@ -404,7 +409,7 @@
     if (skip || (!chips && !fixed && !floatMode)) { html.removeAttribute('data-tf-hbot'); if (b) b.remove(); html.removeAttribute('data-tf-hbar'); html.removeAttribute('data-tf-hfix'); return; }
     if (!b) {
       b = el('div'); b.id = 'tf-hbar';
-      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-grp">${['cols', 'folder', 'test'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
+      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).filter(([k]) => !TEST_PAGES.includes(k)).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-grp">${['cols', 'folder', 'test'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
       b.addEventListener('click', e => {
         const x = e.target.closest('button[data-a]'); if (!x) return;
         const a = x.dataset.a;
@@ -412,7 +417,7 @@
         else if (a === 'pos') { const cur = HBAR_MODES.findIndex(m => m[0] === (S.settings.hbarPos || 'home')), nx = HBAR_MODES[(cur + 1) % HBAR_MODES.length][0]; TF.mutate(s => { s.settings.hbarPos = nx; }); }
         else if (a === 'gear') { closeFly(); $('#tf-set') ? closeSettings() : openSettings(x); }
         else if (a === 'hub') { const f0 = $('#tf-gsb-fly'); const same = f0 && f0.dataset.k === x.dataset.k; closeFly(); if (!same) showBarFly(x); }
-        else if (a === 'pg') { document.documentElement.setAttribute('data-tf-pgk', x.dataset.p); openView('page.html', '&p=' + encodeURIComponent(x.dataset.p) + '&t=' + encodeURIComponent(HBAR_PAGES[x.dataset.p] || '')); document.documentElement.setAttribute('data-tf-pgk', x.dataset.p); }
+        else if (a === 'pg') openPg(x.dataset.p);
         else if (a === 'tools') TF.mutate(s => { s.settings.hideChips = s.settings.hideChips === false; }); // 初期値は「閉じる」(未設定=閉じている)
       });
     }
@@ -540,6 +545,9 @@
       <button class="tf-srow tf-sbtn" id="tfs-impj">📥 JSONから読み込む(この端末を上書き)</button>
       <input type="file" id="tfs-file" accept=".json,application/json" hidden>
       <details class="tf-dev"><summary>開発者向け(テスト・診断)</summary>
+      <button class="tf-srow tf-sbtn" data-pgt="new">🆕 新着動画のページ</button>
+      <button class="tf-srow tf-sbtn" data-pgt="live">📡 ライブ・配信のページ</button>
+      <button class="tf-srow tf-sbtn" data-pgt="shorts">⚡ ショートのページ</button>
       <button class="tf-srow tf-sbtn" id="tfs-t4">${S.settings.hub === true ? '🧪 右下のサイドバーを隠す' : '🧪 右下のサイドバーを表示する'}</button>
       <button class="tf-srow tf-sbtn" id="tfs-diag">🔍 棚の診断をコピー(表示が足りないとき)</button>
       <button class="tf-srow tf-sbtn" id="tfs-ldiag">🔍 左端の診断をコピー(位置がずれるとき)</button>
@@ -554,6 +562,7 @@
     $('#tfs-hw', p).onchange = e => TF.mutate(s => { s.settings.hideWatched = e.target.checked; });
     $('#tfs-diag', p).onclick = () => { closeSettings(); copyShelfDiag(); };
     $('#tfs-ldiag', p).onclick = () => { closeSettings(); copyLayoutDiag(); };
+    p.querySelectorAll('[data-pgt]').forEach(b => { b.onclick = () => { closeSettings(); openPg(b.dataset.pgt); }; });
     $('#tfs-t4', p).onclick = () => { closeSettings(); TF.mutate(s => { s.settings.hub = s.settings.hub !== true; }); };
     $('#tfs-ai', p).onclick = async () => { const n = await TF.autoIcons(); toast(n ? `${n}件のフォルダにアイコンを設定しました` : '設定できるフォルダはありませんでした(⭐のフォルダだけ対象)'); };
     $('#tfs-nd', p).onchange = e => TF.mutate(s => { s.settings.newDays = +e.target.value; });

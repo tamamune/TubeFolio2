@@ -6,7 +6,7 @@
   apply(get());
   const qp = new URLSearchParams(location.search);
   if (qp.get('p') && !/page.html$/.test(location.pathname)) { location.replace('page.html' + location.search); } // ツールバーのページ: web_accessible_resources に頼らず、manager.html から入って、拡張機能の中で page.html へ移る
-  if (qp.get('embed') === '1') { root.setAttribute('data-embed', ''); root.setAttribute('data-theme', qp.get('dark') === '1' ? 'dark' : 'light'); const bg = qp.get('bg'); if (bg && /^(rgb|#)/i.test(bg)) root.style.setProperty('--bg', bg); } // YouTube内: YouTubeのテーマと背景色に合わせる
+  if (qp.get('embed') === '1') { root.setAttribute('data-embed', ''); root.setAttribute('data-theme', qp.get('dark') === '1' ? 'dark' : 'light'); const bg = qp.get('bg'); if (bg && /^(rgb|#)/i.test(bg)) root.style.setProperty('--bg', bg); const pt = parseInt(qp.get('pt'), 10); if (pt > 0 && pt < 300) root.style.setProperty('--pt', pt + 'px'); } // YouTube内: YouTubeのテーマと背景色に合わせる
   document.addEventListener('DOMContentLoaded', () => {
     const b = document.getElementById('theme'); if (!b) return;
     const icon = { auto: '🖥️', light: '☀️', dark: '🌙' };
