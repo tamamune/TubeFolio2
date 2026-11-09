@@ -33,12 +33,15 @@ if (!KIND[P]) { // まだ中身のないページ
   function draw() {
     const box = $('#list');
     if (!data) { box.innerHTML = '<p class="empty">読み込み中…</p>'; return; }
-    const items = (data.items || []).filter(x => x.kind === kind);
+    const all = (data.items || []).filter(x => x.kind === kind);
+    const liveNow = kind === 'l' ? all.filter(x => x.live) : []; // ライブ中は、日付ごとの一覧とは別に、先頭に出す
+    const items = kind === 'l' ? all.filter(x => !x.live) : all;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const days = Array.from({ length: DAYS }, (_, i) => new Date(today.getTime() - i * 86400000));
     const byDay = new Map(days.map(d => [dkey(d), []]));
     items.forEach(x => { const a = byDay.get(dkey(new Date(x.published))); if (a) a.push(x); });
-    box.innerHTML = days.map((d, i) => {
+    const liveSec = liveNow.length ? `<section class="day livenow"><div class="dh"><h2>🔴 ライブ中</h2><span class="cnt">${liveNow.length}件</span></div><div class="grid">${liveNow.map(x => card(x)).join('')}</div></section>` : '';
+    box.innerHTML = liveSec + days.map((d, i) => {
       const k = dkey(d), list = byDay.get(k), asc = sorts[k] === 'asc';
       list.sort((a, b) => asc ? a.published.localeCompare(b.published) : b.published.localeCompare(a.published));
       const label = ymd(d) + (i === 0 ? ' ・今日' : i === 1 ? ' ・昨日' : '');
@@ -61,19 +64,30 @@ if (!KIND[P]) { // まだ中身のないページ
   });
 
   function status() {
-    chrome.runtime.sendMessage({ type: 'feedStatus' }, r => {
+    chrome.runtime.sendMessage({ type: 'feedStatus', kind }, r => {
       const st = $('#st'); if (!st) return;
       if (r && r.running) { st.textContent = `${r.phase} ${r.done}/${r.total}(取得できた分から表示)`; if (r.items && r.items.length) { data = { items: r.items, t: 0 }; draw(); } timer = setTimeout(status, 1500); } else st.textContent = data && data.t ? `更新: ${new Date(data.t).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : '';
     });
   }
   function load(force) {
     $('#rf').disabled = true; clearTimeout(timer); status();
-    chrome.runtime.sendMessage({ type: 'feedAll', days: DAYS, force: !!force }, r => {
+    chrome.runtime.sendMessage({ type: 'feedAll', days: DAYS, force: !!force, kind }, r => {
       $('#rf').disabled = false; clearTimeout(timer);
       if (!r || r.error) { $('#st').textContent = '取得に失敗しました' + (r && r.error ? `(${r.error})` : ''); return; }
       data = r; draw(); status();
     });
   }
+  // 列の個数: 上のバーの「▦ 列数」の設定に合わせる(動画・ライブ配信は「動画の列数」、ショートは「ショート棚の列数」。標準のときは、画面の幅に合わせて自動)
+  const applyCols = () => chrome.storage.local.get('settings').then(r => {
+    const g = (r.settings || {}).thumb || {}, n = kind === 's' ? (g.scols ? (g.sN || 6) : 0) : (g.cols ? (g.colsN || 5) : 0);
+    if (n) document.documentElement.style.setProperty('--pg-cols', `repeat(${n}, minmax(0, 1fr))`); else document.documentElement.style.removeProperty('--pg-cols');
+  }).catch(() => {});
+  applyCols(); chrome.storage.onChanged.addListener(ch => { if (ch.settings) applyCols(); });
   $('#rf').onclick = () => load(true);
-  draw(); load(false);
+  draw();
+  // 前回の結果があれば、すぐに表示する(古くても先に見せて、裏で最新に更新する)
+  try { chrome.storage.local.get('feedCache_' + kind).then(r => { const fc = r['feedCache_' + kind]; if (fc && fc.items && !data) { data = fc; draw(); const st = $('#st'); if (st && !st.textContent) st.textContent = '前回の結果を表示中(更新しています)'; } }); } catch (e) { /* 無視 */ }
+  load(false);
 }
+// ページの中をクリックしたことを、YouTube側(親)へ知らせる(親で開いているメニューを閉じるため)
+document.addEventListener('mousedown', () => { try { parent.postMessage({ tfClick: 1 }, '*'); } catch (e) { /* 無視 */ } }, true);

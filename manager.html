@@ -12,30 +12,26 @@
   <aside class="side">
     <div class="brand"><span class="logo">▶</span><div><b>TubeFolio2</b><small>登録チャンネル管理</small></div></div>
     <nav id="nav"></nav>
-    <button class="add" id="addGroup">＋ グループを作成</button>
-    <div class="foot">
-      <button id="theme" class="th" title="テーマ切替"></button>
-      <button id="exp">⬇ バックアップ</button>
-      <button id="imp">⬆ 復元</button>
-      <input type="file" id="file" accept="application/json" hidden>
-    </div>
   </aside>
   <main>
-    <header>
-      <div class="title"><h1 id="ttl"></h1><p id="sub"></p></div>
-      <div class="tools">
-        <div class="search"><span>🔍</span><input id="q" placeholder="チャンネルを検索"></div>
-        <select id="sort"><option value="added">追加順</option><option value="name">名前順 (A-Z)</option></select>
-        <button class="btn" id="drvsync" title="Google Driveと同期">☁ 同期</button><span id="drvst" style="font-size:12px;opacity:.7"></span>
-        <button class="btn pri" id="ytimp">⟳ YouTubeから取り込む</button>
-      </div>
-    </header>
+    <nav class="gbar" id="gbar">
+      <div class="gtitle"><b id="ttl"></b><small id="sub"></small></div>
+      <span id="drvst" class="gdrv"></span>
+      <button class="btn pri" id="ytimp">⟳ YouTubeから取り込む</button>
+      <span class="gspace"></span>
+      <button id="statsTgl" class="gpill" title="投稿情報">📊 投稿情報</button>
+      <div class="search gsearch"><span>🔍</span><input id="q" placeholder="チャンネルを検索"></div>
+      <span class="gtools">
+        <button data-g="menu" id="gmenu" title="チャンネル管理の設定"><img src="gear.png" alt="設定" width="24" height="24"></button>
+        <input type="file" id="gfile" accept=".json,application/json" hidden>
+      </span>
+    </nav>
+    <header hidden></header>
     <div id="bulk" class="bulk" hidden>
       <b id="bcnt"></b>
       <div id="bgroups"></div>
       <button id="bclr">選択解除</button>
     </div>
-    <section id="stats" class="stats"></section>
     <section id="grid" class="grid"></section>
     <div id="empty" class="empty" hidden></div>
     <section id="chview" hidden></section>

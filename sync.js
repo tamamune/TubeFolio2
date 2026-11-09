@@ -89,6 +89,39 @@ function syncNow(interactive) {
   })().finally(() => { syncP = null; }));
 }
 
+// 手動: 'up' = この端末の内容でDriveを上書き / 'down' = Driveの内容でこの端末を上書き(rev の新旧は見ない)
+async function driveForce(dir) {
+  if (syncP) { try { await syncP; } catch (e) {} }
+  try {
+    await setStatus('syncing');
+    const tok = await driveToken(true);
+    const id = await findFile(tok);
+    if (dir === 'up') {
+      const local = await chrome.storage.local.get(SYNC_KEYS), rev = Date.now(), data = {};
+      SYNC_KEYS.forEach(k => { if (local[k] !== undefined) data[k] = local[k]; });
+      await upload(tok, id, JSON.stringify({ app: 'TubeFolio2', rev, data }));
+      await chrome.storage.local.set({ syncMeta: { rev } });
+      await setStatus('ok', 'Driveへアップロードしました');
+    } else {
+      if (!id) throw new Error('Driveにまだデータがありません');
+      const remote = await (await dapi(tok, `/drive/v3/files/${id}?alt=media`)).json();
+      if (!remote || !remote.data) throw new Error('Driveのデータを読み込めませんでした');
+      applying = true;
+      const set = { syncMeta: { rev: remote.rev || Date.now() } };
+      SYNC_KEYS.forEach(k => { if (remote.data[k] !== undefined) set[k] = remote.data[k]; });
+      await chrome.storage.local.set(set);
+      setTimeout(() => { applying = false; }, 500);
+      await setStatus('ok', 'Driveからダウンロードしました');
+    }
+    return { ok: true };
+  } catch (e) {
+    const msg = String(e.message || e);
+    console.warn('[TubeFolio2 sync]', e);
+    await setStatus('error', msg);
+    return { error: msg };
+  }
+}
+
 // ローカル変更 → rev更新 → 少し待ってDriveへ
 let pushT = 0;
 chrome.storage.onChanged.addListener((ch, area) => {

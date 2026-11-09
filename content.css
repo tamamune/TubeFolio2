@@ -177,96 +177,52 @@ html:has(#tf-view:not(.tf-away)), html:has(#tf-view:not(.tf-away)) body { overfl
 #tf-view { overscroll-behavior: contain; }
 
 /* ホームの登録/未登録の見分けテスト */
-#tf-testbtn { display: inline-flex; align-items: center; height: 36px; margin-right: 6px; padding: 0 14px; border: 0; border-radius: 18px; background: var(--yt-spec-badge-chip-background, var(--tf-chip)); color: var(--yt-spec-text-primary, var(--tf-fg)); font: 500 14px Roboto, "Yu Gothic UI", sans-serif; cursor: pointer; white-space: nowrap; }
-#tf-testbtn:hover { background: var(--yt-spec-10-percent-layer, var(--tf-line)); }
-#tf-test { position: fixed; z-index: 2147483000; width: 300px; padding: 8px; background: var(--tf-bg); color: var(--tf-fg); border: 1px solid var(--tf-line); border-radius: 16px; box-shadow: var(--tf-shadow); font: 13px/1.3 Roboto, "Yu Gothic UI", sans-serif; }
-#tf-test .tf-srow { display: flex; width: 100%; box-sizing: border-box; margin: 4px 0; padding: 6px 4px; }
-#tf-test .tf-ssub { padding: 4px; font-size: 11px; color: var(--tf-sub); }
-#tf-tbar { display: flex; gap: 8px; padding: 8px 0 12px; }
+
 /* A: 未登録を薄く */
-.tf-unsub.tfx-dim { opacity: .5; transition: opacity .15s; }
-.tf-unsub.tfx-dim:hover { opacity: 1; }
+
 /* B: 登録チャンネル名の横に ✓ */
-.tf-sub.tfx-badge .tf-cn::after { content: "✓"; display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 8px; background: #2ba640; color: #fff; font-size: 10px; font-weight: 700; line-height: 15px; vertical-align: middle; }
+
 /* C: アイコンの輪(フォルダ色があればその色) */
 /* D: サムネの枠 */
 /* C: アイコンの輪 / D: サムネの枠 (画像自身のoutlineで内側に描く) */
-.tf-sub.tfx-ring img.tf-avimg { outline: 3px solid var(--tf-c, #2ba640); outline-offset: -3px; border-radius: 50%; }
-.tf-sub.tfx-frame:not([data-tf-on]) img.tf-thimg { outline: 4px solid #2ba640; outline-offset: -4px; }
 
 /* F: 登録カードの背景色(フォルダ色があればその色) */
-.tf-sub.tfx-tint { background: color-mix(in srgb, var(--tf-c, #2ba640) 11%, transparent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--tf-c, #2ba640) 11%, transparent); border-radius: 14px; }
+
 /* G / H: カードを基準にした目印 */
-.tf-sub.tfx-stripe, .tf-unsub.tfx-stripe, .tf-sub.tfx-label, .tf-unsub.tfx-label { position: relative; }
-.tf-sub.tfx-stripe::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: 3px; background: var(--tf-c, #2ba640); z-index: 3; pointer-events: none; }
-.tf-sub.tfx-label::after, .tf-unsub.tfx-label::after { position: absolute; top: 8px; left: 10px; z-index: 3; padding: 0 7px; border-radius: 9px; color: #fff; font: 700 11px/18px Roboto, "Yu Gothic UI", sans-serif; pointer-events: none; }
-.tf-sub.tfx-label::after { content: "登録"; background: #2ba640; }
-.tf-unsub.tfx-label::after { content: "未登録"; background: #6b7280; }
+
 /* I: 未登録をモノクロ */
-.tf-unsub.tfx-gray { filter: grayscale(1); transition: filter .15s; }
-.tf-unsub.tfx-gray:hover { filter: none; }
+
 /* J: 登録チャンネル名の色 */
-.tf-sub.tfx-namecolor .tf-cn, .tf-sub.tfx-namecolor .tf-cn * { color: var(--tf-c, #2ba640) !important; font-weight: 600; }
 
 /* K: サムネ下端のカラーバー */
-.tf-sub.tfx-bar img.tf-thimg { border-bottom: 5px solid var(--tf-c, #2ba640); box-sizing: border-box; }
+
 /* L: フォルダ名チップ(チャンネル名の前) */
-.tf-sub.tfx-fchip .tf-cn[data-tf-f]::before { content: attr(data-tf-f); display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 9px; background: color-mix(in srgb, var(--tf-c, #2ba640) 28%, transparent); font-size: 11px; font-weight: 500; line-height: 17px; vertical-align: middle; }
+
 /* M: 未登録を縮小 */
-.tf-unsub.tfx-small { transform: scale(.9); transform-origin: top left; transition: transform .15s; }
-.tf-unsub.tfx-small:hover { transform: none; }
+
 /* O: 視聴済みを薄く */
-.tf-watched.tfx-watched { opacity: .45; }
+
 /* N: フォルダの新着フィード */
-#tf-feed { margin: 4px 0 14px; padding: 10px 12px 12px; border: 1px solid var(--tf-line); border-radius: 14px; font-family: Roboto, "Yu Gothic UI", sans-serif; color: var(--yt-spec-text-primary, var(--tf-fg)); }
-#tf-feed .tff-h { font-size: 15px; font-weight: 500; margin-bottom: 8px; }
-#tf-feed .tff-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
-#tf-feed .tff-c { flex: none; width: 180px; display: flex; flex-direction: column; gap: 4px; color: inherit; text-decoration: none; }
-#tf-feed .tff-c img { width: 180px; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px; background: var(--tf-chip); }
-#tf-feed .tff-c b { font-size: 13px; line-height: 18px; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-#tf-feed .tff-c small { font-size: 12px; color: var(--yt-spec-text-secondary, var(--tf-sub)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#tf-feed .tff-n { color: var(--tf-sub); font-size: 13px; padding: 12px 4px; }
 
 /* 新A: サムネの外側に1ptの枠(登録=青 / 非登録=赤)。サムネの位置はJSで測ってCSS変数に入れている */
-.tf-sub.tfx-br, .tf-unsub.tfx-br, .tf-sub.tfx-corner, .tf-unsub.tfx-corner { position: relative; }
-.tf-sub.tfx-br::before, .tf-unsub.tfx-br::before {
-  content: ""; position: absolute; z-index: 2; pointer-events: none; box-sizing: border-box;
-  top: var(--tf-tt, 0); left: var(--tf-tl, 0); width: var(--tf-tw, 100%); height: var(--tf-th, auto); aspect-ratio: 16 / 9;
-  border-radius: 12px; outline: var(--tf-bw, 2.667px) solid; outline-offset: 0;
-}
-.tf-sub.tfx-br::before { outline-color: #1a73e8; }
-.tf-unsub.tfx-br::before { outline-color: #e5322d; }
+
 /* 新B: サムネの左上に目印(登録=青 ✓ / 非登録=赤 ✕) */
-.tf-sub.tfx-corner::after, .tf-unsub.tfx-corner::after {
-  position: absolute; z-index: 3; pointer-events: none; box-sizing: border-box;
-  top: calc(var(--tf-tt, 0px) + 8px); left: calc(var(--tf-tl, 0px) + 8px); width: 20px; height: 20px; border-radius: 6px;
-  color: #fff; font: 700 13px/20px Roboto, "Yu Gothic UI", sans-serif; text-align: center;
-}
-.tf-sub.tfx-corner::after { content: "✓"; background: #1a73e8; }
-.tf-unsub.tfx-corner::after { content: "✕"; background: #e5322d; }
 
 /* ===== テスト2: サムネの大きさ ===== */
-#tf-thbtn { display: inline-flex; align-items: center; height: 36px; margin-right: 6px; padding: 0 14px; border: 0; border-radius: 18px; background: var(--yt-spec-badge-chip-background, var(--tf-chip)); color: var(--yt-spec-text-primary, var(--tf-fg)); font: 500 14px Roboto, "Yu Gothic UI", sans-serif; cursor: pointer; white-space: nowrap; }
-#tf-thbtn:hover { background: var(--yt-spec-10-percent-layer, var(--tf-line)); }
-#tf-th { position: fixed; z-index: 2147483000; width: 320px; padding: 8px; background: var(--tf-bg); color: var(--tf-fg); border: 1px solid var(--tf-line); border-radius: 16px; box-shadow: var(--tf-shadow); font: 13px/1.3 Roboto, "Yu Gothic UI", sans-serif; }
-#tf-th .tf-srow { display: flex; width: 100%; box-sizing: border-box; margin: 4px 0; padding: 6px 4px; }
-#tf-th .tf-rng { align-items: center; gap: 10px; padding-top: 0; } #tf-th .tf-rng input { flex: 1; } #tf-th .tf-rng b { width: 36px; font-weight: 500; }
-#tf-th .tf-ssub { padding: 4px; font-size: 11px; color: var(--tf-sub); }
+
+  
+
 /* 列数 */
 html[data-tf-g-cols] ytd-rich-grid-renderer { --ytd-rich-grid-items-per-row: var(--tf-cols, 5) !important; --ytd-rich-grid-slim-items-per-row: var(--tf-cols, 5) !important; --ytd-rich-grid-item-min-width: 100px !important; }
 /* 余白を詰める */
-html[data-tf-g-tight] ytd-rich-grid-renderer { --ytd-rich-grid-item-margin: 6px !important; --ytd-rich-grid-gutter-margin: 10px !important; }
-html[data-tf-g-tight] ytd-rich-grid-renderer ytd-rich-item-renderer { margin-bottom: 10px !important; }
+
 /* 1行リスト表示(実験): 1列にして、サムネを小さく左へ */
-html[data-tf-g-list] ytd-rich-grid-renderer { --ytd-rich-grid-items-per-row: 1 !important; --ytd-rich-grid-slim-items-per-row: 1 !important; --ytd-rich-grid-item-max-width: 900px !important; }
-html[data-tf-g-list] ytd-rich-item-renderer yt-lockup-view-model .yt-lockup-view-model--vertical { flex-direction: row !important; gap: 12px; align-items: flex-start; }
-html[data-tf-g-list] ytd-rich-item-renderer yt-lockup-view-model .yt-lockup-view-model__content-image { width: 168px !important; flex: none; }
+
 /* 再生ページ右の関連動画を縮小 */
-html[data-tf-g-rel] ytd-watch-flexy #secondary-inner, html[data-tf-g-rel] ytd-watch-flexy #related { zoom: .85; }
+
 /* 大きな棚を隠す */
-html[data-tf-g-shelf] ytd-rich-section-renderer, html[data-tf-g-shelf] ytd-reel-shelf-renderer, html[data-tf-g-shelf] ytd-ad-slot-renderer { display: none !important; }
+
 /* ホバーの拡大プレビューを止める */
-html[data-tf-g-noprev] ytd-video-preview, html[data-tf-g-noprev] #video-preview { display: none !important; }
 
 /* 列数を増やしたとき: タイトルが短く切れないよう、行数を増やし文字を少し小さくする */
 html[data-tf-g-cols] ytd-rich-item-renderer #video-title,
@@ -284,89 +240,38 @@ html[data-tf-g-cols] ytd-rich-item-renderer .yt-content-metadata-view-model__met
 html[data-tf-g-cols] ytd-rich-item-renderer ytd-channel-name, html[data-tf-g-cols] ytd-rich-item-renderer #metadata-line { font-size: var(--tf-meta-fs, 12px) !important; line-height: 1.3 !important; }
 
 /* ===== テスト3: 列数ボタンの置き場所 ===== */
-#tf-plbtn { display: inline-flex; align-items: center; height: 36px; margin-right: 6px; padding: 0 14px; border: 0; border-radius: 18px; background: var(--yt-spec-badge-chip-background, var(--tf-chip)); color: var(--yt-spec-text-primary, var(--tf-fg)); font: 500 14px Roboto, "Yu Gothic UI", sans-serif; cursor: pointer; white-space: nowrap; }
-#tf-plbtn:hover { background: var(--yt-spec-10-percent-layer, var(--tf-line)); }
-#tf-pl { position: fixed; z-index: 2147483000; width: 340px; padding: 8px; background: var(--tf-bg); color: var(--tf-fg); border: 1px solid var(--tf-line); border-radius: 16px; box-shadow: var(--tf-shadow); font: 13px/1.3 Roboto, "Yu Gothic UI", sans-serif; }
-#tf-pl .tf-srow { display: flex; width: 100%; box-sizing: border-box; margin: 4px 0; padding: 6px 4px; }
-#tf-pl .tf-ssub { padding: 4px; font-size: 11px; color: var(--tf-sub); }
-#tf-colbar, #tf-colhead, #tf-colfab, #tf-colguide { font: 500 13px Roboto, "Yu Gothic UI", sans-serif; color: var(--yt-spec-text-primary, var(--tf-fg)); }
-#tf-colbar { display: flex; align-items: center; gap: 10px; padding: 6px 0 10px; }
-#tf-colhead { display: inline-flex; align-items: center; margin-right: 6px; }
-#tf-colfab { position: fixed; right: 24px; bottom: 24px; z-index: 2100; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 22px; background: var(--yt-spec-menu-background, var(--tf-bg)); border: 1px solid var(--tf-line); box-shadow: var(--tf-shadow); }
-#tf-colguide { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; margin: 0; }
-#tf-colguide .tfc-gi { width: 24px; text-align: center; font-size: 18px; } #tf-colguide .tfc-gl { flex: 1; font-weight: 400; font-size: 14px; }
-.tfc-seg { display: inline-flex; gap: 4px; }
-.tfc-seg button, .tfc-step button { height: 30px; min-width: 32px; padding: 0 10px; border: 0; border-radius: 15px; background: var(--yt-spec-badge-chip-background, var(--tf-chip)); color: inherit; font: inherit; cursor: pointer; }
-.tfc-seg button:hover, .tfc-step button:hover { background: var(--yt-spec-10-percent-layer, var(--tf-line)); }
-.tfc-seg button.act { background: var(--yt-spec-text-primary, var(--tf-fg)); color: var(--yt-spec-base-background, var(--tf-bg)); }
-.tfc-step { display: inline-flex; align-items: center; gap: 4px; } .tfc-step b { min-width: 40px; text-align: center; font-weight: 500; }
+
+ 
+
+ 
 #tf-fd .tf-fd-sep { flex-basis: 100%; margin: 6px 0 0; font-size: 12px; color: var(--tf-sub); }
 #tf-fd .tf-fd-ic button .tf-ico { width: 26px; height: 26px; border-radius: 6px; vertical-align: middle; }
 
 /* テストパネル: 動画 / ショート の2列 */
-#tf-test { width: 400px; }
-#tf-test .tft-r { display: grid; grid-template-columns: 1fr 56px 56px; align-items: center; padding: 5px 4px; border-radius: 8px; }
-#tf-test .tft-r:hover { background: var(--tf-chip); }
-#tf-test .tft-h { color: var(--tf-sub); font-size: 12px; text-align: center; } #tf-test .tft-h b { font-weight: 500; }
-#tf-test .tft-r input[type=checkbox] { width: 18px; height: 18px; justify-self: center; accent-color: var(--tf-acc); cursor: pointer; }
+
+ 
 
 /* ショート棚の列数(動画の列数とは別) */
-.tfc-l2 { margin-left: 12px; }
 
 /* 新C: 3色の枠(フォルダ登録=フォルダ色 / 登録のみ=青 / 未登録=赤) */
-.tf-sub.tfx-tri, .tf-unsub.tfx-tri { position: relative; }
-.tf-sub.tfx-tri::before, .tf-unsub.tfx-tri::before {
-  content: ""; position: absolute; z-index: 2; pointer-events: none; box-sizing: border-box;
-  top: var(--tf-tt, 0); left: var(--tf-tl, 0); width: var(--tf-tw, 100%); height: var(--tf-th, auto); aspect-ratio: 16 / 9;
-  border-radius: 12px; outline: var(--tf-bw, 2.667px) solid; outline-offset: 0;
-}
-.tf-sub.tfx-tri::before { outline-color: #1a73e8; }
-.tf-sub.tfx-tri[data-tf-on]::before { outline-color: var(--tf-c, #1a73e8); }
-.tf-unsub.tfx-tri::before { outline-color: #e5322d; }
 
 /* タイトルが長いときは3行まで表示(列数の設定とは独立。初期オン) */
-html[data-tf-g-title3] ytd-rich-item-renderer #video-title,
-html[data-tf-g-title3] ytd-rich-item-renderer .yt-lockup-metadata-view-model__title,
-html[data-tf-g-title3] ytd-rich-item-renderer .yt-lockup-metadata-view-model__heading-reset,
-html[data-tf-g-title3] ytd-rich-item-renderer h3.yt-lockup-metadata-view-model__heading-reset { -webkit-line-clamp: 3 !important; max-height: none !important; }
 
 /* 隠れたつまみ(右端 / 上端): ふだんは細い印だけ。近づくと列数の切り替えが開く */
-#tf-colhR, #tf-colhT { position: fixed; z-index: 2100; display: flex; font: 500 13px Roboto, "Yu Gothic UI", sans-serif; color: var(--yt-spec-text-primary, var(--tf-fg)); }
-#tf-colhR { right: 0; top: 50%; transform: translateY(-50%); flex-direction: row-reverse; align-items: center; }
-#tf-colhT { top: 56px; left: 50%; transform: translateX(-50%); flex-direction: column; align-items: center; }
-#tf-colhR .tfh-tab, #tf-colhT .tfh-tab { display: grid; place-items: center; background: var(--tf-acc, #3a86ff); color: #fff; font-size: 0; opacity: .35; transition: opacity .15s, width .15s, height .15s, font-size .15s; }
-#tf-colhR .tfh-tab { width: 8px; height: 72px; border-radius: 6px 0 0 6px; }
-#tf-colhT .tfh-tab { width: 96px; height: 6px; border-radius: 0 0 6px 6px; }
-#tf-colhR:hover .tfh-tab { opacity: 1; width: 20px; font-size: 13px; }
-#tf-colhT:hover .tfh-tab { opacity: 1; height: 20px; font-size: 13px; }
-#tf-colhR .tfh-panel, #tf-colhT .tfh-panel { display: none; padding: 10px 12px; background: var(--yt-spec-menu-background, var(--tf-bg)); border: 1px solid var(--tf-line); box-shadow: var(--tf-shadow); }
-#tf-colhR .tfh-panel { border-radius: 12px 0 0 12px; } #tf-colhT .tfh-panel { border-radius: 0 0 12px 12px; }
-#tf-colhR:hover .tfh-panel, #tf-colhT:hover .tfh-panel { display: block; }
-.tfh-row { display: flex; align-items: center; gap: 10px; padding: 3px 0; } .tfh-row > span { width: 52px; color: var(--yt-spec-text-secondary, var(--tf-sub)); font-size: 12px; }
+
+ 
+
+ 
 
 /* 隠れたつまみ: 見た目の整え(ボタンの幅を揃え、「標準」が折り返さないようにする) */
-#tf-colhR .tfh-panel, #tf-colhT .tfh-panel { padding: 12px 16px 14px; }
-.tfh-row { gap: 14px; padding: 4px 0; }
-.tfh-row > span { flex: none; width: 62px; white-space: nowrap; font-size: 13px; font-weight: 500; }
-.tfh-panel .tfc-seg { display: grid; grid-template-columns: 58px repeat(5, 40px); gap: 6px; }
-.tfh-panel .tfc-seg button { width: 100%; min-width: 0; height: 32px; padding: 0; border-radius: 16px; white-space: nowrap; font-size: 13px; font-weight: 500; text-align: center; }
-.tfh-panel .tfc-seg button.act { box-shadow: 0 0 0 2px var(--tf-acc, #3a86ff); }
-#tf-colhT .tfh-tab { width: 110px; height: 6px; }
-#tf-colhT:hover .tfh-tab { height: 22px; border-radius: 0; }
-#tf-colhR:hover .tfh-tab { border-radius: 8px 0 0 8px; height: 84px; }
 
 /* 隠れたつまみ: 押せない問題への対策(最前面に出す・マウスを動かしても閉じない余白を足す・印を少し太くする) */
-#tf-colhR, #tf-colhT { z-index: 2147483000; pointer-events: auto; }
-#tf-colhR .tfh-panel, #tf-colhT .tfh-panel, #tf-colhR .tfh-tab, #tf-colhT .tfh-tab { pointer-events: auto; }
-#tf-colhR { padding: 24px 0 24px 14px; } /* 印の周りも「ホバー範囲」にして、パネルへ移動する途中で閉じないようにする */
-#tf-colhT { padding: 0 24px 14px; }
-#tf-colhR .tfh-tab { width: 12px; } #tf-colhR:hover .tfh-tab { width: 22px; }
-.tfh-panel .tfc-seg button { cursor: pointer; pointer-events: auto; position: relative; z-index: 1; }
+
+ /* 印の周りも「ホバー範囲」にして、パネルへ移動する途中で閉じないようにする */
+
+ 
 
 /* 隠れたつまみ: 幅が足りずボタンがパネルの外へはみ出していた(→マウスを移すとパネルが閉じて押せない)のを修正 */
-#tf-colhT, #tf-colhR { width: max-content; max-width: 98vw; box-sizing: border-box; }
-#tf-colhT .tfh-panel, #tf-colhR .tfh-panel { width: max-content; max-width: 96vw; box-sizing: border-box; }
-.tfh-panel .tfc-seg { width: max-content; }
 
 /* ===== テスト4: ガラス調の縦長サイドバー(CSSネスト) ===== */
 #tf-gsb-root { position: fixed; z-index: 2147483000; left: 16px; top: 72px; color: #f4efe9; font: 14px/1.4 Roboto, "Yu Gothic UI", sans-serif; text-align: left; }
@@ -441,8 +346,11 @@ kbd{font:10px system-ui;padding:2px 6px;border-radius:6px;background:rgba(255,25
 .tf-unsub.tfx-nest::before { border-color: #e5322d; }
 
 /* フォルダ画面の表示中は、後ろのYouTubeページを見せない(ミニバーのとき、ヘッダーの後ろにページの内容が透けて重なるのを防ぐ) */
-html[data-tf-view] ytd-page-manager, html[data-tf-view] ytd-page-manager *, html[data-tf-view] ytd-browse, html[data-tf-view] ytd-browse *, html[data-tf-view] #tf-bar, html[data-tf-view] #tf-feed, html[data-tf-view] #tf-feed * { visibility: hidden !important; }
-
+html[data-tf-view] ytd-page-manager,
+html[data-tf-view] ytd-page-manager *,
+html[data-tf-view] ytd-browse,
+html[data-tf-view] ytd-browse *,
+html[data-tf-view] #tf-bar { visibility: hidden !important; }
 
 /* 棚(ニュース速報・トピックなどの動画の棚)も動画の列数で並べる。列数・本数はJS(fixShelves)が --tf-eff に入れる */
 html[data-tf-g-cols] ytd-browse[page-subtype="home"] ytd-rich-grid-row, html[data-tf-g-cols] ytd-browse[page-subtype="home"] ytd-rich-grid-row > #contents { display: contents !important; }
@@ -454,7 +362,6 @@ ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn * { color: transparent !impor
 ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn > .tf-lbl { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--yt-spec-text-primary, #f1f1f1) !important; font: 500 14px Roboto, "Yu Gothic UI", sans-serif; pointer-events: none; white-space: nowrap; }
 
 /* ヘッダーのテストボタン(配置 / サムネ / テスト)は常時出さない。⚙ メニューの「テスト機能」から開く */
-#tf-testbtn, #tf-thbtn, #tf-plbtn { display: none !important; }
 
 /* 右下のハブ: 普段はロゴだけの丸。マウスを乗せると開く */
 #tf-gsb-root { left: auto; top: auto; right: 20px; bottom: 20px; }
@@ -519,8 +426,6 @@ ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn > .tf-lbl { position: absolut
 #tf-set.tf-glass .tf-ssel select option { color: #222; }
 #tf-set.tf-glass .tf-sbtn:hover { background: rgba(255,255,255,.26); border-color: rgba(255,255,255,.5); }
 
-
-
 /* 仮の横長ツールバー: ホームの「すべて / ゲーム…」のチップの上(チップの入れ物の中に置く) */
 #tf-hbar { position: relative; top: 4px; z-index: 1; width: 100%; height: 34px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 0; overflow-x: auto; scrollbar-width: none;
   background: transparent; color: var(--yt-spec-text-primary, var(--tf-fg)); font: 500 14px Roboto, "Yu Gothic UI", sans-serif; }
@@ -543,19 +448,8 @@ ytd-mini-guide-entry-renderer:is([active], [is-active]):not(:hover), ytd-mini-gu
 html[data-tf-nochips] ytd-browse[page-subtype="home"] #chips-wrapper > :not(#tf-hbar) { display: none !important; }
 
 /* タイトルを3行まで(新しいカードの作り: 行数の制限は、タイトルの中の文字の要素(span)に付いている) */
-html[data-tf-g-title3] ytd-rich-item-renderer .yt-lockup-metadata-view-model__title,
-html[data-tf-g-title3] ytd-rich-item-renderer .yt-lockup-metadata-view-model__title span,
-html[data-tf-g-title3] ytd-rich-item-renderer .yt-lockup-metadata-view-model__heading-reset span,
-html[data-tf-g-title3] ytd-rich-item-renderer h3 .yt-core-attributed-string,
-html[data-tf-g-title3] ytd-rich-item-renderer h3 span[role="text"],
-html[data-tf-g-title3] ytd-rich-item-renderer #video-title { -webkit-line-clamp: 3 !important; line-clamp: 3 !important; max-height: none !important; height: auto !important; }
-html[data-tf-g-title3] ytd-rich-item-renderer .yt-lockup-metadata-view-model__title { display: -webkit-box !important; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* タイトルを3行まで: クラス名が変わっても効くよう、タイトルの見出し(h3)とその中身すべてを対象にする */
-html[data-tf-g-title3] ytd-rich-item-renderer yt-lockup-view-model h3,
-html[data-tf-g-title3] ytd-rich-item-renderer yt-lockup-view-model h3 *,
-html[data-tf-g-title3] ytd-rich-item-renderer yt-lockup-view-model [class*="itle" i],
-html[data-tf-g-title3] ytd-rich-item-renderer yt-lockup-view-model [class*="eading" i] { -webkit-line-clamp: 3 !important; line-clamp: 3 !important; max-height: none !important; height: auto !important; }
 
 /* 「すべて / 音楽…」のチップを、ツールバーのボタン(新着動画など)と同じ見た目にそろえる。
    入れ子の外側の入れ物は透明にして、一番内側のボタンだけに色と形を付ける(選択中は白) */
@@ -586,10 +480,9 @@ ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn > .tf-lbl .tf-chv { color: tr
 #tf-hbar.tf-hfix .tfh-right { display: none; }
 html[data-tf-hfix] ytd-page-manager { margin-top: 34px; }
 html[data-tf-hfix] #tf-view { top: calc(var(--tf-mh, 56px) + 34px); }
-html[data-tf-view] #tf-hbar:not(.tf-hfix) { display: none; }
+html[data-tf-view] #tf-hbar:not(.tf-hfix):not(.tf-hfloat) { display: none; }
 
 /* 空のページ: ツールバーの下だけを置き換える。開いているボタンを目立たせる */
-html[data-tf-pg] #tf-view { top: 96px; }
 html[data-tf-pgk="new"] #tf-hbar [data-p="new"], html[data-tf-pgk="live"] #tf-hbar [data-p="live"], html[data-tf-pgk="shorts"] #tf-hbar [data-p="shorts"],
 html[data-tf-pgk="rec"] #tf-hbar [data-p="rec"], html[data-tf-pgk="later"] #tf-hbar [data-p="later"], html[data-tf-pgk="bm"] #tf-hbar [data-p="bm"] { background: var(--yt-spec-text-primary, #f1f1f1) !important; color: var(--yt-spec-text-primary-inverse, #0f0f0f) !important; }
 /* チップの行を閉じているときは、入れ物の余白と高さをツールバーの分だけにして、下の動画との間の空きをなくす */
@@ -610,7 +503,6 @@ html[data-tf-hbar][data-tf-nochips] ytd-browse[page-subtype="home"] ytd-feed-fil
   border-width: 0 3px 3px 0; border-radius: 0 0 calc(var(--tf-tr, 12px) + 4px) 0;
 }
 
-
 /* ツールバーを足したぶん、YouTube本来のすりガラスの背景(チップの行の後ろ)が足りなくなるので、高さを伸ばす(自前の背景は重ねない)。
    高さは --tf-glass-h(ツールバー+チップの行の高さ)で、JSが測って入れる */
 html[data-tf-hbar] #frosted-glass, html[data-tf-hbar] #frosted-glass.with-chipbar { height: var(--tf-glass-h, 100px) !important; min-height: var(--tf-glass-h, 100px) !important; }
@@ -625,3 +517,93 @@ html[data-tf-fit] ytd-rich-item-renderer yt-content-metadata-view-model [class*=
 html[data-tf-fit] ytd-rich-item-renderer yt-content-metadata-view-model [class*="metadata-row" i]:first-child a { white-space: normal !important; overflow: hidden; text-overflow: ellipsis; }
 html[data-tf-fit] ytd-rich-item-renderer ytd-channel-name yt-formatted-string, html[data-tf-fit] ytd-rich-item-renderer ytd-channel-name a,
 html[data-tf-fit] ytd-rich-item-renderer yt-content-metadata-view-model [class*="metadata-row" i]:first-child span[class*="attributed" i] { display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2 !important; line-clamp: 2 !important; max-height: none !important; }
+
+/* リロード時のガタつき防止: early.js が付ける data-tf-boot の間は画面を隠し、整形後にふわっと表示する */
+html[data-tf-boot] ytd-app { opacity: 0 !important; }
+html:not([data-tf-boot]) ytd-app { transition: opacity .15s ease; }
+html[data-tf-boot] #tf-hbar, html[data-tf-boot] #tf-gsb-root, html[data-tf-boot] #tf-view { opacity: 0 !important; }
+
+/* ツールバーの置き方(試験): 配置ボタンで切り替え */
+#tf-hbar .tfh-pos { background: transparent !important; border: 1px dashed var(--tf-line, rgba(128,128,128,.5)) !important; font-size: 12px; opacity: .75; }
+#tf-hbar.tf-hfloat { position: fixed; z-index: 2100; width: auto; overflow: visible; }
+#tf-hbar.tf-hfloat .tfh-right { display: none; }
+#tf-hbar .tfh-min { display: none; }
+/* 下バー: 画面の下に固定。その分、ページの下に余白をとるので内容に重ならない。指で押しやすい大きさ */
+#tf-hbar.tf-hfloat[data-mode="bottom"] { left: var(--tf-hbot-l, 0px); right: 0; bottom: 0; top: auto; height: var(--tf-hbot-h, 52px); box-sizing: border-box; padding: 0 8px; gap: 6px; justify-content: center; overflow-x: auto; background: var(--yt-spec-base-background, var(--tf-pagebg, #0f0f0f)); border-top: 1px solid var(--tf-line, rgba(128,128,128,.3)); }
+#tf-hbar.tf-hfloat[data-mode="bottom"] button { height: 38px; min-width: 44px; padding: 0 12px; font-size: 13px; }
+#tf-hbar.tf-hfloat[data-mode="bottom"] .tfh-min { display: inline-block; margin-right: auto; min-width: 36px; padding: 0 8px; }
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min > :not(.tfh-min) { display: none; }
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min { justify-content: flex-start; }
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min .tfh-min { height: 20px; margin: 0 auto; width: 56px; border-radius: 10px 10px 0 0; line-height: 20px; }
+html[data-tf-hbot] ytd-page-manager { margin-bottom: var(--tf-hbot-h, 52px); }
+@media (max-width: 640px) { #tf-hbar.tf-hfloat[data-mode="bottom"] button:not(.tfh-min):not(.tfh-pos) { font-size: 0; padding: 0; width: 44px; } #tf-hbar.tf-hfloat[data-mode="bottom"] button:not(.tfh-min):not(.tfh-pos)::before { content: attr(data-ic); font-size: 20px; line-height: 38px; } }
+@media (pointer: coarse) { #tf-hbar.tf-hfix button { height: 36px; } }
+
+/* 下バーを、ハブと同じ「ガラス」の見た目に */
+#tf-hbar.tf-hfloat[data-mode="bottom"] {
+  left: calc(var(--tf-hbot-l, 0px) + 12px); right: 12px; bottom: 8px; height: calc(var(--tf-hbot-h, 56px) - 14px); border-radius: 26px; padding: 0 10px; color: #f4efe9;
+  background: linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.08) 60%, rgba(255,170,90,.2)), rgba(40, 34, 30, .55); border: 1px solid rgba(255,255,255,.3);
+  box-shadow: 0 12px 36px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.35); backdrop-filter: blur(22px) saturate(1.3); -webkit-backdrop-filter: blur(22px) saturate(1.3); }
+#tf-hbar.tf-hfloat[data-mode="bottom"] button { height: 32px; background: transparent !important; color: #f4efe9; }
+#tf-hbar.tf-hfloat[data-mode="bottom"] button:hover { background: rgba(255,255,255,.16) !important; }
+html[data-tf-pgk="new"] #tf-hbar.tf-hfloat [data-p="new"], html[data-tf-pgk="live"] #tf-hbar.tf-hfloat [data-p="live"], html[data-tf-pgk="shorts"] #tf-hbar.tf-hfloat [data-p="shorts"],
+html[data-tf-pgk="rec"] #tf-hbar.tf-hfloat [data-p="rec"], html[data-tf-pgk="later"] #tf-hbar.tf-hfloat [data-p="later"], html[data-tf-pgk="bm"] #tf-hbar.tf-hfloat [data-p="bm"] { background: rgba(255,255,255,.88) !important; color: #222 !important; }
+/* たたんだとき: 小さなガラスのつまみ */
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min { left: calc(var(--tf-hbot-l, 0px) + (100vw - var(--tf-hbot-l, 0px)) / 2); right: auto; transform: translateX(-50%); width: 64px; height: 22px; padding: 0; bottom: 6px; border-radius: 11px; justify-content: center; overflow: hidden; }
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min .tfh-min { height: 22px; width: 64px; margin: 0; border-radius: 11px; line-height: 22px; }
+
+/* ダーク寄りの色 + 丸(●)ではなく角丸の四角(□) */
+#tf-hbar.tf-hfloat[data-mode="bottom"] { border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 60%, rgba(255,170,90,.07)), rgba(16, 14, 13, .82); border-color: rgba(255,255,255,.16); }
+#tf-hbar.tf-hfloat[data-mode="bottom"] button { border-radius: 8px; }
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min, #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min .tfh-min { border-radius: 8px; }
+#tf-gsb-root .gs.min { border-radius: 16px; }
+#tf-gsb-root .gs-x { border-radius: 6px; }
+
+/* 下バー → 上側(ヘッダーの下)に表示。その分、ページを下げて内容に重ならないようにする */
+#tf-hbar.tf-hfloat[data-mode="bottom"] { top: calc(var(--tf-mh, 56px) + 6px); bottom: auto; }
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min { top: calc(var(--tf-mh, 56px) + 4px); bottom: auto; }
+/* YouTubeは、ヘッダーの高さぶん、ページを下げている。バーを出している間は、その上にバーの高さを足す(畳んだときは足さない=0。以前は、ヘッダーの分まで消して、後ろのページが見えていた) */
+html[data-tf-hbot] ytd-page-manager { margin-bottom: 0; margin-top: calc(var(--tf-mh, 56px) + var(--tf-hbot-h, 56px)) !important; }
+html[data-tf-hbot] #tf-view, html[data-tf-hbot][data-tf-pg] #tf-view { top: calc(var(--tf-mh, 56px) + var(--tf-hbot-h, 56px)) !important; } /* バーを畳んだとき(高さ0)も、ヘッダーのすぐ下から。後ろのページが見えないように */
+
+/* ツール(旧ハブの機能)を、上のバーの右側に */
+#tf-hbar .tfh-grp { display: none; }
+#tf-hbar.tf-hfloat .tfh-grp { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding-left: 10px; border-left: 1px solid rgba(255,255,255,.18); flex: none; }
+#tf-hbar.tf-hfloat[data-mode="bottom"] button.tfh-t { min-width: 34px; width: 34px; padding: 0; font-size: 16px; }
+#tf-hbar.tf-hfloat[data-mode="bottom"] .tfh-min { margin-right: 0; }
+@media (max-width: 640px) { #tf-hbar.tf-hfloat[data-mode="bottom"] button.tfh-t { font-size: 0; width: 40px; min-width: 40px; } }
+#tf-gsb-fly.tf-barfly { background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 60%, rgba(255,170,90,.07)), rgba(16, 14, 13, .9); border-color: rgba(255,255,255,.16); border-radius: 12px; transform-origin: top center; }
+#tf-gsb-fly.tf-barfly button { border-radius: 8px; }
+#tf-gsb-fly.tf-barfly .fseg button, #tf-gsb-fly.tf-barfly button i { border-radius: 6px; }
+
+/* たたんだつまみ: 検索ボックスの真下にくっつける */
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min { left: var(--tf-min-x, 50vw); top: var(--tf-min-y, calc(var(--tf-mh, 56px) - 8px)); transform: translateX(-50%); width: 64px; height: 20px; border-radius: 0 0 8px 8px; border-top-color: transparent; }
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min .tfh-min { height: 20px; width: 64px; line-height: 20px; border-radius: 0 0 8px 8px; }
+
+/* 「すべて / 音楽 / ゲーム…」のカテゴリ行は、ホーム以外(と、拡張機能のページを開いている間)は隠す */
+ytd-browse:not([page-subtype="home"]) #chips-wrapper, ytd-browse:not([page-subtype="home"]) ytd-feed-filter-chip-bar-renderer, yt-related-chip-cloud-renderer,
+html[data-tf-view] #chips-wrapper, html[data-tf-view] ytd-feed-filter-chip-bar-renderer { display: none !important; }
+html[data-tf-view] #frosted-glass.with-chipbar { height: var(--ytd-masthead-height, 56px) !important; min-height: 0 !important; }
+#tf-hbar .tfh-gear img { width: 22px; height: 22px; display: block; margin: auto; }
+#tf-gear { display: none !important; }
+
+/* ガラスバーの文字を少し大きく */
+#tf-hbar.tf-hfloat[data-mode="bottom"] button:not(.tfh-t):not(.tfh-min) { font-size: 15px; height: 34px; padding: 0 14px; }
+#tf-hbar.tf-hfloat[data-mode="bottom"] button.tfh-t { font-size: 18px; width: 38px; min-width: 38px; height: 34px; }
+#tf-hbar.tf-hfloat[data-mode="bottom"] .tfh-gear img { width: 24px; height: 24px; }
+#tf-hbar.tf-hfloat[data-mode="bottom"] .tfh-min { font-size: 14px; }
+#tf-gsb-fly.tf-barfly { font-size: 14px; }
+@media (max-width: 640px) { #tf-hbar.tf-hfloat[data-mode="bottom"] button:not(.tfh-min) { font-size: 0 !important; } #tf-hbar.tf-hfloat[data-mode="bottom"] button:not(.tfh-min)::before { font-size: 22px; } }
+
+/* 列数のメニュー: 横長にして、ボタンを1列に並べる */
+#tf-gsb-fly.tf-wide { width: 380px; }
+#tf-gsb-fly.tf-wide .fseg { flex-wrap: nowrap; }
+#tf-gsb-fly.tf-wide .fseg button { flex: 1 1 0; min-width: 0; justify-content: center; padding: 8px 4px; }
+
+/* 「新着動画」などのページを開いている間は、ホームの「すべて / 音楽…」の行を隠す(ホーム本来の表示は、そのまま) */
+html[data-tf-pg] #chips-wrapper, html[data-tf-pg] ytd-feed-filter-chip-bar-renderer { display: none !important; }
+html[data-tf-pg] #frosted-glass.with-chipbar { height: var(--ytd-masthead-height, 56px) !important; min-height: 0 !important; }
+
+/* ページ(iframe)を開いている間は、その右端にスクロールバーが出る。バーが重ならないように、右の余白を広げる */
+html[data-tf-pg] #tf-hbar.tf-hfloat[data-mode="bottom"], html[data-tf-view] #tf-hbar.tf-hfloat[data-mode="bottom"] { right: 30px; }
+html[data-tf-pg] #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min, html[data-tf-view] #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min { right: auto; }
