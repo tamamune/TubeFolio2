@@ -7,6 +7,8 @@
   const root = document.documentElement;
   const p = location.pathname;
   const hideMain = p !== '/watch' && !p.startsWith('/shorts');
+  // リロード時に、前のスクロール位置へ戻さない(戻すと、上のガラスバーの下に一覧の先頭が隠れた位置から始まってしまう)
+  if (hideMain) { try { history.scrollRestoration = 'manual'; } catch (e) {} }
   if (hideMain) { root.setAttribute('data-tf-boot', ''); setTimeout(() => root.removeAttribute('data-tf-boot'), 2500); }
   const THUMBS = ['cols', 'scols'];
   try {

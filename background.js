@@ -322,6 +322,12 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
   if (m.type === 'feedAll') { feedAll(m.days || 4, !!m.force, m.kind).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'feedStatus') { send(feedProgs[m.kind || 'v'] || idleProg()); return; }
+  if (m.type === 'plAdd') { plAdd(m.videoId, m.listId).then(send).catch(e => { if (!m.listId) chrome.storage.local.remove('plTargetId'); send({ error: String(e.message || e) }); }); return true; }
+  if (m.type === 'plCreate') { plCreate(m.title, m.privacy).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'plDelete') { plDelete(m.id).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'ytHome') { ytHome(m.kind, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'ytSearch') { ytSearch(m.q, m.kind, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'plMove') { plMove(m).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plLists') { plLists().then(lists => send({ lists })).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plVideos') { Promise.all((m.ids || []).map(plVideos)).then(rs => { const seen = new Set(), items = []; rs.flat().forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); items.push(x); } }); send({ items }); }).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'feedClear') { // 新着一覧の保存結果(feedCache_*)・ショートの投稿日(spub)・メモリのキャッシュを消す。Drive同期の対象外の一時データだけ
@@ -388,6 +394,125 @@ async function authBrowse(browseId, continuation) {
 }
 const txt = o => !o ? '' : (o.simpleText || o.content || (o.runs || []).map(x => x.text).join('') || '');
 const lastThumb = t => t && t.thumbnails && t.thumbnails.length ? t.thumbnails[t.thumbnails.length - 1].url : '';
+// 再生リスト「TubeFolio2 後で見る」へ動画を追加(ホームのサムネの「＋」ボタンから)。再生リストのIDは、見つかったら覚えておく
+async function plTarget() {
+  const { plTargetId } = await chrome.storage.local.get('plTargetId'); if (plTargetId) return plTargetId;
+  const t = (await plLists()).find(x => /TubeFolio2\s*後で見る/.test(x.title || ''));
+  if (!t) throw new Error('再生リスト「TubeFolio2 後で見る」が見つかりません');
+  await chrome.storage.local.set({ plTargetId: t.id }); return t.id;
+}
+async function plPost(path, body) {
+  const c = await ytCtx(), headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+  const r = await fetch(`${ORIGIN}/youtubei/v1/${path}?key=${c.key}&prettyPrint=false`, { method: 'POST', credentials: 'include', headers,
+    body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: c.ver, hl: 'ja', gl: 'JP' } }, ...body }) });
+  if (!r.ok) throw new Error(path + ' ' + r.status + (r.status === 401 || r.status === 403 ? '(ログインが必要です)' : ''));
+  return r.json();
+}
+async function plCreate(title, privacy) {
+  title = String(title || '').trim().slice(0, 150); if (!title) throw new Error('名前を入れてください');
+  const j = await plPost('playlist/create', { title, privacyStatus: ['PUBLIC', 'UNLISTED', 'PRIVATE'].includes(privacy) ? privacy : 'PRIVATE', videoIds: [] });
+  if (!j.playlistId) throw new Error('作成できませんでした' + (j.status ? '(' + j.status + ')' : ''));
+  return { ok: true, id: j.playlistId };
+}
+async function plDelete(id) {
+  if (!id || ['WL', 'LL'].includes(id)) throw new Error('このリストは削除できません');
+  const j = await plPost('playlist/delete', { playlistId: id });
+  if (j.status && j.status !== 'STATUS_SUCCEEDED') throw new Error(j.status);
+  const { plTargetId } = await chrome.storage.local.get('plTargetId'); if (plTargetId === id) await chrome.storage.local.remove('plTargetId');
+  return { ok: true };
+}
+// YouTubeの動画検索(検索ページ用)。kind: v 動画 / l ライブ・配信 / s ショート。結果: { items:[{id,title,ch,chId,avatar,thumb,len,views,when,live}], token }
+async function ytSearch(q, kind, token) {
+  q = String(q || '').trim(); if (!q && !token) throw new Error('キーワードがありません');
+  const P = { v: 'EgIQAQ==', l: 'EgJAAQ==' };
+  const j = await plPost('search', token ? { continuation: token } : { query: kind === 's' ? q + ' #shorts' : q, ...(P[kind] ? { params: P[kind] } : {}) });
+  const items = []; let next = null; const secOf = t => { const p = String(t || '').split(':').map(Number); return p.length && !p.some(isNaN) ? p.reduce((a, x) => a * 60 + x, 0) : 0; };
+  (function walk(o) {
+    if (!o || typeof o !== 'object') return;
+    if (o.continuationCommand && o.continuationCommand.token && !next) next = o.continuationCommand.token;
+    const v = o.videoRenderer;
+    if (v && v.videoId) {
+      const own = (v.ownerText && v.ownerText.runs && v.ownerText.runs[0]) || (v.longBylineText && v.longBylineText.runs && v.longBylineText.runs[0]) || {};
+      const live = (v.badges || []).some(x => x.metadataBadgeRenderer && /LIVE/.test(x.metadataBadgeRenderer.style || '')) || (v.thumbnailOverlays || []).some(x => x.thumbnailOverlayTimeStatusRenderer && x.thumbnailOverlayTimeStatusRenderer.style === 'LIVE');
+      const len = txt(v.lengthText);
+      if (kind === 's' && !(len && secOf(len) <= 61)) return;
+      if (kind === 'v' && secOf(len) > 0 && secOf(len) <= 61 && /shorts/.test(JSON.stringify(v.navigationEndpoint || {}))) return;
+      items.push({ id: v.videoId, title: txt(v.title), ch: own.text || '', chId: (own.navigationEndpoint && own.navigationEndpoint.browseEndpoint && own.navigationEndpoint.browseEndpoint.browseId) || '', avatar: lastThumb(v.channelThumbnailSupportedRenderers && v.channelThumbnailSupportedRenderers.channelThumbnailWithLinkRenderer && v.channelThumbnailSupportedRenderers.channelThumbnailWithLinkRenderer.thumbnail), thumb: lastThumb(v.thumbnail), len: live ? '' : len, views: txt(v.shortViewCountText) || txt(v.viewCountText), when: txt(v.publishedTimeText), live });
+      return;
+    }
+    const sl = o.shortsLockupViewModel;
+    if (sl && kind === 's') {
+      const id = (sl.onTap && sl.onTap.innertubeCommand && sl.onTap.innertubeCommand.reelWatchEndpoint && sl.onTap.innertubeCommand.reelWatchEndpoint.videoId) || String(sl.entityId || '').replace(/^shorts-shelf-item-/, '');
+      if (/^[\w-]{11}$/.test(id)) items.push({ id, title: (sl.overlayMetadata && sl.overlayMetadata.primaryText && sl.overlayMetadata.primaryText.content) || '', ch: '', chId: '', avatar: '', thumb: '', len: '', views: (sl.overlayMetadata && sl.overlayMetadata.secondaryText && sl.overlayMetadata.secondaryText.content) || '', when: '', live: false });
+      return;
+    }
+    const rv = o.reelItemRenderer;
+    if (rv && rv.videoId && kind === 's') { items.push({ id: rv.videoId, title: txt(rv.headline), ch: '', chId: '', avatar: '', thumb: '', len: '', views: txt(rv.viewCountText), when: '', live: false }); return; }
+    Object.values(o).forEach(walk);
+  })(j);
+  return { items, token: next };
+}
+// YouTubeのおすすめ(ホームのフィード)。token が無ければ先頭から、あれば続きを取る。kind: v 動画 / l ライブ・配信 / s ショート
+async function ytHome(kind, token) {
+  const j = await authBrowse('FEwhat_to_watch', token || null);
+  const items = []; let next = null; const secOf = t => { const p = String(t || '').split(':').map(Number); return p.length && !p.some(isNaN) ? p.reduce((a, x) => a * 60 + x, 0) : 0; };
+  (function walk(o) {
+    if (!o || typeof o !== 'object') return;
+    if (o.continuationCommand && o.continuationCommand.token && !next) next = o.continuationCommand.token;
+    const v = o.videoRenderer;
+    if (v && v.videoId) {
+      const own = (v.ownerText && v.ownerText.runs && v.ownerText.runs[0]) || (v.longBylineText && v.longBylineText.runs && v.longBylineText.runs[0]) || {};
+      const live = (v.badges || []).some(x => x.metadataBadgeRenderer && /LIVE/.test(x.metadataBadgeRenderer.style || '')) || (v.thumbnailOverlays || []).some(x => x.thumbnailOverlayTimeStatusRenderer && x.thumbnailOverlayTimeStatusRenderer.style === 'LIVE');
+      if ((kind === 'l') === live && kind !== 's') items.push({ id: v.videoId, title: txt(v.title), ch: own.text || '', chId: (own.navigationEndpoint && own.navigationEndpoint.browseEndpoint && own.navigationEndpoint.browseEndpoint.browseId) || '', avatar: lastThumb(v.channelThumbnailSupportedRenderers && v.channelThumbnailSupportedRenderers.channelThumbnailWithLinkRenderer && v.channelThumbnailSupportedRenderers.channelThumbnailWithLinkRenderer.thumbnail), thumb: lastThumb(v.thumbnail), len: live ? '' : txt(v.lengthText), views: txt(v.shortViewCountText) || txt(v.viewCountText), when: txt(v.publishedTimeText), live });
+      return;
+    }
+    const lv = o.lockupViewModel;
+    if (lv && /VIDEO/.test(lv.contentType || '') && lv.contentId) {
+      const m = lv.metadata && lv.metadata.lockupMetadataViewModel, rows = (m && m.metadata && m.metadata.contentMetadataViewModel && m.metadata.contentMetadataViewModel.metadataRows) || [];
+      const parts = r => r && r.metadataParts ? r.metadataParts.map(p => txt(p.text)) : [];
+      const js = JSON.stringify(lv), live = /BADGE_STYLE_LIVE|LIVE_NOW|視聴中/.test(js);
+      const len = (js.match(/"text":"(\d{1,2}:\d{2}(?::\d{2})?)"/) || [])[1] || '';
+      const im = lv.contentImage && lv.contentImage.thumbnailViewModel && lv.contentImage.thumbnailViewModel.image;
+      const av = m && m.image && m.image.decoratedAvatarViewModel && m.image.decoratedAvatarViewModel.avatar && m.image.decoratedAvatarViewModel.avatar.avatarViewModel && m.image.decoratedAvatarViewModel.avatar.avatarViewModel.image;
+      if ((kind === 'l') === live && kind !== 's') items.push({ id: lv.contentId, title: m ? txt(m.title) : '', ch: parts(rows[0])[0] || '', chId: (js.match(/"browseId":"(UC[\w-]{22})"/) || [])[1] || '', avatar: av && av.sources && av.sources.length ? av.sources[av.sources.length - 1].url : '', thumb: im && im.sources && im.sources.length ? im.sources[im.sources.length - 1].url : '', len: live ? '' : len, views: parts(rows[1])[0] || '', when: parts(rows[1])[1] || '', live });
+      return;
+    }
+    const sl = o.shortsLockupViewModel;
+    if (sl) {
+      if (kind === 's') {
+        const id = (sl.onTap && sl.onTap.innertubeCommand && sl.onTap.innertubeCommand.reelWatchEndpoint && sl.onTap.innertubeCommand.reelWatchEndpoint.videoId) || String(sl.entityId || '').replace(/^shorts-shelf-item-/, '');
+        if (/^[\w-]{11}$/.test(id)) items.push({ id, title: (sl.overlayMetadata && sl.overlayMetadata.primaryText && sl.overlayMetadata.primaryText.content) || '', ch: '', chId: '', avatar: '', thumb: '', len: '', views: (sl.overlayMetadata && sl.overlayMetadata.secondaryText && sl.overlayMetadata.secondaryText.content) || '', when: '', live: false });
+      }
+      return;
+    }
+    Object.values(o).forEach(walk);
+  })(j);
+  return { items, token: next };
+}
+async function plEdit(listId, actions) {
+  const c = await ytCtx(), headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+  const r = await fetch(`${ORIGIN}/youtubei/v1/browse/edit_playlist?key=${c.key}&prettyPrint=false`, { method: 'POST', credentials: 'include', headers,
+    body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: c.ver, hl: 'ja', gl: 'JP' } }, playlistId: listId, actions }) });
+  if (!r.ok) throw new Error('編集 ' + r.status + (r.status === 401 || r.status === 403 ? '(ログインが必要です)' : ''));
+  const j = await r.json(); if (j.status && j.status !== 'STATUS_SUCCEEDED') throw new Error(j.status);
+}
+// 再生リスト間の動画のコピー・移動。移動は「コピー先に追加 → コピー元から削除」の順(追加に失敗したら、元は消さない)
+async function plMove(m) {
+  if (!/^[\w-]{11}$/.test(m.videoId || '') || !m.to) throw new Error('指定が不正です');
+  if (m.move && !m.setId) throw new Error('この動画は、元の再生リストから削除できません(ページを更新してください)');
+  await plEdit(m.to, [{ action: 'ACTION_ADD_VIDEO', addedVideoId: m.videoId, dedupeOption: 'DEDUPE_OPTION_SKIP' }]);
+  if (m.move) await plEdit(m.from, [{ action: 'ACTION_REMOVE_VIDEO', setVideoId: m.setId, removedVideoId: m.videoId }]);
+  return { ok: true };
+}
+async function plAdd(videoId, listId0) {
+  if (!/^[\w-]{11}$/.test(videoId || '')) throw new Error('動画IDが不正です');
+  const listId = listId0 || await plTarget(), c = await ytCtx(), headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+  const r = await fetch(`${ORIGIN}/youtubei/v1/browse/edit_playlist?key=${c.key}&prettyPrint=false`, { method: 'POST', credentials: 'include', headers,
+    body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: c.ver, hl: 'ja', gl: 'JP' } }, playlistId: listId, actions: [{ action: 'ACTION_ADD_VIDEO', addedVideoId: videoId, dedupeOption: 'DEDUPE_OPTION_SKIP' }] }) });
+  if (!r.ok) throw new Error('追加 ' + r.status + (r.status === 401 || r.status === 403 ? '(ログインが必要です)' : ''));
+  const j = await r.json(); if (j.status && j.status !== 'STATUS_SUCCEEDED') throw new Error(j.status);
+  return { ok: true };
+}
 // 再生リスト一覧: [{ id, title, count, thumb }]。ライブラリ(後で見る・高く評価した動画)は、ページ側でひとつにまとめる
 async function plLists() {
   const out = new Map(); let tok = null;
@@ -421,7 +546,7 @@ async function plVideos(listId) {
       if (!o || typeof o !== 'object') return;
       if (o.continuationCommand && o.continuationCommand.token && !tok) tok = o.continuationCommand.token;
       const v = o.playlistVideoRenderer;
-      if (v && v.videoId) { const ov = (v.thumbnailOverlays || []).find(x => x.thumbnailOverlayResumePlaybackRenderer); out.push({ id: v.videoId, title: txt(v.title), ch: txt(v.shortBylineText), len: txt(v.lengthText), pct: ov ? ov.thumbnailOverlayResumePlaybackRenderer.percentDurationWatched || 0 : 0, thumb: lastThumb(v.thumbnail) }); return; }
+      if (v && v.videoId) { const ov = (v.thumbnailOverlays || []).find(x => x.thumbnailOverlayResumePlaybackRenderer); out.push({ id: v.videoId, setId: v.setVideoId || '', title: txt(v.title), ch: txt(v.shortBylineText), len: txt(v.lengthText), pct: ov ? ov.thumbnailOverlayResumePlaybackRenderer.percentDurationWatched || 0 : 0, thumb: lastThumb(v.thumbnail) }); return; }
       const lv = o.lockupViewModel;
       if (lv && /VIDEO/.test(lv.contentType || '') && lv.contentId) {
         const m = lv.metadata && lv.metadata.lockupMetadataViewModel, im = lv.contentImage && lv.contentImage.thumbnailViewModel && lv.contentImage.thumbnailViewModel.image;

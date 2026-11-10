@@ -31,7 +31,7 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .inf { display: flex; gap: 10px; margin-top: 10px; min-width: 0; }
 .av { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--chip); object-fit: cover; }
 .shorts .av { width: 24px; height: 24px; }
-.tx { min-width: 0; }
+.tx { min-width: 0; flex: 1 1 0; }
 .tx b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; font-size: 14px; line-height: 20px; font-weight: 600; }
 .tx small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin-top: 2px; color: var(--sub); font-size: 12px; line-height: 18px; }
 .card:hover .tx b { text-decoration: underline; }
@@ -72,3 +72,70 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .plctl .b1 { background: #3ea6ff; } .plctl .b2 { background: #7b78d6; } .plctl .b3 { background: #cc0000; } .plctl .b4 { background: #7a3fb5; }
 .plctl button:hover { filter: brightness(1.12); } .plctl .fmsg { color: var(--sub); }
 .libvid h3 small { color: var(--sub); font-size: 13px; font-weight: 400; margin-left: 10px; }
+
+/* 登録/未登録の目印(サムネの右下の角) */
+.card { position: relative; }
+.mkc { position: absolute; z-index: 2; width: 64px; height: 64px; box-sizing: border-box; pointer-events: none; border-style: solid; border-width: 0 3px 3px 0; border-radius: 0 0 16px 0; }
+
+/* 再生リストの「最初から開く / 最初は閉じる」 */
+.pin { margin-left: auto; flex: none; padding: 3px 10px; border: 0; border-radius: 12px; background: var(--chip); color: var(--sub); font-size: 11px; cursor: pointer; }
+.pin.on { background: color-mix(in srgb, var(--acc, #3ea6ff) 22%, transparent); color: var(--fg); }
+.pin:hover { background: color-mix(in srgb, var(--fg) 14%, var(--chip)); }
+
+/* 見出し: タイトル → 本数・合計時間 → (右端)最初から開く/閉じる */
+.plh small.sm { color: var(--sub); font-size: 12px; white-space: nowrap; }
+.plh .pin { margin-left: auto; }
+
+/* ドロップダウン(空き時間): 一覧の文字と背景を、ダーク/ライトどちらでも読める色にする */
+.plctl select.fmin { width: 80px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; color-scheme: light; }
+:root[data-theme="dark"] .plctl select.fmin { color-scheme: dark; }
+.plctl select.fmin option { background: var(--bg); color: var(--fg); }
+
+/* 動画ごとのメニュー(「⋮」→ 動画の移動・コピー) */
+.vtb { flex: none; margin-left: auto; align-self: flex-start; }
+.vdots { width: 32px; height: 32px; border: 0; border-radius: 50%; background: none; color: var(--fg); font-size: 18px; line-height: 1; cursor: pointer; opacity: .55; }
+.card:hover .vdots, .vdots:focus-visible { opacity: 1; }
+.vdots:hover { background: var(--chip2); }
+#vmenu { --vf-bg: rgba(255,255,255,.88); --vf-fg: #0f0f0f; --vf-hv: rgba(0,0,0,.08); --vf-ln: rgba(0,0,0,.15); position: fixed; z-index: 100000; width: 210px; padding: 8px 0; border-radius: 12px; background: var(--vf-bg); color: var(--vf-fg); border: 1px solid var(--vf-ln); box-shadow: 0 6px 24px rgba(0,0,0,.3); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); }
+:root[data-theme="dark"] #vmenu { --vf-bg: rgba(40,40,44,.88); --vf-fg: #f1f1f1; --vf-hv: rgba(255,255,255,.12); --vf-ln: rgba(255,255,255,.2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) #vmenu { --vf-bg: rgba(40,40,44,.88); --vf-fg: #f1f1f1; --vf-hv: rgba(255,255,255,.12); --vf-ln: rgba(255,255,255,.2); } }
+#vmenu .vm-it { display: flex; align-items: center; gap: 14px; width: 100%; padding: 9px 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+#vmenu .vm-it:hover { background: var(--vf-hv); }
+#vmenu .vm-it span { width: 20px; text-align: center; }
+#vfly { --vf-bg: rgba(255,255,255,.82); --vf-fg: #0f0f0f; --vf-hv: rgba(0,0,0,.08); --vf-ln: rgba(0,0,0,.15); position: fixed; z-index: 100000; width: 250px; max-height: 320px; overflow: auto; padding: 6px; border-radius: 12px; background: var(--vf-bg); color: var(--vf-fg); border: 1px solid var(--vf-ln); box-shadow: 0 6px 24px rgba(0,0,0,.3); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); }
+:root[data-theme="dark"] #vfly { --vf-bg: rgba(40,40,44,.8); --vf-fg: #f1f1f1; --vf-hv: rgba(255,255,255,.12); --vf-ln: rgba(255,255,255,.2); }
+#vfly .vf-h { padding: 4px 10px 6px; font-size: 12px; opacity: .65; }
+#vfly .vf-it { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#vfly .vf-it:hover { background: var(--vf-hv); }
+#ptoast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 100001; padding: 10px 18px; border-radius: 10px; background: var(--fg); color: var(--bg); font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 80vw; }
+#ptoast.on { opacity: 1; }
+
+/* 検索ページ */
+.rform { display: flex; gap: 8px; margin: 4px 0 12px; }
+.rform input { flex: 1; min-width: 0; height: 38px; padding: 0 16px; border: 1px solid var(--line); border-radius: 19px; background: var(--bg); color: var(--fg); font: inherit; outline: none; }
+.rform input:focus { border-color: var(--sub); }
+.rgo { height: 38px; padding: 0 20px; border: 0; border-radius: 19px; background: var(--fg); color: var(--bg); font: 500 14px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; }
+.rgo:hover { opacity: .85; }
+.rrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
+.rl { color: var(--sub); font-size: 12px; }
+.rseg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 18px; background: var(--chip); }
+.rseg button { border: 0; border-radius: 16px; padding: 6px 14px; background: none; color: var(--fg); font: 500 13px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; }
+.rseg button:hover { background: var(--chip2); }
+.rseg button.on { background: var(--fg); color: var(--bg); }
+.rmore { display: flex; justify-content: center; padding: 20px 0; }
+.rc .tx small + small { margin-top: 0; }
+.rreg { font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--chip2); color: var(--fg); }
+.rlive { position: absolute; left: 6px; top: 6px; padding: 2px 6px; border-radius: 4px; background: #e5322d; color: #fff; font-size: 11px; font-weight: 600; }
+.rlater { position: absolute; left: 8px; bottom: 8px; width: 32px; height: 32px; padding: 0; border: 1px solid rgba(255,255,255,.28); border-radius: 50%; background: rgba(30,30,34,.4); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; opacity: 0; -webkit-backdrop-filter: blur(10px) saturate(1.6); backdrop-filter: blur(10px) saturate(1.6); }
+.rc:hover .rlater { opacity: 1; }
+.rc .vdots { opacity: .55; }
+.rc:hover .vdots { opacity: 1; }
+#rmenu { --vf-bg: rgba(255,255,255,.88); --vf-fg: #0f0f0f; --vf-hv: rgba(0,0,0,.08); --vf-ln: rgba(0,0,0,.15); position: fixed; z-index: 100000; width: 250px; max-height: 320px; overflow: auto; padding: 6px; border-radius: 12px; background: var(--vf-bg); color: var(--vf-fg); border: 1px solid var(--vf-ln); box-shadow: 0 6px 24px rgba(0,0,0,.3); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); }
+:root[data-theme="dark"] #rmenu { --vf-bg: rgba(40,40,44,.88); --vf-fg: #f1f1f1; --vf-hv: rgba(255,255,255,.12); --vf-ln: rgba(255,255,255,.2); }
+#rmenu .vf-h { padding: 4px 10px 6px; font-size: 12px; opacity: .65; }
+#rmenu .vf-n { padding: 8px 10px; opacity: .7; }
+#rmenu .vf-it { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rmenu .vf-it:hover { background: var(--vf-hv); }
+
+.rclr { height: 30px; padding: 0 14px; border: 0; border-radius: 15px; background: var(--chip); color: var(--fg); font: 500 12px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; }
+.rclr:hover { background: var(--chip2); }

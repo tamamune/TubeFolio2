@@ -413,3 +413,35 @@ dialog#dlg { width: min(760px, 96vw); max-height: 94vh; overflow-y: auto; }
 #sfly .stype.act { background: rgba(255,255,255,.16); font-weight: 600; }
 #sfly .stype em { font-style: normal; font-weight: 400; opacity: .7; margin-left: 6px; }
 .hv-h .hv-t { margin-left: auto; flex: none; padding: 1px 8px; border-radius: 8px; background: var(--chip); color: var(--sub); font-size: 11px; }
+
+/* ---- ガラスのバー・メニューを、ダーク/ライトに対応させる(色は変数 --g-* で持つ) ---- */
+.gbar, #gfly, #sfly {
+  --g-fg: #f4efe9; --g-sub: rgba(244,239,233,.65); --g-line: rgba(255,255,255,.16); --g-hov: rgba(255,255,255,.16); --g-soft: rgba(255,255,255,.1); --g-link: #8ab4f8;
+  --g-pri-bg: #f1f1f1; --g-pri-fg: #0f0f0f; --g-bg: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 60%, rgba(255,170,90,.07)), rgba(16, 14, 13, .86);
+}
+:root[data-theme="light"] .gbar, :root[data-theme="light"] #gfly, :root[data-theme="light"] #sfly {
+  --g-fg: #1f1f1f; --g-sub: rgba(0,0,0,.6); --g-line: rgba(0,0,0,.14); --g-hov: rgba(0,0,0,.08); --g-soft: rgba(0,0,0,.06); --g-link: #065fd4;
+  --g-pri-bg: #0f0f0f; --g-pri-fg: #fff; --g-bg: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.78)), rgba(255,255,255,.8);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .gbar, :root:not([data-theme]) #gfly, :root:not([data-theme]) #sfly {
+    --g-fg: #1f1f1f; --g-sub: rgba(0,0,0,.6); --g-line: rgba(0,0,0,.14); --g-hov: rgba(0,0,0,.08); --g-soft: rgba(0,0,0,.06); --g-link: #065fd4;
+    --g-pri-bg: #0f0f0f; --g-pri-fg: #fff; --g-bg: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.78)), rgba(255,255,255,.8);
+  }
+}
+.gbar, #gfly, #sfly { color: var(--g-fg); background: var(--g-bg); border-color: var(--g-line); }
+.gbar a:hover, .gbar button:hover { background: var(--g-hov); }
+.gbar .gpill { background: var(--g-soft); }
+.gbar .gsearch { background: var(--g-soft); border-color: var(--g-line); }
+.gbar .gsearch input::placeholder { color: var(--g-sub); }
+.gbar .btn.pri { background: var(--g-pri-bg); color: var(--g-pri-fg); }
+.gbar .gtools { border-left-color: var(--g-line); }
+.gbar .gdrv { color: var(--g-sub); }
+.gbar .gpill.on { box-shadow: inset 0 0 0 2px var(--g-link); }
+#gfly button:hover, #sfly .stype:hover { background: var(--g-hov); }
+#sfly .stype.act { background: var(--g-soft); }
+#sfly .fn a { color: var(--g-link); }
+#sfly .lg.shared { color: var(--g-sub); }
+#sfly .sbtn { background: var(--g-soft); } #sfly .sbtn:hover { background: var(--g-hov); }
+#gfly .fseg button { background: var(--g-soft); }
+#gfly .fseg button.act { background: var(--g-pri-bg); color: var(--g-pri-fg); }
