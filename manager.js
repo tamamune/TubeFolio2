@@ -170,8 +170,9 @@
       <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank" draggable="false">${esc(nameOf(c))}</a>
         <small>${esc(c.key)}</small>
         <div class="acts">${act[c.key] ? TYPES.map(([f, lb]) => `<span style="--c:${BK.find(b => b[0] === bucketOf(act[c.key][f]))[3]}">${lb.slice(0, 2)} ${agoText(act[c.key][f])}</span>`).join('') : ''}</div>
-        <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}</span>`; }).join('')}</div></div></div>`).join('');
-    observeAvatars($('#grid'));
+        <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}</span>`; }).join('')}</div>
+        ${assistOn() && !filed(c).length ? `<div class="sugg" data-k="${esc(c.key)}">${suggHtml(c)}</div>` : ''}</div></div>`).join('');
+    observeAvatars($('#grid')); paintAssist(); observeSugg();
     drawBulk(); drawStats();
   }
   function drawBulk() {
@@ -365,6 +366,7 @@
     const cur = g ? (g.parent || '') : (parent || '');
     $('#gparent').innerHTML = '<option value="">（なし：最上位）</option>' + TF.flat(S.groups).filter(x => !bad.has(x.g.id))
       .map(({ g: x, depth }) => `<option value="${x.id}" ${cur === x.id ? 'selected' : ''}>${'　'.repeat(depth)}${esc(TF.iconText(x.icon))} ${esc(x.name)}</option>`).join('');
+    $('#gkw').value = g && g.kw ? g.kw.join(', ') : ''; $('#gkw').placeholder = TF.defaultKw(g ? g.name : '').slice(0, 8).join(', ') || 'グルメ, ラーメン, -ゲーム';
     $('#gimg').value = g && TF.isImgIcon(g.icon) && !/^data:/i.test(g.icon) ? g.icon : '';
     $('#gdel').style.visibility = g && S.groups.length > 1 ? 'visible' : 'hidden';
     drawPickers(); $('#dlg').showModal();
@@ -388,8 +390,9 @@
     const parent = $('#gparent').value || null;
     if (!edit.id && edit.icon === TF.ICONS[0]) edit.icon = TF.suggestIcon(name) || edit.icon;
     TF.mutate(s => {
-      if (edit.id) Object.assign(s.groups.find(g => g.id === edit.id), { name, icon: edit.icon, color: edit.color, parent });
-      else s.groups.push({ id: TF.uid(), name, icon: edit.icon, color: edit.color, parent });
+      const kw = TF.kwList($('#gkw').value);
+      if (edit.id) { const g0 = s.groups.find(g => g.id === edit.id); Object.assign(g0, { name, icon: edit.icon, color: edit.color, parent }); if (kw.length) g0.kw = kw; else delete g0.kw; }
+      else s.groups.push({ id: TF.uid(), name, icon: edit.icon, color: edit.color, parent, ...(kw.length ? { kw } : {}) });
     });
     if (parent) { open.add(parent); saveOpen(); }
   };
@@ -413,10 +416,11 @@
     $('#statsTgl').onclick = toggleStats;
     const st = t => { const e = $('#gfly-st'); if (e) e.textContent = t; };
     const drv = (type, ask, done) => { if (ask && !confirm(ask)) return; st('通信中…'); chrome.runtime.sendMessage({ type, interactive: true }, r => { const t = r && r.ok ? '☁ ' + done : '⚠ ' + ((r && r.error) || '失敗'); st(t); toast(t); }); };
-    const KEYS = ['groups', 'channels', 'settings', 'meta', 'activity'];
+    const KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'bookmarks', 'playedTags'];
     const closeFly = () => { const f = $('#gfly'); if (f) f.remove(); };
     const act = async g => {
       if (g === 'reload') { closeFly(); toast('拡張機能を再読み込みします…'); setTimeout(() => chrome.runtime.reload(), 400); }
+      else if (g === 'assist') { closeFly(); openAssistCfg(); }
       else if (g === 'yt') { closeFly(); toast('YouTubeから取り込み中…'); $('#ytimp').click(); }
       else if (g === 'sync') drv('syncNow', null, '同期しました');
       else if (g === 'up') drv('driveUp', 'この端末の内容で、Google Driveのデータを上書きします。よろしいですか?', 'アップロードしました');
@@ -434,15 +438,19 @@
       const ht0 = hoverType();
       const hv0 = Math.max(1, Math.min(4, +(S.settings && S.settings.hoverVideos) || 2));
       const f = document.createElement('div'); f.id = 'gfly';
-      f.innerHTML = `<div class="fh">登録チャンネル</div><button data-g="yt">⟳ YouTubeから取り込む</button>
-        <div class="fh">Google Drive</div><button data-g="sync">☁ 今すぐ同期</button><button data-g="up">⬆ この端末の内容をアップロード</button><button data-g="down">⬇ Driveの内容をダウンロード</button><div class="fn" id="gfly-st"></div>
-        <div class="fh">ファイル(JSON)</div><button data-g="exp">📤 JSONで書き出す</button><button data-g="imp">📥 JSONから読み込む</button>
-        <button data-g="reload">🔄 拡張機能を再読み込み(更新を反映)</button>
+      f.innerHTML = `<div class="gtabs">${[['org', '📂 整理'], ['sync', '☁ 同期'], ['etc', '🔧 その他']].map(([k, l]) => `<button class="gtab${k === (f.dataset.cur = (() => { try { return localStorage.getItem('tfMgrTab') || 'org'; } catch (e) { return 'org'; } })()) ? ' on' : ''}" data-tb="${k}">${l}</button>`).join('')}</div>
+        <div data-gt="org"><div class="fh">登録チャンネル</div><button data-g="yt">⟳ YouTubeから取り込む</button><button data-g="assist">🪄 振り分け補助の設定(点数・キーワード)</button>
         <div class="fh">マウスオーバーで出す動画の数</div><div class="fseg">${[1, 2, 3, 4].map(n => `<button data-hv="${n}" class="${hv0 === n ? 'act' : ''}">${n}本</button>`).join('')}</div>
-        <div class="fh">マウスオーバーで出す種類</div><div class="fseg">${TYPES.map(([f, lb]) => `<button data-ht="${f}" class="${ht0 === f ? 'act' : ''}">${lb.replace(/^\S+ /, '').replace('ライブ配信', 'ライブ・配信')}</button>`).join('')}</div>`;
+        <div class="fh">マウスオーバーで出す種類</div><div class="fseg">${TYPES.map(([f, lb]) => `<button data-ht="${f}" class="${ht0 === f ? 'act' : ''}">${lb.replace(/^\S+ /, '').replace('ライブ配信', 'ライブ・配信')}</button>`).join('')}</div></div>
+        <div data-gt="sync"><div class="fh">Google Drive</div><button data-g="sync">☁ 今すぐ同期</button><button data-g="up">⬆ この端末の内容をアップロード</button><button data-g="down">⬇ Driveの内容をダウンロード</button><div class="fn" id="gfly-st"></div>
+        <div class="fh">ファイル(JSON)</div><button data-g="exp">📤 JSONで書き出す</button><button data-g="imp">📥 JSONから読み込む</button></div>
+        <div data-gt="etc"><button data-g="reload">🔄 拡張機能を再読み込み(更新を反映)</button></div>`;
       document.body.appendChild(f);
       const r = b.getBoundingClientRect(); f.style.top = Math.round(r.bottom + 8) + 'px'; f.style.left = Math.max(8, Math.min(r.right - 250, innerWidth - 258)) + 'px';
+      const showT = t => { f.dataset.cur = t; f.querySelectorAll('.gtab').forEach(b => b.classList.toggle('on', b.dataset.tb === t)); f.querySelectorAll('[data-gt]').forEach(d => { d.hidden = d.dataset.gt !== t; }); try { localStorage.setItem('tfMgrTab', t); } catch (e) { /* なし */ } };
+      showT(f.dataset.cur || 'org');
       f.addEventListener('click', ev => {
+        const gtb = ev.target.closest('.gtab'); if (gtb) { showT(gtb.dataset.tb); return; }
         const hb = ev.target.closest('button[data-hv]');
         if (hb) { TF.mutate(st => { st.settings.hoverVideos = +hb.dataset.hv; }); f.querySelectorAll('[data-hv]').forEach(x => x.classList.toggle('act', x === hb)); return; }
         const tb = ev.target.closest('button[data-ht]');
@@ -464,6 +472,97 @@
       } catch (err) { toast('読み込めませんでした: ' + (err.message || err)); }
     };
   })();
+
+
+  // ---- 振り分け補助(旧TubeFolioから移植): フォルダに入っていないチャンネルに、「入れるフォルダの候補」を出す ----
+  //  点数 = チャンネル名・最近の動画タイトル・チャンネルの説明文に、フォルダのキーワードが何回出るか。キーワードは、フォルダの編集で設定(未設定ならフォルダ名から自動)
+  //  設定(settings.assist / settings.assistRules)は、Drive同期の対象。取得したタイトルは、取り直せるので、同期しない(storage の chTitles)
+  const RULES_DEF = { nameScore: 3, titleScore: 1, titleCount: 15, minScore: 2, bulkMin: 4, maxSugg: 3, useDict: true, fuzzy: true, useShorts: true, subfolder: true, useDesc: true, descScore: 1 };
+  const rules = () => ({ ...RULES_DEF, ...((S.settings && S.settings.assistRules) || {}) });
+  const assistOn = () => !!(S.settings && S.settings.assist);
+  let chTitles = {}; chrome.storage.local.get('chTitles').then(r => { chTitles = r.chTitles || {}; });
+  const nrm = t => { t = String(t || ''); if (!rules().fuzzy) return t.toLowerCase(); return t.normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60)); };
+  const pathName = g => { const n = []; let x = g, i = 0; while (x && i++ < 6) { n.unshift(x.name); x = x.parent ? grp(x.parent) : null; } return n.join(' ＞ '); };
+  const kwOf = g => {
+    const src = g.kw && g.kw.length ? g.kw : rules().useDict ? TF.defaultKw(g.name) : [], inc = [], exc = [];
+    for (const x of src) { const k = String(x).trim(); if (!k) continue; if (/^[-－ー]/.test(k) && k.length > 1) exc.push(nrm(k.slice(1))); else inc.push(nrm(k)); }
+    return { inc, exc };
+  };
+  function suggest(c) {
+    const R = rules(), e = chTitles[c.key] || {};
+    const name = nrm(nameOf(c)), titles = (e.t || []).slice(0, R.titleCount).map(nrm), descs = R.useDesc && e.cd ? [nrm(e.cd)] : [];
+    const all = [name, ...titles, ...descs], res = [];
+    for (const g of S.groups) {
+      if (!R.subfolder && g.parent) continue;
+      const { inc, exc } = kwOf(g);
+      if (exc.some(k => all.some(t => t.includes(k)))) continue;
+      const by = { n: 0, t: 0, d: 0 };
+      for (const k of inc) { if (name.includes(k)) by.n += R.nameScore; by.t += titles.filter(t => t.includes(k)).length * R.titleScore; by.d += descs.filter(t => t.includes(k)).length * R.descScore; }
+      const sc = by.n + by.t + by.d;
+      if (sc >= R.minScore && sc > 0) res.push({ g, sc, by });
+    }
+    return res.sort((a, b) => b.sc - a.sc).slice(0, R.maxSugg);
+  }
+  function suggHtml(c) {
+    const R = rules(), has = !!chTitles[c.key], list = suggest(c);
+    return '<span class="sg-lb">🪄 候補</span>' + (list.map(({ g, sc, by }) => `<button class="sg" data-g="${esc(g.id)}" style="--c:${esc(g.color)}" title="一致度 ${sc}(名前 ${by.n}・タイトル ${by.t}・説明文 ${by.d})">＋${esc(pathName(g))}${sc >= R.bulkMin * 1.5 ? ' ★' : ''}</button>`).join('') || `<span class="sg-none">${has ? '候補なし(フォルダの編集でキーワードを足すと出やすくなります)' : 'タイトルを確認中…'}</span>`);
+  }
+  const bulkPlan = () => visible().filter(c => !filed(c).length).map(c => { const t = suggest(c)[0]; return t && t.sc >= rules().bulkMin ? { key: c.key, g: t.g } : null; }).filter(Boolean);
+  function paintAssist() {
+    const b = $('#assistBtn'); b.classList.toggle('on', assistOn()); b.textContent = assistOn() ? '🪄 振り分け補助:オン' : '🪄 振り分け補助:オフ';
+    const bb = $('#bulkAssist'), n = assistOn() ? bulkPlan().length : 0; bb.hidden = !n; bb.textContent = `🪄 一括適用 ${n}`; bb.title = `一致度の高い候補(${rules().bulkMin}点以上)を ${n} チャンネルにまとめて適用`;
+  }
+  let sIO = null, tQ = [], tBusy = 0, tSave = 0;
+  function observeSugg() {
+    if (sIO) sIO.disconnect(); if (!assistOn()) return;
+    sIO = new IntersectionObserver(ents => { for (const en of ents) { if (!en.isIntersecting) continue; sIO.unobserve(en.target); const k = en.target.dataset.k, e = chTitles[k]; if (!e || Date.now() - e.at > 14 * 864e5) { tQ.push(k); pump(); } } }, { root: null, rootMargin: '300px' });
+    document.querySelectorAll('.sugg').forEach(x => sIO.observe(x));
+  }
+  function pump() {
+    while (tBusy < 3 && tQ.length) {
+      const k = tQ.shift(); if (!S.channels[k]) continue; tBusy++;
+      new Promise(res => chrome.runtime.sendMessage({ type: 'chText', key: k }, res)).then(r => {
+        chTitles[k] = { at: Date.now(), t: (r && r.t) || [], cd: (r && r.cd) || '' };
+        const el = [...document.querySelectorAll('.sugg')].find(x => x.dataset.k === k); if (el) el.innerHTML = suggHtml(S.channels[k]);
+        paintAssist(); clearTimeout(tSave); tSave = setTimeout(() => chrome.storage.local.set({ chTitles }), 2000);
+      }).finally(() => { tBusy--; pump(); });
+    }
+  }
+  $('#assistCfg').onclick = () => openAssistCfg();
+  $('#assistBtn').onclick = () => TF.mutate(s => { s.settings.assist = !s.settings.assist; });
+  $('#bulkAssist').onclick = () => {
+    const plan = bulkPlan(); if (!plan.length) return;
+    const sample = plan.slice(0, 8).map(p => `${nameOf(S.channels[p.key])} → ${p.g.name}`).join('\n');
+    if (!confirm(`候補の一番上のフォルダに、${plan.length} チャンネルをまとめて振り分けますか?\n\n${sample}${plan.length > 8 ? '\n…' : ''}`)) return;
+    TF.mutate(s => plan.forEach(p => { const c = s.channels[p.key]; if (c && !c.groups.includes(p.g.id)) c.groups.push(p.g.id); })).then(() => toast(`${plan.length} チャンネルを振り分けました`));
+  };
+  $('#grid').addEventListener('click', e => { const b = e.target.closest('.sugg .sg'); if (!b) return; e.stopPropagation(); addTo([b.closest('.sugg').dataset.k], b.dataset.g); }, true);
+  // 設定画面(点数・出し方)
+  function openAssistCfg() {
+    const R = rules(); let d = $('#adlg'); if (d) d.remove();
+    d = document.createElement('dialog'); d.id = 'adlg';
+    const num = (k, lb, mn, mx, note = '') => `<label class="ar-row"><span>${lb}${note ? `<em>${note}</em>` : ''}</span><input type="number" data-r="${k}" min="${mn}" max="${mx}" value="${R[k]}"></label>`;
+    const chk = (k, lb) => `<label class="ar-chk"><input type="checkbox" data-r="${k}" ${R[k] ? 'checked' : ''}><span>${lb}</span></label>`;
+    d.innerHTML = `<div class="ar"><h3>🪄 振り分け補助の設定</h3>
+      <p class="ar-note">フォルダに入っていないチャンネルごとに、チャンネル名・最近の動画タイトル・説明文に、フォルダのキーワードが何回出るかで点数をつけ、点数の高いフォルダを候補に出します。キーワードは、フォルダの編集で設定します(空欄ならフォルダ名から自動)。</p>
+      <div class="ar-sub">点数のつけ方</div>
+      ${num('nameScore', 'チャンネル名に入っている', 0, 20, '1語につき')}${num('titleScore', '動画タイトルに入っている', 0, 20, '1本・1語につき')}${num('titleCount', '見る動画タイトルの本数', 3, 30, '最近の動画から')}
+      ${chk('useDesc', 'チャンネルの説明文も見る')}${num('descScore', '説明文に入っている', 0, 20, '1語につき')}
+      <div class="ar-sub">候補の出し方</div>
+      ${num('minScore', '候補に出す最低点', 1, 50)}${num('bulkMin', '「一括適用」の最低点', 1, 50, '一番上の候補だけ')}${num('maxSugg', '候補の数', 1, 6)}
+      ${chk('useDict', 'キーワード未設定のフォルダは、フォルダ名から自動でキーワードを作る')}${chk('fuzzy', 'ひらがな/カタカナ・全角/半角・大文字/小文字を区別しない')}${chk('useShorts', '動画が無いチャンネルは、ショートのタイトルを見る')}${chk('subfolder', '中のフォルダ(サブフォルダ)も候補にする')}
+      <div class="ar-sub">フォルダごとのキーワード(タグ)</div>
+      <p class="ar-note">「,」区切り。空欄なら、薄く表示された自動のキーワードを使います。<b>-言葉</b> と書くと、除外語になります(例: ゲーム, 実況, -ポケカ)。再生画面の「🏷 タグ」のフォルダ候補にも使います。</p>
+      <input type="search" id="arq" class="ar-find" placeholder="フォルダ名で絞り込み" autocomplete="off">
+      <div class="ar-kws">${TF.flat(S.groups).map(({ g, depth }) => `<label class="ar-kw" data-n="${esc(g.name.toLowerCase())}" style="padding-left:${depth * 16}px"><span><i style="background:${esc(g.color)}"></i>${esc(g.name)}</span><textarea rows="2" data-kw="${esc(g.id)}" placeholder="${esc(TF.defaultKw(g.name).slice(0, 12).join(', ') || 'キーワード')}">${esc((g.kw || []).join(', '))}</textarea></label>`).join('') || '<p class="ar-note">フォルダがありません</p>'}</div>
+      <div class="ar-btns"><button type="button" data-a="reset">初期値に戻す</button><button type="button" class="pri" data-a="close">閉じる</button></div></div>`;
+    document.body.appendChild(d);
+    d.addEventListener('change', e => { const i = e.target.closest('[data-r]'); if (!i) return; const k = i.dataset.r; const v = i.type === 'checkbox' ? i.checked : Math.max(+i.min, Math.min(+i.max, Math.round(+i.value || RULES_DEF[k]))); if (i.type !== 'checkbox') i.value = v; TF.mutate(s => { const r = { ...(s.settings.assistRules || {}) }; if (v === RULES_DEF[k]) delete r[k]; else r[k] = v; s.settings.assistRules = r; }); });
+    d.addEventListener('input', e => { if (e.target.id !== 'arq') return; const w = e.target.value.trim().toLowerCase(); d.querySelectorAll('.ar-kw').forEach(l => { l.hidden = !!w && !l.dataset.n.includes(w); }); });
+    d.addEventListener('change', e => { const i = e.target.closest('[data-kw]'); if (!i) return; const kw = TF.kwList(i.value); TF.mutate(s => { const g = s.groups.find(x => x.id === i.dataset.kw); if (!g) return; if (kw.length) g.kw = kw; else delete g.kw; }); });
+    d.addEventListener('click', e => { const a = e.target.closest('[data-a]'); if (!a) return; if (a.dataset.a === 'reset') { TF.mutate(s => { s.settings.assistRules = {}; }).then(() => { d.close(); openAssistCfg(); }); } else d.close(); });
+    d.addEventListener('close', () => d.remove()); d.showModal();
+  }
 
   (async function init() {
     S = await TF.get();

@@ -6,16 +6,16 @@
   "permissions": ["storage", "unlimitedStorage", "cookies", "declarativeNetRequestWithHostAccess", "identity", "alarms", "contextMenus"],
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAk6PqaqdIUcs0asRRXLlzfq3mbKBTQPXg309uABMHzpyxwsdlG6rVeaXvdUudN6u9/grY/FQVhy5pPGuoJEjO9FmvY7109cMiK0HNEij7ooGets5keA6YJ2NLGMLPOza70E//TFi9kbnaTH5MDon10wuL+zOqTcmBZMVkL6MXb/HdR9nHZ3uVUH98FfR6F60wqBl8s9lcdqToZYiQNyViYH9dTPDSy2Fb/dO22/d4qzI7L1pQ0OA+qluGrh9k/V3xLCVRfydi+6P75x3Ap4PHoWLx2R/kitFm8cEdVmL1SbTbcUf+cvM9aRLPObNeNOGCzXKGjGM45NWIgITHShoxLwIDAQAB",
   "web_accessible_resources": [{ "resources": ["manager.html", "manager.css", "manager.js", "store.js", "theme.js", "page.html", "page.css", "page.js"], "matches": ["https://www.youtube.com/*"] }],
-  "host_permissions": ["https://www.youtube.com/*"],
+  "host_permissions": ["https://www.youtube.com/*", "https://translate.googleapis.com/*", "https://sponsor.ajay.app/*", "https://ja.wikipedia.org/*"],
   "background": { "service_worker": "background.js" },
   "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
   "action": { "default_title": "TubeFolio2 を更新(拡張機能・YouTube・管理画面を読み込み直す)", "default_icon": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" } },
   "content_scripts": [
     { "matches": ["https://www.youtube.com/*"], "js": ["early.js"], "run_at": "document_start" },
-    { "matches": ["https://www.youtube.com/*"], "js": ["nav-main.js"], "run_at": "document_start", "world": "MAIN" },
+    { "matches": ["https://www.youtube.com/*"], "js": ["nav-main.js", "watch-main.js"], "run_at": "document_start", "world": "MAIN" },
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["store.js", "content.js"],
+      "js": ["store.js", "content.js", "watch.js", "panel.js", "tagmgr.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }

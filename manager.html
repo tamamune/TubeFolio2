@@ -19,6 +19,9 @@
       <span id="drvst" class="gdrv"></span>
       <button class="btn pri" id="ytimp">⟳ YouTubeから取り込む</button>
       <span class="gspace"></span>
+      <button id="bulkAssist" class="gpill" hidden></button>
+      <button id="assistCfg" class="gpill" title="振り分け補助の設定(点数・キーワード)">⚙</button>
+      <button id="assistBtn" class="gpill" title="フォルダに入っていないチャンネルに、フォルダの候補を出します(キーワードは、フォルダの編集で設定)">🪄 振り分け補助</button>
       <button id="statsTgl" class="gpill" title="投稿情報">📊 投稿情報</button>
       <div class="search gsearch"><span>🔍</span><input id="q" placeholder="チャンネルを検索"></div>
       <span class="gtools">
@@ -42,6 +45,7 @@
     <h2 id="dtitle">グループ</h2>
     <label>名前<input id="gname" maxlength="30" required></label>
     <label>親フォルダ<select id="gparent"></select></label>
+    <label>キーワード(再生画面のタグから、このフォルダを提案するための言葉。「,」区切り・「-言葉」で除外。空欄ならフォルダ名から自動)<input id="gkw" placeholder="グルメ, ラーメン, -ゲーム"></label>
     <label>アイコン</label><div id="icons" class="icons"></div>
     <div class="gimgrow"><input id="gimg" placeholder="外部画像のURL (https://…)"><button type="button" id="gimgfile">画像ファイル</button><input type="file" id="gimgf" accept="image/*" hidden><span id="gprev"></span></div>
     <label>色</label><div id="colors" class="colors"></div>

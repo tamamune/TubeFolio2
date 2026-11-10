@@ -139,3 +139,25 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 
 .rclr { height: 30px; padding: 0 14px; border: 0; border-radius: 15px; background: var(--chip); color: var(--fg); font: 500 12px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; }
 .rclr:hover { background: var(--chip2); }
+
+.rfold { font-size: 13px; color: var(--sub); margin: 0 0 8px; } .rfold:empty { display: none; } .rfold a { color: inherit; text-decoration: underline; }
+
+/* ブックマークページ */
+.bmg { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.bmc { display: block; }
+.bmc .th { display: block; }
+.bmc .inf { display: flex; gap: 6px; margin-top: 8px; }
+.bmc .tx { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.bmc .bn { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.bmc .bn.none { color: var(--sub); font-weight: 400; }
+.bmc small { color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bmc .bnote { width: 100%; box-sizing: border-box; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--chip); color: var(--fg); font: inherit; }
+.bmc .bact { flex: none; display: flex; flex-direction: column; gap: 2px; opacity: 0; transition: opacity .15s; }
+.bmc:hover .bact, .bmc:focus-within .bact { opacity: 1; }
+.bmc .bact button { border: 0; border-radius: 8px; background: var(--chip); color: var(--fg); cursor: pointer; padding: 3px 7px; }
+.bmc .bact button:hover { background: var(--chip2); }
+
+/* 再生リストの並び順(追加順 / 新しい順 / 古い順) */
+.sortseg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 16px; background: var(--chip); margin-right: 6px; }
+.sortseg button { border: 0; border-radius: 14px; padding: 4px 10px; background: none; color: var(--sub); font: 500 12px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; }
+.sortseg button.on { background: var(--fg); color: var(--bg); }

@@ -56,16 +56,22 @@ async function resolve(key) {
 const vcache = new Map();
 // YouTube内部API(動画タブ)から先頭の動画を取得。RSSが使えなくなっているため、これを最優先にする
 // 「8 日前」「2 週間前」などの表示から、おおよその投稿日時(ISO)を作る(RSSの代わりなので、日単位の目安)
+const pubMs = t => /前|ago/i.test(t || '') ? (Date.parse(approxDate(t)) || 0) : 0; // 「2 年前」などの表示から、投稿日のおおよそ
 const approxDate = t => { const m = /(\d+)\s*(秒|分|時間|日|週間|か月|ヶ月|年)/.exec(t || ''); if (!m) return null; const u = { '秒': 1e3, '分': 6e4, '時間': 36e5, '日': 864e5, '週間': 6048e5, 'か月': 2592e6, 'ヶ月': 2592e6, '年': 31536e6 }[m[2]]; return new Date(Date.now() - (+m[1]) * u).toISOString(); };
 async function videosFromApi(id, tab = 'v') {
   const TABP = { v: 'EgZ2aWRlb3PyBgQKAjoA', s: 'EgZzaG9ydHPyBgUKA5oBAA==', l: 'EgdzdHJlYW1z8gYECgJ6AA==' }; // 動画 / ショート / ライブ配信 のタブ
   const r = await fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ context: { client: { clientName: 'MWEB', clientVersion: '2.20260101.00.00', hl: 'ja', gl: 'JP' } }, browseId: id, params: TABP[tab] || TABP.v }) }); // MWEB(モバイル版)は、WEBより応答が小さく速い
   if (!r.ok) throw new Error('API ' + r.status);
-  const j = await r.json(), out = [];
+  const j = await r.json(), out = [], lenMap = {};
   const texts = x => { const t = []; (function w(o) { if (!o || typeof o !== 'object') return; if (typeof o.content === 'string') t.push(o.content); Object.values(o).forEach(w); })(x); return t; };
   (function walk(o) {
     if (!o || typeof o !== 'object' || out.length >= 15) return;
+    { // 動画の長さ(サムネの右下に出る時間)
+      const V = o.videoWithContextRenderer || o.videoRenderer;
+      if (V && V.videoId) { const lt = V.lengthText && (V.lengthText.simpleText || (V.lengthText.runs || []).map(x => x.text).join('')); const m2 = !lt && JSON.stringify(V.thumbnailOverlays || []).match(/"(?:text|simpleText)":"((?:\d+:)?\d+:\d\d)"/); if (lt || m2) lenMap[V.videoId] = lt || m2[1]; }
+      else if (o.contentId && o.metadata && o.metadata.lockupMetadataViewModel) { const m2 = JSON.stringify(o.contentImage || {}).match(/"text":"((?:\d+:)?\d+:\d\d)"/); if (m2) lenMap[o.contentId] = m2[1]; }
+    }
     if (o.contentId && o.metadata && o.metadata.lockupMetadataViewModel) {
       const m = o.metadata.lockupMetadataViewModel;
       out.push({ id: o.contentId, title: (m.title && m.title.content) || '', published: null, pubText: texts(m.metadata).find(s => /前|ago/i.test(s)) || '' }); out[out.length - 1].published = approxDate(out[out.length - 1].pubText) || new Date(0).toISOString(); return;
@@ -88,6 +94,7 @@ async function videosFromApi(id, tab = 'v') {
     }
     Object.values(o).forEach(walk);
   })(j);
+  out.forEach(x => { if (lenMap[x.id]) x.len = lenMap[x.id]; });
   return out;
 }
 // RSSが使えないとき(多数のチャンネルを集計した直後などに制限されることがある)の代わり: 動画タブの先頭2件 + oEmbed(題名) + 視聴ページ(投稿日)
@@ -305,9 +312,9 @@ function feedAll(days, force, kind = 'v') {
           for (const x of list.slice(0, 6)) {
             let t = spub[x.id]; if (!t) { t = await shortDate(x.id); if (t) spub[x.id] = t; }
             if (!t) continue; if (t < cut) break;
-            items.push({ ...base, id: x.id, title: x.title, published: new Date(t).toISOString() });
+            items.push({ ...base, id: x.id, title: x.title, published: new Date(t).toISOString(), len: x.len || '' });
           }
-        } else list.filter(x => Date.parse(x.published) >= cut).forEach(x => items.push({ ...base, id: x.id, title: x.title, published: x.published, live: !!x.live }));
+        } else list.filter(x => Date.parse(x.published) >= cut).forEach(x => items.push({ ...base, id: x.id, title: x.title, published: x.published, live: !!x.live, len: x.len || '' }));
       } catch (e) { /* 取得できないチャンネルは飛ばす */ } finally { prog.done++; }
     });
     const sk = Object.keys(spub); if (sk.length > 4000) sk.slice(0, sk.length - 4000).forEach(i => delete spub[i]);
@@ -317,12 +324,95 @@ function feedAll(days, force, kind = 'v') {
   })().finally(() => { feedProgs[kind] = idleProg(); delete feedPs[kind]; });
   return feedPs[kind];
 }
+
+// ---------- 再生画面: コメント(時刻リスト・流れるコメント用)と翻訳 ----------
+async function ytNext(body) {
+  const c = await ytCtx();
+  const r = await fetch(`${ORIGIN}/youtubei/v1/next?key=${c.key}&prettyPrint=false`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: c.ver, hl: 'ja', gl: 'JP' } }, ...body }) });
+  if (!r.ok) throw new Error('next ' + r.status);
+  return r.json();
+}
+const cmText = o => !o ? '' : (o.content || o.simpleText || (o.runs || []).map(x => x.text).join('') || '');
+// コメントの1ページ。token が無ければ、動画の最初のページ(評価順)から。返す: { items:[{id,text,author,likes}], token }
+async function cmtPage(videoId, token) {
+  if (!token) {
+    const j = await ytNext({ videoId });
+    walk(j, o => { if (!token && o.itemSectionRenderer && /comment/i.test(o.itemSectionRenderer.sectionIdentifier || '')) walk(o.itemSectionRenderer, x => { if (!token && x.continuationCommand && x.continuationCommand.token) token = x.continuationCommand.token; }); });
+    if (!token) return { items: [], token: null, disabled: true };
+  }
+  const json = await ytNext({ continuation: token });
+  const byId = new Map(), order = []; let next = null;
+  walk(json, o => {
+    const p = o.commentEntityPayload;
+    if (p && p.properties) byId.set(p.properties.commentId, { id: p.properties.commentId, text: cmText(p.properties.content), author: (p.author || {}).displayName || '', likes: (p.toolbar || {}).likeCountNotliked || '' });
+    if (o.commentRenderer && o.commentRenderer.commentId) { const v = o.commentRenderer; byId.set(v.commentId, { id: v.commentId, text: cmText(v.contentText), author: cmText(v.authorText), likes: cmText(v.voteCount) }); }
+    if (o.commentViewModel && o.commentViewModel.commentId) order.push(o.commentViewModel.commentId);
+    const k = o.appendContinuationItemsAction || o.reloadContinuationItemsCommand;
+    if (k && Array.isArray(k.continuationItems)) { const last = k.continuationItems[k.continuationItems.length - 1]; if (last && last.continuationItemRenderer) walk(last, x => { if (x.continuationCommand && x.continuationCommand.token) next = x.continuationCommand.token; }); }
+  });
+  const ids = order.length ? [...new Set(order)] : [...byId.keys()];
+  return { items: ids.map(i => byId.get(i)).filter(c => c && c.text), token: next };
+}
+async function translateText(q, to) {
+  const u = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(to)}&dt=t&q=${encodeURIComponent(q)}`;
+  const r = await fetch(u); if (!r.ok) throw new Error('translate ' + r.status);
+  const j = await r.json();
+  return { text: (j[0] || []).map(x => x[0]).join(''), src: j[2] || '' };
+}
+
+// ---------- 再生画面のパネル用: 決まったサイトへのGET中継 / 関連動画 ----------
+async function xfetch(url, as, st) {
+  const u = new URL(url);
+  if (u.protocol !== 'https:' || !['sponsor.ajay.app', 'ja.wikipedia.org'].includes(u.hostname)) return null;
+  const r = await fetch(u.href, { credentials: 'omit' });
+  if (!r.ok) return st ? { _http: r.status } : null;
+  return as === 'text' ? r.text() : r.json();
+}
+async function relatedOf(videoId) {
+  const j = await ytNext({ videoId }), out = [], seen = new Set();
+  walk(j, o => {
+    const c = o.compactVideoRenderer;
+    if (c && c.videoId && !seen.has(c.videoId)) {
+      seen.add(c.videoId);
+      const live = (c.badges || []).some(x => x.metadataBadgeRenderer && /LIVE/.test(x.metadataBadgeRenderer.style || '')) || !!c.upcomingEventData;
+      out.push({ id: c.videoId, title: cmText(c.title), ch: cmText(c.longBylineText) || cmText(c.shortBylineText), len: cmText(c.lengthText), live });
+    }
+    const l = o.lockupViewModel;
+    if (l && l.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO' && /^[\w-]{11}$/.test(l.contentId || '') && !seen.has(l.contentId)) {
+      seen.add(l.contentId);
+      const m = (l.metadata && l.metadata.lockupMetadataViewModel) || {}, rows = (m.metadata && m.metadata.contentMetadataViewModel && m.metadata.contentMetadataViewModel.metadataRows) || [];
+      const ch = rows[0] && rows[0].metadataParts && rows[0].metadataParts[0] ? cmText(rows[0].metadataParts[0].text) : '';
+      const badge = JSON.stringify(l.contentImage || {}).match(/"text":"((?:\d+:)?\d+:\d\d)"/);
+      out.push({ id: l.contentId, title: cmText(m.title), ch, len: badge ? badge[1] : '', live: false });
+    }
+  });
+  return out;
+}
+
+// 振り分け補助用: チャンネルの最近の動画タイトル(動画が無ければショート)と、チャンネルの説明文
+async function chText(key) {
+  const r = await resolve(key); if (!r || !r.id) return { t: [], cd: '' };
+  let vids = []; try { vids = await tabVideos(r.id, 'v'); } catch (e) { vids = []; }
+  if (!vids.length) { try { vids = await tabVideos(r.id, 's'); } catch (e) { vids = []; } }
+  let cd = '';
+  try {
+    const rr = await fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context: { client: { clientName: 'MWEB', clientVersion: '2.20260101.00.00', hl: 'ja', gl: 'JP' } }, browseId: r.id }) });
+    if (rr.ok) { const j = await rr.json(); walk(j, o => { if (!cd && o.channelMetadataRenderer && o.channelMetadataRenderer.description) cd = o.channelMetadataRenderer.description; if (!cd && o.metadata && o.metadata.channelMetadataRenderer && o.metadata.channelMetadataRenderer.description) cd = o.metadata.channelMetadataRenderer.description; }); }
+  } catch (e) { /* なし */ }
+  return { t: vids.map(x => x.title).filter(Boolean), cd: String(cd || '').replace(/https?:\/\/\S+/g, ' ').replace(/\s+/g, ' ').slice(0, 3000) };
+}
 const shortsOwnerCache = new Map();
 chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
   if (m.type === 'feedAll') { feedAll(m.days || 4, !!m.force, m.kind).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'feedStatus') { send(feedProgs[m.kind || 'v'] || idleProg()); return; }
   if (m.type === 'plAdd') { plAdd(m.videoId, m.listId).then(send).catch(e => { if (!m.listId) chrome.storage.local.remove('plTargetId'); send({ error: String(e.message || e) }); }); return true; }
+  if (m.type === 'cmtPage') { cmtPage(m.videoId, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'translate') { translateText(String(m.q || '').slice(0, 1500), m.to || 'ja').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'xfetch') { xfetch(m.url, m.as, m.st).then(send).catch(() => send(null)); return true; }
+  if (m.type === 'related') { relatedOf(m.videoId).then(items => send({ items })).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plCreate') { plCreate(m.title, m.privacy).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plDelete') { plDelete(m.id).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'ytHome') { ytHome(m.kind, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
@@ -350,6 +440,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
     }))).then(a => send({ owners: Object.fromEntries(a) }));
     return true;
   }
+  if (m.type === 'chText') { limit(() => chText(m.key)).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'chVideos') { // チャンネルの最新動画(RSS・最大15件)
     limit(async () => { const r = await resolve(m.key); return { videos: r.id ? await videos(r.id) : [] }; }).then(send).catch(e => send({ error: String(e) }));
     return true;
@@ -546,12 +637,12 @@ async function plVideos(listId) {
       if (!o || typeof o !== 'object') return;
       if (o.continuationCommand && o.continuationCommand.token && !tok) tok = o.continuationCommand.token;
       const v = o.playlistVideoRenderer;
-      if (v && v.videoId) { const ov = (v.thumbnailOverlays || []).find(x => x.thumbnailOverlayResumePlaybackRenderer); out.push({ id: v.videoId, setId: v.setVideoId || '', title: txt(v.title), ch: txt(v.shortBylineText), len: txt(v.lengthText), pct: ov ? ov.thumbnailOverlayResumePlaybackRenderer.percentDurationWatched || 0 : 0, thumb: lastThumb(v.thumbnail) }); return; }
+      if (v && v.videoId) { const ov = (v.thumbnailOverlays || []).find(x => x.thumbnailOverlayResumePlaybackRenderer); out.push({ id: v.videoId, setId: v.setVideoId || '', title: txt(v.title), ch: txt(v.shortBylineText), len: txt(v.lengthText), pct: ov ? ov.thumbnailOverlayResumePlaybackRenderer.percentDurationWatched || 0 : 0, thumb: lastThumb(v.thumbnail), pub: pubMs(txt(v.videoInfo)) }); return; }
       const lv = o.lockupViewModel;
       if (lv && /VIDEO/.test(lv.contentType || '') && lv.contentId) {
         const m = lv.metadata && lv.metadata.lockupMetadataViewModel, im = lv.contentImage && lv.contentImage.thumbnailViewModel && lv.contentImage.thumbnailViewModel.image;
         const rows = (m && m.metadata && m.metadata.contentMetadataViewModel && m.metadata.contentMetadataViewModel.metadataRows) || [];
-        out.push({ id: lv.contentId, title: m ? txt(m.title) : '', ch: rows[0] && rows[0].metadataParts && rows[0].metadataParts[0] ? txt(rows[0].metadataParts[0].text) : '', len: '', thumb: im && im.sources && im.sources.length ? im.sources[im.sources.length - 1].url : '' });
+        out.push({ id: lv.contentId, title: m ? txt(m.title) : '', ch: rows[0] && rows[0].metadataParts && rows[0].metadataParts[0] ? txt(rows[0].metadataParts[0].text) : '', len: '', thumb: im && im.sources && im.sources.length ? im.sources[im.sources.length - 1].url : '', pub: pubMs(rows.map(r => (r.metadataParts || []).map(p => txt(p.text)).join(' ')).join(' ')) });
         return;
       }
       Object.values(o).forEach(walk);

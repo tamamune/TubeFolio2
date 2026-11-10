@@ -1,6 +1,6 @@
 // Google Drive 同期(appDataFolder の tubefolio2.json)。background.js から importScripts で読み込む。
 // 方式: 全体を1ファイルで保存。最終更新(rev)が新しい方が勝つ。
-const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity'];
+const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'bookmarks', 'playedTags'];
 const SYNC_FILE = 'tubefolio2.json';
 const DRIVE = 'https://www.googleapis.com';
 

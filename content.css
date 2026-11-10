@@ -81,7 +81,7 @@ html[dark] {
 #tf-gear { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-right: 4px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--yt-spec-text-primary, var(--tf-fg)); cursor: pointer; }
 #tf-gear:hover { background: var(--tf-line); }
 #tf-set {
-  position: fixed; z-index: 2147483000; width: 260px; padding: 8px; background: var(--tf-bg); color: var(--tf-fg);
+  position: fixed; z-index: 2147483000; width: 390px; max-width: calc(100vw - 16px); padding: 10px 12px; background: var(--tf-bg); color: var(--tf-fg);
   border: 1px solid var(--tf-line); border-radius: 16px; box-shadow: var(--tf-shadow); font: 13px/1.3 Roboto, "Yu Gothic UI", sans-serif;
   max-height: calc(100vh - 80px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
 }
@@ -376,7 +376,7 @@ ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn > .tf-lbl { position: absolut
 #tf-gsb-fly button { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; margin: 2px 0; padding: 8px 12px; border: 0; border-radius: 14px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: nowrap; }
 #tf-gsb-fly button:hover { background: rgba(255,255,255,.14); }
 #tf-gsb-fly button.act { background: rgba(255,255,255,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.5); }
-#tf-gsb-fly button i { margin-left: auto; font-style: normal; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.85); color: #222; }
+#tf-gsb-fly button i { margin-left: auto; font-style: normal; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: #8fd8ff; color: #06283a; }
 #tf-gsb-fly button.sep { margin-top: 6px; border-top: 1px solid rgba(255,255,255,.2); border-radius: 0 0 14px 14px; }
 #tf-gsb-fly .fseg { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 6px; }
 #tf-gsb-fly .fseg button { width: auto; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.1); }
@@ -416,7 +416,7 @@ ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn > .tf-lbl { position: absolut
 #tf-gsb-root .gs:not(.min) .gs-it.act .i { transform: translateX(-9px) scale(1.15); }
 
 /* ハブから開いた設定: 画面中央のガラス調 */
-#tf-set.tf-glass { width: 300px; padding: 12px; border-radius: 24px; color: #f4efe9; border: 1px solid rgba(255,255,255,.3);
+#tf-set.tf-glass { width: 390px; max-width: calc(100vw - 16px); padding: 12px; border-radius: 24px; color: #f4efe9; border: 1px solid rgba(255,255,255,.3);
   background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.06) 60%, rgba(255,170,90,.18)), rgba(40, 34, 30, .6);
   box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35); backdrop-filter: blur(22px) saturate(1.3); -webkit-backdrop-filter: blur(22px) saturate(1.3); animation: tfWave .24s cubic-bezier(.2, .8, .2, 1); }
 #tf-set.tf-glass .tf-pop-h { border-bottom-color: rgba(255,255,255,.2); }
@@ -634,7 +634,7 @@ html:not([dark])[data-tf-pgk="new"] #tf-hbar.tf-hfloat [data-p="new"], html:not(
 html:not([dark]) #tf-gsb-fly.tf-barfly { color: #1f1f1f; background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.86)), rgba(255,255,255,.9); border-color: rgba(0,0,0,.14); box-shadow: 0 16px 48px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.9); }
 html:not([dark]) #tf-gsb-fly.tf-barfly button:hover { background: rgba(0,0,0,.08); }
 html:not([dark]) #tf-gsb-fly.tf-barfly button.act { background: rgba(0,0,0,.12); box-shadow: inset 0 0 0 1px rgba(0,0,0,.3); }
-html:not([dark]) #tf-gsb-fly.tf-barfly button i { background: #1f1f1f; color: #fff; }
+html:not([dark]) #tf-gsb-fly.tf-barfly button i { background: #6cc8f5; color: #04283a; }
 html:not([dark]) #tf-gsb-fly.tf-barfly .fseg button { background: rgba(0,0,0,.07); }
 html:not([dark]) #tf-gsb-fly.tf-barfly .fseg button.act { background: #1f1f1f; color: #fff; }
 html:not([dark]) #tf-gsb-fly.tf-barfly button.sep { border-top-color: rgba(0,0,0,.15); }
@@ -663,3 +663,147 @@ html[dark] #tf-plfly { --pf-bg: rgba(40,40,44,.72); --pf-fg: #f1f1f1; --pf-hv: r
 
 #tf-hbar button.tfh-t.on { background: rgba(255,255,255,.28); box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
 html:not([dark]) #tf-hbar button.tfh-t.on { background: rgba(0,0,0,.14); box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+.tf-trange { display: flex; align-items: center; gap: 8px; margin-top: 6px; } .tf-trange input { flex: 1; min-width: 0; } .tf-trange b { color: var(--sub); font-weight: 400; }
+
+/* ---------- 再生画面のツールバー・メニュー・流れるコメント(ダーク/ライト両対応) ---------- */
+#movie_player { --wm-bg: rgba(255,255,255,.86); --wm-fg: #0f0f0f; --wm-sub: rgba(0,0,0,.6); --wm-hv: rgba(0,0,0,.09); --wm-ln: rgba(0,0,0,.15); }
+html[dark] #movie_player { --wm-bg: rgba(32,32,36,.82); --wm-fg: #f1f1f1; --wm-sub: rgba(255,255,255,.65); --wm-hv: rgba(255,255,255,.13); --wm-ln: rgba(255,255,255,.2); }
+.tf-wbar { display: inline-flex; align-items: center; vertical-align: top; height: 100%; gap: 2px; padding: 0 4px; }
+.tf-wbar.left { margin-left: 6px; }
+.tf-wb { display: inline-flex; align-items: center; gap: 2px; height: 28px; min-width: 28px; padding: 0 6px; border: 0; border-radius: 14px; background: transparent; color: #fff; font: 500 13px/1 Roboto, "Yu Gothic UI", sans-serif; cursor: pointer; opacity: .88; }
+.tf-wb:hover { background: rgba(255,255,255,.2); opacity: 1; }
+.tf-wb.on { background: rgba(62,166,255,.45); opacity: 1; }
+.tf-wb[hidden] { display: none; }
+.tf-wb em { font-style: normal; font-size: 12px; }
+.tf-wb em:empty { display: none; }
+.tf-wmenu { position: absolute; z-index: 70; right: 12px; bottom: 64px; width: 340px; max-width: 80%; max-height: 55%; display: flex; flex-direction: column; border-radius: 12px; background: var(--wm-bg); color: var(--wm-fg); border: 1px solid var(--wm-ln); box-shadow: 0 6px 24px rgba(0,0,0,.35); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); font: 400 14px/1.4 Roboto, "Yu Gothic UI", sans-serif; text-align: left; overflow: hidden; }
+.tf-wmenu.left { right: auto; left: 12px; }
+.tf-wmenu .h { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-weight: 600; border-bottom: 1px solid var(--wm-ln); }
+.tf-wmenu .h button { border: 0; background: none; color: var(--wm-sub); cursor: pointer; font-size: 14px; }
+.tf-wmenu .ls { overflow: auto; padding: 4px; }
+.tf-wmenu .it { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.tf-wmenu .it:hover { background: var(--wm-hv); }
+.tf-wmenu .it.now { background: rgba(62,166,255,.28); }
+.tf-wmenu .it b { flex: none; min-width: 48px; font-variant-numeric: tabular-nums; color: #3ea6ff; }
+html:not([dark]) .tf-wmenu .it b { color: #065fd4; }
+.tf-wmenu .it span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-wmenu .it small { flex: none; color: var(--wm-sub); }
+.tf-wmenu .fm { padding: 8px 12px; display: grid; gap: 10px; }
+.tf-wmenu .fm label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tf-wmenu .fm input, .tf-wmenu .fm select { background: var(--wm-hv); color: var(--wm-fg); border: 1px solid var(--wm-ln); border-radius: 6px; padding: 3px 6px; font: inherit; width: 70px; }
+.tf-wmenu .fm select { width: auto; }
+.tf-wmenu .fm select option { background: #fff; color: #0f0f0f; }
+html[dark] .tf-wmenu .fm select option { background: #2a2a2e; color: #f1f1f1; }
+.tf-wmenu .fm button { border: 1px solid var(--wm-ln); border-radius: 6px; background: var(--wm-hv); color: var(--wm-fg); font: 12px/1 inherit; padding: 4px 6px; cursor: pointer; }
+.tf-wmenu .fm p { margin: 0; font-size: 12px; color: var(--wm-sub); }
+.tf-wflash { position: absolute; z-index: 71; left: 50%; top: 12%; transform: translateX(-50%); padding: 8px 16px; border-radius: 10px; background: rgba(0,0,0,.72); color: #fff; font: 500 15px/1.3 Roboto, "Yu Gothic UI", sans-serif; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.tf-wflash.on { opacity: 1; animation: tf-wfl 2.2s forwards; }
+@keyframes tf-wfl { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.tf-flow { position: absolute; z-index: 60; left: 0; right: 0; top: 0; bottom: 14%; overflow: hidden; pointer-events: none; }
+.tf-fc { position: absolute; top: 0; /* 下から上へ */ white-space: nowrap; writing-mode: vertical-rl; color: #fff; font: 600 22px/1.3 Roboto, "Yu Gothic UI", sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000, 1px 1px 2px #000; animation: tf-rise linear forwards; transform: translateY(var(--h, 400px)); pointer-events: none; }
+.tf-fc i { font-style: normal; font-size: 12px; margin-bottom: 6px; padding: 6px 1px; border-radius: 8px; background: rgba(62,166,255,.85); text-shadow: none; vertical-align: middle; writing-mode: vertical-rl; }
+.tf-flow.paused .tf-fc { animation-play-state: paused; }
+@keyframes tf-rise { from { transform: translateY(var(--h, 400px)); } to { transform: translateY(-100%); } }
+
+/* ---------- 再生画面のツールパネル(関連動画の上のタブ)。ダーク/ライト両対応 ---------- */
+#tf-wp { --wp-bg: rgba(0,0,0,.05); --wp-fg: #0f0f0f; --wp-sub: #606060; --wp-hv: rgba(0,0,0,.09); --wp-ln: rgba(0,0,0,.14); --wp-ac: #065fd4; margin: 0 0 12px; color: var(--wp-fg); font: 400 13px/1.5 Roboto, "Yu Gothic UI", sans-serif; }
+html[dark] #tf-wp { --wp-bg: rgba(255,255,255,.08); --wp-fg: #f1f1f1; --wp-sub: #aaa; --wp-hv: rgba(255,255,255,.14); --wp-ln: rgba(255,255,255,.2); --wp-ac: #3ea6ff; }
+#tf-wp > .bar { display: flex; flex-wrap: wrap; gap: 6px; }
+#tf-wp .tab { border: 0; border-radius: 16px; padding: 6px 12px; background: var(--wp-bg); color: var(--wp-fg); font: inherit; cursor: pointer; }
+#tf-wp .tab:hover { background: var(--wp-hv); }
+#tf-wp .tab.on { background: var(--wp-fg); color: var(--yt-spec-base-background, #fff); }
+html[dark] #tf-wp .tab.on { color: #0f0f0f; }
+#tf-wp .tab.sb-found { box-shadow: inset 0 0 0 1.5px #00c800; }
+#tf-wp .body { margin-top: 8px; padding: 10px; border-radius: 12px; background: var(--wp-bg); border: 1px solid var(--wp-ln); max-height: 420px; overflow: auto; }
+#tf-wp .m { margin: 6px 0 0; color: var(--wp-sub); font-size: 12px; }
+#tf-wp .sw { display: flex; gap: 6px; align-items: center; }
+#tf-wp .ls { margin-top: 6px; display: grid; gap: 2px; }
+#tf-wp .it { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+#tf-wp .it:hover { background: var(--wp-hv); }
+#tf-wp .it i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+#tf-wp .it b { flex: none; min-width: 90px; font-variant-numeric: tabular-nums; color: var(--wp-ac); }
+#tf-wp .body .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; color: var(--wp-sub); font-size: 12px; }
+#tf-wp .body .bar button { border: 1px solid var(--wp-ln); border-radius: 12px; background: none; color: var(--wp-fg); cursor: pointer; padding: 1px 10px; }
+#tf-wp .wk { display: flex; gap: 10px; padding: 8px 0; color: inherit; text-decoration: none; border-top: 1px solid var(--wp-ln); }
+#tf-wp .wk:first-child { border-top: 0; }
+#tf-wp .wk img { flex: none; width: 64px; height: 64px; object-fit: cover; border-radius: 8px; }
+#tf-wp .wk p { margin: 2px 0 0; color: var(--wp-sub); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+#tf-wp .gl { display: grid; gap: 8px; }
+#tf-wp .vc { display: flex; gap: 8px; color: inherit; text-decoration: none; }
+#tf-wp .vc .th { position: relative; flex: none; width: 120px; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--wp-hv); }
+#tf-wp .vc .th img { width: 100%; height: 100%; object-fit: cover; }
+#tf-wp .vc .th i { position: absolute; right: 3px; bottom: 3px; padding: 0 4px; border-radius: 4px; background: rgba(0,0,0,.8); color: #fff; font: 11px/1.5 inherit; font-style: normal; }
+#tf-wp .vc .tx { min-width: 0; display: grid; align-content: start; gap: 1px; }
+#tf-wp .vc b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 500; }
+#tf-wp .vc small { color: var(--wp-sub); }
+#tf-wp .vc em { font-style: normal; font-size: 11px; color: var(--wp-ac); }
+#tf-wp .tg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+#tf-wp .tg a { padding: 2px 10px; border-radius: 12px; background: var(--wp-hv); color: inherit; text-decoration: none; }
+#tf-wp .tg a:hover { background: var(--wp-ln); }
+#tf-wp .sg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; color: var(--wp-sub); font-size: 12px; }
+#tf-wp .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border: 1px solid var(--wp-ln); border-radius: 14px; background: var(--wp-hv); color: var(--wp-fg); font: inherit; cursor: pointer; }
+#tf-wp .chip:hover { border-color: var(--wp-ac); }
+#tf-wp .chip small { color: var(--wp-sub); }
+#tf-wp .chip.in { cursor: default; color: var(--wp-ac); }
+
+/* ---------- ブックマーク(Bキー)の入力ボックス ---------- */
+.tf-bmq { position: absolute; z-index: 80; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, 86%); padding: 12px 14px; border-radius: 14px; background: rgba(32,32,36,.88); color: #f1f1f1; border: 1px solid rgba(255,255,255,.22); box-shadow: 0 8px 30px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font: 400 14px/1.4 Roboto, "Yu Gothic UI", sans-serif; }
+html:not([dark]) .tf-bmq { background: rgba(255,255,255,.92); color: #0f0f0f; border-color: rgba(0,0,0,.18); }
+.tf-bmq .h { font-weight: 600; margin-bottom: 8px; }
+.tf-bmq input { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(128,128,128,.5); background: rgba(128,128,128,.15); color: inherit; font: inherit; outline: none; }
+.tf-bmq input:focus { border-color: #3ea6ff; }
+.tf-bmq .k { margin-top: 6px; font-size: 12px; opacity: .65; }
+
+/* ---------- 再生した動画のタグの管理(TubeFolio2 設定から開く)。ダーク/ライト両対応 ---------- */
+#tf-tgm { --tg-bg: rgba(255,255,255,.9); --tg-fg: #0f0f0f; --tg-sub: #606060; --tg-hv: rgba(0,0,0,.08); --tg-ln: rgba(0,0,0,.16); --tg-ac: #065fd4; position: fixed; z-index: 2147483000; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(640px, 92vw); max-height: 84vh; display: flex; flex-direction: column; border-radius: 16px; background: var(--tg-bg); color: var(--tg-fg); border: 1px solid var(--tg-ln); box-shadow: 0 12px 48px rgba(0,0,0,.45); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6); font: 400 14px/1.5 Roboto, "Yu Gothic UI", sans-serif; }
+html[dark] #tf-tgm { --tg-bg: rgba(32,32,36,.9); --tg-fg: #f1f1f1; --tg-sub: #aaa; --tg-hv: rgba(255,255,255,.12); --tg-ln: rgba(255,255,255,.2); --tg-ac: #3ea6ff; }
+#tf-tgm .h { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--tg-ln); }
+#tf-tgm .h button { border: 0; background: none; color: var(--tg-sub); cursor: pointer; font-size: 16px; }
+#tf-tgm .b { overflow: auto; padding: 12px 16px 16px; display: grid; gap: 8px; }
+#tf-tgm .n { margin: 0; color: var(--tg-sub); font-size: 12px; }
+#tf-tgm .s { font-weight: 600; margin-top: 6px; }
+#tf-tgm .r { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#tf-tgm input[type=text], #tf-tgm input:not([type]), #tf-tgm input[type=search] { flex: 1; min-width: 0; padding: 6px 12px; border: 1px solid var(--tg-ln); border-radius: 18px; background: var(--tg-hv); color: inherit; font: inherit; }
+#tf-tgm .o { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+#tf-tgm .r > button { border: 1px solid var(--tg-ln); border-radius: 16px; padding: 5px 14px; background: var(--tg-hv); color: inherit; font: inherit; cursor: pointer; }
+#tf-tgm .r > button.pri { background: var(--tg-ac); border-color: var(--tg-ac); color: #fff; }
+#tf-tgm .l { display: flex; flex-wrap: wrap; gap: 6px; }
+#tf-tgm .c { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 12px; border-radius: 16px; background: var(--tg-hv); border: 1px solid transparent; }
+#tf-tgm .c.pin { border-color: var(--tg-ac); background: color-mix(in srgb, var(--tg-ac) 16%, transparent); }
+#tf-tgm .c.ng { opacity: .75; text-decoration: line-through; }
+#tf-tgm .c b { font-weight: 500; }
+#tf-tgm .c small { color: var(--tg-sub); }
+#tf-tgm .c button { border: 0; background: none; color: var(--tg-sub); cursor: pointer; padding: 2px 4px; border-radius: 10px; font-size: 13px; }
+#tf-tgm .c button:hover { background: var(--tg-hv); color: var(--tg-fg); }
+#tf-tgm .c.pin button[data-a="pin"] { color: #f5b301; }
+
+/* ---------- 小窓(ピクチャインピクチャーを開けないときの、ページ右下の小さな窓) ---------- */
+#tf-mini { position: fixed; right: 20px; bottom: 20px; z-index: 2147482000; width: 400px; max-width: 60vw; border-radius: 12px; overflow: hidden; background: #000; box-shadow: 0 8px 30px rgba(0,0,0,.55); cursor: pointer; animation: tf-mini-in .25s ease; }
+@keyframes tf-mini-in { from { opacity: 0; transform: translateY(16px); } }
+#tf-mini canvas { width: 100%; display: block; }
+#tf-mini .bar { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; opacity: 0; transition: opacity .2s; }
+#tf-mini .ctl { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: 0; transition: opacity .2s; }
+#tf-mini:hover .bar, #tf-mini:hover .ctl, #tf-mini.paused .ctl { opacity: 1; }
+#tf-mini button { width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(0,0,0,.65); color: #fff; cursor: pointer; font-size: 14px; padding: 0; }
+#tf-mini button:hover { background: #3ea6ff; color: #000; }
+#tf-mini .ctl button { width: 46px; height: 46px; }
+#tf-mini .pp::before { content: '❚❚'; font-size: 14px; letter-spacing: -2px; }
+#tf-mini.paused .pp::before { content: '▶'; font-size: 17px; letter-spacing: 0; }
+
+/* TubeFolio2 設定: 上のタブ(🎬 再生・動画 / 📂 整理・通知 / ☁ ログ・同期)。3等分で、横にはみ出さない */
+#tf-set { overflow-x: hidden; }
+#tf-set .tf-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; margin: 0 0 6px; border-radius: 14px; background: rgba(128,128,128,.14); position: sticky; top: 0; z-index: 2; }
+#tf-set .tf-tab { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; border: 0; border-radius: 10px; padding: 6px 2px; background: transparent; color: var(--tf-sub); font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1.2; cursor: pointer; }
+#tf-set .tf-tab i { font-style: normal; font-size: 16px; line-height: 1; }
+#tf-set .tf-tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#tf-set .tf-tab:hover { color: var(--tf-fg); }
+#tf-set .tf-tab.on { background: var(--tf-acc); color: #fff; }
+#tf-set [data-tab] { display: none; }
+#tf-set[data-cur="play"] [data-tab="play"], #tf-set[data-cur="org"] [data-tab="org"], #tf-set[data-cur="sync"] [data-tab="sync"] { display: block; }
+#tf-set .tf-tabs { box-sizing: border-box; width: 100%; }
+
+/* 設定の上のタブ: スクロールした内容が透けないよう、不透明な背景にする */
+#tf-set .tf-tabs { background: linear-gradient(rgba(128,128,128,.16), rgba(128,128,128,.16)), var(--tf-bg); box-shadow: 0 6px 8px -6px rgba(0,0,0,.35); }
+#tf-set.tf-glass .tf-tabs { background: linear-gradient(rgba(255,255,255,.12), rgba(255,255,255,.12)), #2a2420; }
+#tf-set.tf-glass .tf-tab { color: rgba(255,255,255,.72); }
+#tf-set.tf-glass .tf-tab:hover { color: #fff; }

@@ -13,10 +13,19 @@ function recPage() {
   if (!SCOPES.some(x => x[0] === scope)) scope = 'reg'; if (!KINDS.some(x => x[0] === kind)) kind = 'v';
   const seg = (arr, cur, a) => `<span class="rseg">${arr.map(([k, t]) => `<button data-${a}="${k}" class="${k === cur ? 'on' : ''}">${t}</button>`).join('')}</span>`;
   main.innerHTML = `<div class="head"><h1>検索</h1><span class="sp"></span><span id="st"></span><button id="rclr" class="rclr" title="検索で取得したデータ(新着の一覧・ショートの投稿日・結果)を空にします。表示の速さを調べるときに使います">🗑 検索データを空にする</button></div>
-    <form id="rf" class="rform"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button class="rgo" type="submit">検索</button></form>
     <div class="rrow"><span class="rl">対象</span><span id="rs">${seg(SCOPES, scope, 's')}</span><span class="rl">種類</span><span id="rk">${seg(KINDS, kind, 'k')}</span></div>
+    <div id="rfold" class="rfold"></div><form id="rf" class="rform"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button class="rgo" type="submit">検索</button></form>
     <div id="rres"></div><div class="rmore"><button id="rmore" class="rgo" hidden>もっと見る</button></div><div id="rsent" style="height:1px"></div>`;
   const $ = s => main.querySelector(s), box = $('#rres'), st = $('#st');
+  // サムネが無い(404 / YouTubeの灰色の代用画像=小さい)ときは、別の画像に順に差し替える。拡張機能のページはインラインの onerror が使えないので、まとめて監視する
+  const THUMBS = ['oardefault', 'hq2', 'mqdefault', 'hqdefault'];
+  const nextThumb = im => {
+    const id = im.dataset.vid; if (!id) return;
+    const cur = THUMBS.findIndex(n => im.src.includes('/' + n + '.')), nx = THUMBS[cur + 1];
+    if (nx) im.src = `https://i.ytimg.com/vi/${id}/${nx}.jpg`;
+  };
+  box.addEventListener('error', e => { if (e.target.tagName === 'IMG') nextThumb(e.target); }, true);
+  box.addEventListener('load', e => { const im = e.target; if (im.tagName === 'IMG' && im.dataset.vid && im.naturalWidth <= 140) nextThumb(im); }, true);
 
   // ---- 登録チャンネルの判定(IDまたは名前が一致) ----
   let regIds = new Set(), regNames = new Set();
@@ -31,7 +40,7 @@ function recPage() {
   const cardOf = x => {
     const th = x.thumb || `https://i.ytimg.com/vi/${x.id}/${x.kind === 's' ? 'oardefault' : 'mqdefault'}.jpg`;
     const meta = [x.views, x.when].filter(Boolean).join(' ・ ');
-    return `<a class="card rc" data-ch="${E(x.ch)}" data-chid="${E(x.chId)}" href="${href(x)}" target="_top" data-v="${E(x.id)}" title="${E(x.title)}"><div class="th"><img loading="lazy" src="${E(th)}" onerror="this.src='https://i.ytimg.com/vi/${E(x.id)}/mqdefault.jpg'">${x.live ? '<span class="rlive">● ライブ</span>' : ''}${x.len ? `<span class="tm">${E(x.len)}</span>` : ''}<button class="rlater" title="再生リスト「TubeFolio2 後で見る」に追加">🕒</button></div>
+    return `<a class="card rc" data-ch="${E(x.ch)}" data-chid="${E(x.chId)}" href="${href(x)}" target="_top" data-v="${E(x.id)}" title="${E(x.title)}"><div class="th"><img loading="lazy" src="${E(th)}" data-vid="${E(x.id)}">${x.live ? '<span class="rlive">● ライブ</span>' : ''}${x.len ? `<span class="tm">${E(x.len)}</span>` : ''}<button class="rlater" title="再生リスト「TubeFolio2 後で見る」に追加">🕒</button></div>
       <div class="inf">${x.avatar ? `<img class="av" loading="lazy" src="${E(x.avatar)}">` : '<span class="av"></span>'}<div class="tx"><b>${E(x.title)}</b><small>${E(x.ch)}${isReg(x) ? ' <i class="rreg">登録</i>' : ''}</small>${meta ? `<small>${E(meta)}</small>` : ''}</div><button class="vdots rdots" title="メニュー">⋮</button></div></a>`;
   };
   const addCards = items => {
@@ -51,10 +60,26 @@ function recPage() {
   const ymd = d => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${'日月火水木金土'[d.getDay()]})`;
   const dkey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
   const hm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  // ---- フォルダでの絞り込み: 上のバーの「フォルダ」で選んだフォルダ(設定 plFolder。サブフォルダ含む)のチャンネルだけを、登録チャンネルの結果に出す ----
+  let fold = 'all', foldNames = null;
+  const loadFold = async () => {
+    const S = await TF.get(); fold = S.settings.plFolder || 'all'; foldNames = null;
+    if (fold !== 'all') {
+      const sub = TF.subtree(S.groups, fold), names = new Set();
+      Object.values(S.channels).forEach(c => { const filed = c.groups.some(id => S.groups.some(g => g.id === id)); if (fold === 'none' ? !filed : c.groups.some(id => sub.has(id))) names.add(TF.clean(c.name)); });
+      foldNames = names; foldName = fold === 'none' ? '未分類' : ((S.groups.find(g => g.id === fold) || {}).name || '');
+    }
+  };
+  let foldName = '';
+  const folderOk = x => !foldNames || foldNames.has(TF.clean(x.ch || ''));
+  const foldNote = () => { const n = document.getElementById('rfold'); if (!n) return; n.innerHTML = fold === 'all' ? '' : `📁 ${E(foldName)} のチャンネルだけを表示中(登録チャンネル) ・ <a href="#" id="rfx">解除</a>`; };
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#rfx')) { e.preventDefault(); TF.mutate(s => { s.settings.plFolder = 'all'; }); } });
+  chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.settings && ((ch.settings.newValue || {}).plFolder || 'all') !== fold) loadFold().then(() => { foldNote(); if (scope === 'reg' && regItems.length) { drawReg(); st.textContent = visibleCount() + '件(直近' + DAYS + '日)'; if (!visibleCount()) note('このフォルダのチャンネルに、新着がありません'); } }); });
+  const visibleCount = () => regItems.filter(folderOk).length;
   function drawReg() { // 日付ごとの見出し(押すと折りたたみ)
-    const days = new Map(); regItems.forEach(x => { const k = dkey(new Date(x.published)); if (!days.has(k)) days.set(k, []); days.get(k).push(x); });
+    const days = new Map(); regItems.filter(folderOk).forEach(x => { const k = dkey(new Date(x.published)); if (!days.has(k)) days.set(k, []); days.get(k).push(x); });
     box.innerHTML = [...days.entries()].map(([k, arr], i) => { const d = new Date(arr[0].published); return `<section class="day" data-k="rec-${k}"><div class="dh"><span class="fd">▾</span><h2>${ymd(d)}${dkey(new Date()) === k ? ' ・今日' : ''}</h2><span class="cnt">${arr.length}件</span></div><div class="grid${kind === 's' ? ' shorts' : ''}">${arr.map(cardOf).join('')}</div></section>`; }).join('');
-    shown = regItems.length;
+    shown = regItems.length; foldNote();
   }
   async function run(more) {
     if (more && busy) return; const my = ++gen; busy = 1; const moreBtn = $('#rmore');
@@ -67,7 +92,7 @@ function recPage() {
         const w = q.toLowerCase().split(/\s+/).filter(Boolean);
         const apply = items => { // 取れた分から順に描く(全チャンネルの取得を待たない)
           regItems = items.filter(x => !w.length || w.every(k => (x.title + ' ' + x.ch).toLowerCase().includes(k))).sort((a, b) => Date.parse(b.published) - Date.parse(a.published));
-          regItems.forEach(x => { x.when = x.published ? hm(new Date(x.published)) : ''; x.kind = kind; x.chId = ''; });
+          regItems.forEach(x => { x.when = x.published ? '投稿 ' + hm(new Date(x.published)) : ''; x.kind = kind; x.chId = ''; });
           if (regItems.length) drawReg();
         };
         let last = -1; const poll = setInterval(async () => {
@@ -80,7 +105,7 @@ function recPage() {
         if (!r || r.error) { st.textContent = ''; return note('取得できませんでした' + (r && r.error ? '(' + r.error + ')' : '')); }
         apply(r.items || []);
         if (!regItems.length) { st.textContent = '0件'; return note(q ? '見つかりませんでした' : `直近${DAYS}日の新着がありません`); }
-        st.textContent = regItems.length + '件(直近' + DAYS + '日)';
+        st.textContent = visibleCount() + '件(直近' + DAYS + '日)'; if (!visibleCount()) return note('このフォルダのチャンネルに、新着がありません');
       } else {
         const searching = !!q; st.textContent = searching ? '検索中…' : 'おすすめを取得中…'; let got = 0;
         for (let i = 0; i < 5 && got < 12; i++) {
@@ -144,5 +169,8 @@ function recPage() {
   document.addEventListener('mousedown', e => { if (!e.target.closest('#rmenu, .rdots')) closeMenu(); }, true);
   document.addEventListener('scroll', closeMenu, true);
 
-  loadReg().then(() => { if (scope === 'reg' || q) run(false); else note('キーワードを入れて、検索してください'); });
+  Promise.all([loadReg(), loadFold(), chrome.storage.local.get('recOpen')]).then(([, , ro]) => {
+    const o = ro && ro.recOpen; // ホームでフォルダを押して開いたとき: 登録チャンネル・動画に切り替えて、キーワードは空にする
+    if (o) { scope = o.scope || 'reg'; kind = o.kind || 'v'; q = ''; lset('tfRecScope', scope); lset('tfRecKind', kind); lset('tfRecQ', ''); const rq = $('#rq'); if (rq) rq.value = ''; $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); chrome.storage.local.remove('recOpen'); }
+    foldNote(); if (o || scope === 'reg' || q) run(false); else note('キーワードを入れて、検索してください'); });
 }

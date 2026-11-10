@@ -89,7 +89,33 @@ const TF = (() => {
     return s;
   }
 
+  // ---- フォルダの振り分け用キーワード(動画のタグ・タイトルから「このチャンネルを入れるフォルダ」の候補を出す)。未設定なら、フォルダ名から自動。「-言葉」は除外語 ----
+  const KW_DICT = {
+    '食': ['グルメ', '飯', 'めし', 'ランチ', 'ディナー', 'ラーメン', '寿司', '焼肉', '大食い', '爆食', '料理', 'レシピ', '食レポ', '食べ', 'うどん', 'カレー', '定食', 'mukbang', 'food', 'cooking'],
+    'グルメ': ['グルメ', '飯', 'ランチ', 'ラーメン', '寿司', '焼肉', '食べ', '食レポ', '料理', 'cooking', 'food'],
+    '大食': ['大食い', '爆食', 'デカ盛り', '完食', 'mukbang'], '食レポ': ['食レポ', 'グルメ', '食べ歩き', '名店', '老舗'],
+    'ゲーム': ['ゲーム', '実況', 'プレイ', '攻略', 'switch', 'ps5', 'steam', 'マイクラ', 'マインクラフト', 'ポケモン', 'gaming', 'game'],
+    'レトロ': ['レトロ', 'ファミコン', 'スーファミ', 'メガドライブ', '昭和', '平成'], 'ゲームセンター': ['ゲーセン', 'クレーンゲーム', 'ufoキャッチャー', 'メダルゲーム'],
+    '音楽': ['歌', 'mv', 'cover', 'カバー', '歌ってみた', '弾いてみた', 'ピアノ', 'ギター', 'ライブ', 'music', 'official'],
+    'アイドル': ['アイドル', 'idol', 'ダンス', 'dance', '推し'], 'アニメ': ['アニメ', 'anime', '声優', '漫画', 'マンガ', 'まんが', 'pv'],
+    '心霊': ['心霊', '怖い', 'ホラー', '怪談', '廃墟', '都市伝説', 'ミステリー', '事故物件', 'オカルト', '呪'], '怪談': ['怪談', '怖い話', '実話'],
+    '海外': ['海外', '外国人', '反応', '移住', '在住', '留学', 'アメリカ', '韓国', '中国', '台湾'], '韓国': ['韓国', 'korea', 'ソウル', '釜山', '한국'],
+    '中国': ['中国', 'china', '中国人', '上海', '北京'], 'アメリカ': ['アメリカ', 'usa', 'america', 'ニューヨーク', 'ハワイ', 'ロサンゼルス'],
+    '国内': ['旅行', '観光', '日本', '温泉', '散歩', '街歩き'], '沖縄': ['沖縄', '那覇', '石垣', '宮古'], '函館': ['函館', '北斗', '五稜郭', '道南'], '札幌': ['札幌', 'すすきの', '北海道'],
+    'ガジェット': ['ガジェット', 'レビュー', '開封', 'スマホ', 'iphone', 'pixel', 'android', 'pc', '自作', 'キーボード', 'カメラ'], 'vlog': ['vlog', '日常', 'ルーティン', '暮らし'],
+    'キャンプ': ['キャンプ', 'ソロキャン', '車中泊', 'アウトドア', '焚き火', '登山'], 'お笑い': ['お笑い', '芸人', 'コント', '漫才', 'ドッキリ', '爆笑'],
+    'スポーツ': ['スポーツ', 'サッカー', '野球', '陸上', 'バスケ', '格闘', '試合'], 'ダンス': ['ダンス', 'dance', '踊って'], 'モデル': ['モデル', 'グラビア', '撮影', 'ファッション']
+  };
+  const kwList = s => String(s || '').split(/[,、，\n]/).map(x => x.trim()).filter(Boolean);
+  const defaultKw = name => {
+    const n = String(name || '').toLowerCase(), out = n.split(/[・\/／,、\s]+/).filter(x => x.length >= 2);
+    for (const [k, v] of Object.entries(KW_DICT)) if (n.includes(k.toLowerCase())) out.push(...v);
+    return [...new Set(out.map(x => x.toLowerCase()))];
+  };
+  const groupKw = g => { const src = g.kw && g.kw.length ? g.kw : defaultKw(g.name); return { inc: src.filter(x => !/^[-－ー]/.test(x.trim())).map(x => x.trim()).filter(Boolean), exc: src.filter(x => /^[-－ー]/.test(x.trim())).map(x => x.trim().slice(1)).filter(Boolean) }; };
+
   return {
+    KW_DICT, kwList, defaultKw, groupKw,
     PALETTE, ICONS, ANIME, get, mutate, uid, keyFromHref, subtree, flat, clean, suggestIcon,
     // 既定アイコン(⭐)のままのフォルダに、名前に合うアイコンを設定する。変更件数を返す
     autoIcons: async () => { let n = 0; await mutate(s => { s.groups.forEach(g => { if (!g.icon || g.icon === '⭐') { const i = suggestIcon(g.name); if (i) { g.icon = i; n++; } } }); }); return n; },
