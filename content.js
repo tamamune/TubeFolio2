@@ -304,7 +304,7 @@
     const v = el('div'); v.id = 'tf-view';
     v.style.left = Math.max(0, r.left) + 'px';
     { const bg = pageBg(); if (bg) v.style.background = bg; }
-    v.innerHTML = '<iframe src="' + chrome.runtime.getURL((file === 'page.html' ? 'manager.html' : (file || 'manager.html')) + '?embed=1&dark=' + (document.documentElement.hasAttribute('dark') ? 1 : 0) + '&bg=' + encodeURIComponent(pageBg()) + (extra || '') + toolbarPad(file)) + '"></iframe>';
+    v.innerHTML = '<iframe src="' + chrome.runtime.getURL((file === 'page.html' ? 'manager.html' : (file || 'manager.html')) + '?embed=1&dark=' + (document.documentElement.hasAttribute('dark') ? 1 : 0) + '&bg=' + encodeURIComponent(pageBg()) + (extra || '') + toolbarPad(file)) + '" allow="autoplay; encrypted-media; clipboard-write"></iframe>';
     // 空のページ(ツールバーのボタン)は、ツールバーの下だけを置き換える(ツールバーはそのまま)。フォルダ画面は、これまでどおり全体を置き換える
     if (file === 'page.html') { v.dataset.pg = '1'; document.documentElement.setAttribute('data-tf-pg', ''); } else document.documentElement.setAttribute('data-tf-view', '');
     document.body.appendChild(v);
@@ -442,11 +442,19 @@
   window.addEventListener('message', e => { if (e.data && e.data.tfClick) closeAllMenus(); });
   window.addEventListener('blur', () => setTimeout(() => { if (document.activeElement && document.activeElement.tagName === 'IFRAME') closeAllMenus(); }, 0)); // iframeへフォーカスが移ったとき
   document.addEventListener('mousedown', e => { if ($('#tf-gsb-fly.tf-barfly') && !e.target.closest('#tf-gsb-fly') && !e.target.closest('#tf-hbar [data-a="hub"]')) closeFly(); }, true);
+  // 一覧のサムネの低評価率(xtra.js の設定 px.disBadge)の状態。ボタンの見た目に使う
+  let pxDis = true;
+  chrome.storage.local.get('px').then(r => { pxDis = !r.px || r.px.disBadge !== false; try { renderHBar(); } catch (e) { /* 無視 */ } });
+  chrome.storage.onChanged.addListener(ch => { if (ch.px) { pxDis = !ch.px.newValue || ch.px.newValue.disBadge !== false; try { renderHBar(); } catch (e) { /* 無視 */ } } });
+  // 再生画面からホームへ戻る途中(ロゴを押した直後)は、ホームの左メニュー等がまだ無く、バーの位置が決まらず左端から伸びて見えるので、移動が終わるまで出さない
+  let navHold = false;
   function renderHBar() {
     const html = document.documentElement;
     const chips = isHome() ? $('ytd-browse[page-subtype="home"] #chips-wrapper') : null;
     let b = $('#tf-hbar');
-    const skip = S.settings.hbar === false || location.pathname.startsWith('/shorts') || location.pathname.startsWith('/watch') || /^\/(account|paid_memberships|reporthistory|premium|signin|logout)/.test(location.pathname); // ショートと再生画面と、YouTubeの設定のページ(通知など。レイアウトが違うので)では出さない
+    const watchShown = !!document.querySelector('ytd-watch-flexy:not([hidden])') || !!document.querySelector('ytd-shorts:not([hidden])'); // 動画の画面がまだ見えている間は、URLがホームになっていても出さない
+    const skip = navHold || watchShown || S.settings.hbar === false || location.pathname.startsWith('/shorts') || location.pathname.startsWith('/watch') || /^\/(account|paid_memberships|reporthistory|premium|signin|logout)/.test(location.pathname); // ショートと再生画面と、YouTubeの設定のページ(通知など。レイアウトが違うので)では出さない
+    if (b && !skip && b.style.display === 'none') b.style.removeProperty('display'); // 再生画面へ移るときに隠したバーを、ほかのページでは元に戻す
     const inView = html.hasAttribute('data-tf-view');
     const mode = 'bottom'; // 下バーだけを使う(他の置き方は外した)
     { const atHome = isHome(); if (atHome !== renderHBar._home) { renderHBar._home = atHome; if (atHome && !skip) { const want = S.settings.hbarHome === 'closed'; if (!!S.settings.hbarMin !== want) TF.mutate(st => { st.settings.hbarMin = want; }); } } } // ホームを開いたときは、設定どおり(開く/閉じる)にそろえる。そのあとの手動の開閉は、次にホームへ来るまで保つ
@@ -455,13 +463,14 @@
     if (skip || (!chips && !fixed && !floatMode)) { html.removeAttribute('data-tf-hbot'); if (b) b.remove(); html.removeAttribute('data-tf-hbar'); html.removeAttribute('data-tf-hfix'); return; }
     if (!b) {
       b = el('div'); b.id = 'tf-hbar';
-      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).filter(([k]) => !TEST_PAGES.includes(k)).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-sep" data-only="later" hidden></span><button data-a="hub" data-k="vtool" data-only="later" class="tfh-vt" title="視聴のツール" hidden>ツール ▾</button><span class="tfh-grp">${['cols', 'folder', 'test'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => (k === 'test' ? `<button data-a="hw" id="tfh-hw" class="tfh-t" title="視聴済みを隠す">👁</button>` : '') + `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
+      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).filter(([k]) => !TEST_PAGES.includes(k)).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-sep" data-only="later" hidden></span><button data-a="hub" data-k="vtool" data-only="later" class="tfh-vt" title="視聴のツール" hidden>ツール ▾</button><span class="tfh-grp">${['cols', 'folder', 'test'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => (k === 'test' ? `<button data-a="hw" id="tfh-hw" class="tfh-t" title="視聴済みを隠す">👁</button><button data-a="dis" id="tfh-dis" class="tfh-t" title="低評価率の表示">👎</button>` : '') + `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
       b.addEventListener('click', e => {
         const x = e.target.closest('button[data-a]'); if (!x) return;
         const a = x.dataset.a;
         if (a === 'min') TF.mutate(s => { s.settings.hbarMin = !s.settings.hbarMin; });
         else if (a === 'pos') { const cur = HBAR_MODES.findIndex(m => m[0] === (S.settings.hbarPos || 'home')), nx = HBAR_MODES[(cur + 1) % HBAR_MODES.length][0]; TF.mutate(s => { s.settings.hbarPos = nx; }); }
         else if (a === 'hw') TF.mutate(st => { st.settings.hideWatched = !st.settings.hideWatched; });
+        else if (a === 'dis') { chrome.storage.local.get('px').then(r => { const px = r.px || {}; px.disBadge = px.disBadge === false; return chrome.storage.local.set({ px }); }); }
         else if (a === 'gear') { closeFly(); $('#tf-set') ? closeSettings() : openSettings(x); }
         else if (a === 'hub') { const f0 = $('#tf-gsb-fly'); const same = f0 && f0.dataset.k === x.dataset.k; closeFly(); if (!same) showBarFly(x); }
         else if (a === 'pg') openPg(x.dataset.p);
@@ -470,6 +479,7 @@
     }
     { const bg = pageBg(); if (bg) html.style.setProperty('--tf-pagebg', bg); }
     { const hw = $('#tfh-hw', b); if (hw) { const on = !!S.settings.hideWatched; hw.classList.toggle('on', on); hw.title = on ? '視聴済みを隠している(押すと表示する)' : '視聴済みを隠す'; hw.textContent = on ? '🙈' : '👁'; } }
+    { const db = $('#tfh-dis', b); if (db) { db.classList.toggle('on', pxDis); db.title = pxDis ? '低評価率を表示している(押すと隠す)' : '低評価率を表示'; } }
     { const on = document.documentElement.getAttribute('data-tf-pgk') === 'later' && document.documentElement.hasAttribute('data-tf-pg'); b.querySelectorAll('[data-only="later"]').forEach(n => { if (n.hidden === on) n.hidden = !on; }); }
     { const pb = $('#tfh-pos', b), nm = (HBAR_MODES.find(m => m[0] === mode) || HBAR_MODES[0])[1]; if (pb) { const t = '配置:' + nm; if (pb.textContent !== t) pb.textContent = t; pb.title = 'ボタンの置き方を切り替える(今: ' + nm + ')'; } }
     { const f = $('#tf-gsb-fly.tf-barfly'); if (f && f.dataset.k) { const h = hubFlyHtml(f.dataset.k); if (f._h !== h) { const keep = f.scrollTop; f._h = h; f.innerHTML = h; f.scrollTop = keep; } } }
@@ -582,42 +592,28 @@
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-nv" ${(S.settings.test || {}).nest !== false ? 'checked' : ''}><span></span>動画で表示する</label>
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-ns" ${(S.settings.testS || {}).nest !== false ? 'checked' : ''}><span></span>ショートで表示する</label>
       </section>
-      <section class="tf-grp" data-tab="org"><div class="tf-ghd">📁 フォルダ</div>
-      <button class="tf-srow tf-sbtn" id="tfs-ai">✨ フォルダのアイコンを名前から自動設定</button>
-      <label class="tf-srow tf-ssel"><span>新着とみなす期間(フォルダ横の件数)</span><select id="tfs-nd">${[1, 3, 7, 14].map(n => `<option value="${n}"${(S.settings.newDays || 3) === n ? ' selected' : ''}>${n}日以内</option>`).join('')}</select></label>
-      <label class="tf-srow tf-ssel"><span>フォルダ内のチャンネルを押したとき</span><select id="tfs-cc"><option value="pane"${S.settings.chClick !== 'youtube' ? ' selected' : ''}>右のページに表示</option><option value="youtube"${S.settings.chClick === 'youtube' ? ' selected' : ''}>YouTubeでチャンネルを開く</option></select></label>
-      </section>
-      <section class="tf-grp" data-tab="play"><div class="tf-ghd">🌙 視聴(再生リスト)</div>
-      <div class="tf-srow tf-ssel"><span>就寝時間(「就寝時間まで」の再生で、始まりまでの時間に合わせます)</span><div class="tf-trange"><input type="time" id="tfs-sl" value="${esc(S.settings.sleepFrom || '23:00')}"><b>〜</b><input type="time" id="tfs-st" value="${esc(S.settings.sleepTo || '06:00')}"></div></div>
-      </section>
-      <section class="tf-grp" data-tab="play"><div class="tf-ghd">▶ 再生画面</div>
-      <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-wf" ${(S.settings.watch || {}).flow ? 'checked' : ''}><span></span>コメントを動画の上に流す</label>
-      <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-wt" ${(S.settings.watch || {}).flowTr !== false ? 'checked' : ''}><span></span>外国語のコメントは日本語に翻訳(翻訳した印を付ける)</label>
-      <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-wpip" ${(S.settings.watch || {}).autoPip !== false ? 'checked' : ''}><span></span>下へスクロールして動画が隠れたら、小窓(ピクチャインピクチャー)で表示</label>
-      <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-ws" ${(S.settings.watch || {}).subAuto !== false ? 'checked' : ''}><span></span>音声が日本語以外なら日本語字幕、日本語なら字幕を隠す</label>
-      <label class="tf-srow tf-ssel"><span>ツールバーの位置</span><select id="tfs-wp"><option value="right"${(S.settings.watch || {}).side !== 'left' ? ' selected' : ''}>右</option><option value="left"${(S.settings.watch || {}).side === 'left' ? ' selected' : ''}>左</option></select></label>
-      <label class="tf-srow tf-ssel"><span>読み上げの速さ(仮)</span><select id="tfs-wr">${[0.8, 1, 1.2, 1.5, 1.8, 2].map(r => `<option value="${r}"${((S.settings.watch || {}).speakRate || 1.2) === r ? ' selected' : ''}>${r}倍</option>`).join('')}</select></label>
-      </section>
-      <section class="tf-grp" data-tab="play"><div class="tf-ghd">🏷 再生した動画のタグ</div>
-      <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-wrt" ${(S.settings.watch || {}).recTags !== false ? 'checked' : ''}><span></span>30秒以上見た動画のタグを、自動で溜める</label>
-      <button class="tf-srow tf-sbtn" id="tfs-tgm">🏷 タグを管理する(表示するタグを選ぶ・追加・削除)</button>
-      </section>
-      <section class="tf-grp" data-tab="org"><div class="tf-ghd">📺 登録チャンネル</div>
-      <button class="tf-srow tf-sbtn" id="tfs-mgr">⚙ グループ管理を開く</button>
-      <button class="tf-srow tf-sbtn" id="tfs-imp">⟳ 登録チャンネルを取り込む</button>
-      </section>
-      <section class="tf-grp" data-tab="sync"><div class="tf-ghd">☁ Google Drive</div>
+      <section class="tf-grp" data-tab="play" id="tfs-pxsec"><div style="font-size:11px;color:var(--tf-sub);padding:0 4px 4px">読み込み中…</div></section>
+      <div class="tf-subtabs" data-tab="org"><button data-osub="notify">🔔 通知</button><button data-osub="rate">🎚 再生速度</button><button data-osub="focus">🎯 集中モード</button><button data-osub="random">🎲 ランダムタグ</button></div>
+      <section class="tf-grp" data-tab="org" data-osub="notify" id="tfs-ntsec"></section>
+      <section class="tf-grp" data-tab="org" data-osub="rate" id="tfs-ratesec"></section>
+      <section class="tf-grp" data-tab="org" data-osub="focus" id="tfs-focussec"></section>
+      <section class="tf-grp" data-tab="org" data-osub="random" id="tfs-randsec"></section>
+      <div class="tf-subtabs" data-tab="sync"><button data-sub="sync">☁ 同期・データ</button><button data-sub="log">📜 動作ログ</button></div>
+      <section class="tf-grp" data-tab="sync" data-sub="log" id="tfs-logbox"><div class="tf-ghd">📜 動作ログ(同期・取り込み・エラーなど)</div>
+        <div class="tf-logbar"><button id="tfs-lgcopy">コピー</button><button id="tfs-lgclr">消去</button><button id="tfs-lgfull">別のタブで開く</button><label><input type="checkbox" id="tfs-lgwarn"> 注意・エラーだけ</label></div>
+        <div class="tf-logl" id="tfs-lgl">読み込み中…</div></section>
+      <section class="tf-grp" data-tab="sync" data-sub="sync"><div class="tf-ghd">☁ Google Drive</div>
       <button class="tf-srow tf-sbtn" id="tfs-sync">☁ Google Driveと同期</button>
       <button class="tf-srow tf-sbtn" id="tfs-up">⬆ この端末の内容をDriveへアップロード(Driveを上書き)</button>
       <button class="tf-srow tf-sbtn" id="tfs-down">⬇ Driveの内容をダウンロード(この端末を上書き)</button>
       <div class="tf-ssub" id="tfs-st">${esc(stTxt)}</div>
       </section>
-      <section class="tf-grp" data-tab="sync"><div class="tf-ghd">📄 ファイル(JSON)</div>
+      <section class="tf-grp" data-tab="sync" data-sub="sync"><div class="tf-ghd">📄 ファイル(JSON)</div>
       <button class="tf-srow tf-sbtn" id="tfs-exp">📤 JSONで書き出す(端末に保存)</button>
       <button class="tf-srow tf-sbtn" id="tfs-impj">📥 JSONから読み込む(この端末を上書き)</button>
       <input type="file" id="tfs-file" accept=".json,application/json" hidden>
       </section>
-      <details class="tf-dev" data-tab="sync"><summary>開発者向け(テスト・診断)</summary>
+      <details class="tf-dev" data-tab="sync" data-sub="sync"><summary>開発者向け(テスト・診断)</summary>
       <button class="tf-srow tf-sbtn" data-pgt="new">🆕 新着動画のページ</button>
       <button class="tf-srow tf-sbtn" data-pgt="live">📡 ライブ・配信のページ</button>
       <button class="tf-srow tf-sbtn" data-pgt="shorts">⚡ ショートのページ</button>
@@ -628,38 +624,25 @@
 `;
     document.body.appendChild(p);
     const r = anchor.getBoundingClientRect();
-    p.style.left = Math.max(8, Math.min(r.right - 400, innerWidth - 410)) + 'px'; p.style.top = (r.bottom + 8) + 'px'; p.style.maxHeight = Math.max(160, innerHeight - r.bottom - 20) + 'px'; // 画面に収まらないときはメニューの中をスクロールできるように
+    p.style.left = Math.max(8, Math.min(r.right - 400, innerWidth - 410)) + 'px'; p.style.top = (r.bottom + 8) + 'px'; { const mh = Math.min(640, Math.max(160, innerHeight - r.bottom - 20)); p.style.maxHeight = mh + 'px'; p.style.height = mh + 'px'; } // 高さは開いたときに決め、タブを切り替えても変えない(伸び縮みしない) // 画面に収まらないときはメニューの中をスクロールできるように
     if (center) { // ハブから開いたときは、画面の中央にガラス調で表示する
-      p.classList.add('tf-glass'); p.style.maxHeight = Math.max(200, innerHeight - 80) + 'px'; p.style.left = Math.max(8, (innerWidth - p.offsetWidth) / 2) + 'px'; p.style.top = Math.max(8, (innerHeight - p.offsetHeight) / 2) + 'px';
+      p.classList.add('tf-glass'); { const mh = Math.min(640, Math.max(200, innerHeight - 80)); p.style.maxHeight = mh + 'px'; p.style.height = mh + 'px'; } p.style.left = Math.max(8, (innerWidth - p.offsetWidth) / 2) + 'px'; p.style.top = Math.max(8, (innerHeight - p.offsetHeight) / 2) + 'px';
     }
     { // 上のタブ(旧TubeFolioと同じ分け方)。最後に開いたタブを覚える
       let cur = 'play'; try { cur = localStorage.getItem('tfSetTab') || 'play'; } catch (e) { /* なし */ }
-      const show = t => { cur = t; p.dataset.cur = t; p.querySelectorAll('.tf-tab').forEach(b => b.classList.toggle('on', b.dataset.t === t)); try { localStorage.setItem('tfSetTab', t); } catch (e) { /* なし */ } };
+      const show = t => { cur = t; p.dataset.cur = t; p.querySelectorAll('.tf-tab').forEach(b => b.classList.toggle('on', b.dataset.t === t)); try { localStorage.setItem('tfSetTab', t); } catch (e) { /* なし */ } requestAnimationFrame(() => { const l = parseFloat(p.style.left); if (!isNaN(l)) p.style.left = Math.max(8, Math.min(l, innerWidth - p.offsetWidth - 8)) + 'px'; }); };
       p.querySelectorAll('.tf-tab').forEach(b => { b.onclick = () => show(b.dataset.t); }); show(cur);
     }
     $('#tfs-diag', p).onclick = () => { closeSettings(); copyShelfDiag(); };
     $('#tfs-ldiag', p).onclick = () => { closeSettings(); copyLayoutDiag(); };
     p.querySelectorAll('[data-pgt]').forEach(b => { b.onclick = () => { closeSettings(); openPg(b.dataset.pgt); }; });
     $('#tfs-t4', p).onclick = () => { closeSettings(); TF.mutate(s => { s.settings.hub = s.settings.hub !== true; }); };
-    $('#tfs-ai', p).onclick = async () => { const n = await TF.autoIcons(); toast(n ? `${n}件のフォルダにアイコンを設定しました` : '設定できるフォルダはありませんでした(⭐のフォルダだけ対象)'); };
-    $('#tfs-st', p).onchange = e => TF.mutate(st => { st.settings.sleepTo = e.target.value || '06:00'; });
-    $('#tfs-sl', p).onchange = e => TF.mutate(st => { st.settings.sleepFrom = e.target.value || '23:00'; });
-    $('#tfs-nd', p).onchange = e => TF.mutate(s => { s.settings.newDays = +e.target.value; });
-    $('#tfs-cc', p).onchange = e => TF.mutate(s => { s.settings.chClick = e.target.value; });
+    const sleepSet = patch => chrome.storage.local.get('sleepWin').then(r => chrome.storage.local.set({ sleepWin: { on: true, from: '23:00', to: '07:00', ...(r.sleepWin || {}), ...patch }, prefsAt: Date.now() })); // 就寝ポップ(playerx.js)は sleepWin を読む
     $('#tfs-nv', p).onchange = e => TF.mutate(st => { st.settings.test = { ...(st.settings.test || {}), nest: e.target.checked }; });
     $('#tfs-ns', p).onchange = e => TF.mutate(st => { st.settings.testS = { ...(st.settings.testS || {}), nest: e.target.checked }; });
     $('#tfs-hm', p).onchange = e => TF.mutate(s => { s.settings.hideMix = e.target.checked; });
     $('#tfs-hbh', p).onchange = e => TF.mutate(st => { st.settings.hbarHome = e.target.checked ? 'closed' : 'open'; });
     $('#tfs-pam', p).onchange = e => TF.mutate(st => { st.settings.plAddMenu = e.target.checked; });
-    const wset = patch => TF.mutate(st => { st.settings.watch = { ...(st.settings.watch || {}), ...patch }; });
-    $('#tfs-wrt', p).onchange = e => wset({ recTags: e.target.checked });
-    $('#tfs-tgm', p).onclick = () => { if (window.tfOpenTagMgr) window.tfOpenTagMgr(); };
-    $('#tfs-wpip', p).onchange = e => wset({ autoPip: e.target.checked });
-    $('#tfs-wf', p).onchange = e => wset({ flow: e.target.checked });
-    $('#tfs-wt', p).onchange = e => wset({ flowTr: e.target.checked });
-    $('#tfs-ws', p).onchange = e => wset({ subAuto: e.target.checked });
-    $('#tfs-wp', p).onchange = e => wset({ side: e.target.value });
-    $('#tfs-wr', p).onchange = e => wset({ speakRate: +e.target.value });
     $('#tfs-hc', p).onchange = e => TF.mutate(s => { s.settings.hideCreate = e.target.checked; });
     // Drive: 手動アップロード / ダウンロード(確認してから上書き)
     const drv = (type, ask, done) => { if (!confirm(ask)) return; const e = $('#tfs-st', p); if (e) e.textContent = '通信中…'; chrome.runtime.sendMessage({ type, interactive: true }, r => { const t = r && r.ok ? '☁ ' + done : '⚠ ' + ((r && r.error) || '失敗'); const x = $('#tfs-st'); if (x) x.textContent = t; toast(t); }); };
@@ -667,7 +650,7 @@
     $('#tfs-down', p).onclick = () => drv('driveDown', 'Google Driveの内容で、この端末のデータを上書きします。よろしいですか?', 'ダウンロードしました');
     // JSON: 端末への書き出し / 読み込み(フォルダ・チャンネル・設定など、同期の対象すべて)
     $('#tfs-exp', p).onclick = async () => {
-      const data = await chrome.storage.local.get(['groups', 'channels', 'settings', 'meta', 'activity', 'bookmarks', 'playedTags']);
+      const data = await chrome.storage.local.get(['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags']);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'TubeFolio2', version: 1, exportedAt: new Date().toISOString(), data }, null, 2)], { type: 'application/json' }));
       a.download = 'tubefolio2-' + new Date().toISOString().slice(0, 10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('JSONを書き出しました');
@@ -681,12 +664,238 @@
         if (!confirm(`このファイルの内容で、この端末のデータを上書きします。
 フォルダ ${src.groups.length}件 / チャンネル ${Object.keys(src.channels).length}件
 よろしいですか?`)) return;
-        const set = {}; ['groups', 'channels', 'settings', 'meta', 'activity', 'bookmarks', 'playedTags'].forEach(k => { if (src[k] !== undefined && src[k] !== null) set[k] = src[k]; });
+        const set = {}; ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags'].forEach(k => { if (src[k] !== undefined && src[k] !== null) set[k] = src[k]; });
         await chrome.storage.local.set(set); toast('JSONから読み込みました');
       } catch (err) { toast('読み込めませんでした: ' + (err.message || err)); }
     };
-    $('#tfs-mgr', p).onclick = () => { chrome.runtime.sendMessage({ type: 'openManager' }); closeSettings(); };
-    $('#tfs-imp', p).onclick = () => { closeSettings(); bgImport(); };
+    { // 再生画面の機能のオン・オフ(元のTubeFolioの設定「再生画面」と同じ項目)。保存先: px / cmt / cchap(いずれもDrive同期の対象)
+      // [種類, 保存先, キー, 名前, 選択肢, 既定値]  種類: b=オン/オフのスイッチ / s=選択
+      const GROUPS = window.TF_SPEC || [], SPEC = GROUPS.flatMap(g => g[3].flatMap(c => c.rows)); // 項目の一覧は setspec.js
+      const sec = $('#tfs-pxsec', p);
+      chrome.storage.local.get(['px', 'cmt', 'cchap', 'sleepWin', 'pickMode', 'fOpen', 'chSet', 'setGrp']).then(st => {
+        const cur = (store, key, def) => { if (store === key) return st[store] !== undefined ? st[store] : def; const o = st[store]; return o && o[key] !== undefined ? o[key] : def; }; // store と key が同じものは、storage の値そのもの(例: pickMode)
+        const seg = (id, opts, v) => `<div class="tf-seg">${opts.map(([ov, ot]) => `<button type="button" data-px="${esc(id)}" data-v="${esc(ov)}" class="${String(ov) === String(v) ? 'on' : ''}">${esc(ot)}</button>`).join('')}</div>`;
+        const line = (label, ctl) => `<div class="tf-cmrow"><span>${label}</span>${ctl}</div>`;
+        const row = r => { const [kind, store, key, label, opts, def] = r, id = `${store}.${key}`;
+          if (kind === 'note') return `<p class="tf-note">${esc(store)}</p>`;
+          if (kind === 'time') { const sw = st.sleepWin || {}; return line('就寝時間の範囲<em>視聴パターンの就寝時間と共通</em>', `<span class="tf-trange"><input type="time" id="tfs-slf" value="${esc(S.settings.sleepFrom || sw.from || '23:00')}"><b>〜</b><input type="time" id="tfs-slt" value="${esc(S.settings.sleepTo || sw.to || '06:00')}"></span>`); }
+          if (kind === 'btn') return `<button class="tf-srow tf-sbtn" id="tfs-tgm">${esc(key)}</button>`;
+          if (kind === 'city') return line('場所(市区町村名)', `<input class="tf-city" id="tfs-city" placeholder="空欄=自動" value="${esc((st.px && st.px.outCity) || '')}">`);
+          if (kind === 'scale') { const pc = +((+(st.px && st.px.pvScale) || 0.25) * 100).toFixed(2); return line('新プレビューのUIの大きさ', `<span class="tf-pvs"><input type="range" min="1" max="100" step="1" id="tfs-pvr" value="${Math.round(Math.max(1, Math.min(100, pc)))}"><input type="number" min="1" max="100" step="0.5" id="tfs-pvn" value="${Math.max(1, pc)}" style="width:84px">%</span>`); }
+          if (kind === 'chset') {
+            const m = new Map(); for (const [k, c] of Object.entries(st.chSet || {})) { const n = c.name || k, e = m.get(n) || { n, c, keys: [] }; e.keys.push(k); m.set(n, e); }
+            return m.size ? [...m.values()].map(({ n, c, keys }) => line(`${esc(n)}<em>${[c.s > 0 ? `冒頭 ${c.s}秒` : '', c.e > 0 ? `最後 ${c.e}秒` : '', c.mid ? 'サムネ:途中の画面' : ''].filter(Boolean).join('・')}</em>`, `<button class="tf-xbtn" data-chdel="${esc(keys.join('\n'))}" title="この設定を消す">✕</button>`)).join('') : '<p class="tf-note">まだありません。</p>';
+          }
+          const v = cur(store, key, def);
+          return line(esc(label), seg(id, kind === 'b' ? [[true, opts[0]], [false, opts[1]]] : opts, kind === 'b' ? v !== false : v)); };
+        const card = c => `<div class="tf-card"><div class="tf-ch">${esc(c.t)}</div><p class="tf-note">${esc(c.d)}</p>${c.rows.map(row).join('')}</div>`;
+        const grp = st.setGrp || {};
+        sec.innerHTML = GROUPS.map(([gid, title, def, cards]) => `<details class="tf-pxg" data-grp="${gid}"${(gid in grp ? grp[gid] : def) ? ' open' : ''}><summary>${esc(title)}<small>${cards.length} 項目</small></summary>${cards.map(card).join('')}</details>`).join('');
+        // 「登録/非登録の目印」は一覧・サムネへ、「表示」はその他へ移す(中身はそのまま。操作の処理はIDで結んである)
+        [['🏷 登録', 'list'], ['🖥 表示', 'other']].forEach(([head, gid]) => {
+          const s0 = [...p.querySelectorAll('section.tf-grp[data-tab="org"]')].find(x => (x.querySelector('.tf-ghd')?.textContent || '').startsWith(head)), d0 = sec.querySelector(`details[data-grp="${gid}"]`);
+          if (!s0 || !d0) return;
+          const h0 = s0.querySelector('.tf-ghd'), c0 = document.createElement('div'); c0.className = 'tf-card';
+          const t0 = document.createElement('div'); t0.className = 'tf-ch'; t0.textContent = h0.textContent; h0.remove();
+          c0.appendChild(t0); [...s0.childNodes].forEach(n => c0.appendChild(n)); d0.appendChild(c0); s0.remove();
+          const n0 = d0.querySelector('summary small'); if (n0) n0.textContent = d0.querySelectorAll('.tf-card').length + ' 項目';
+        });
+        sec.addEventListener('toggle', e => { const d = e.target; if (!d.dataset || !d.dataset.grp) return; chrome.storage.local.get('setGrp').then(r => { const g = r.setGrp || {}; if (g[d.dataset.grp] !== d.open) chrome.storage.local.set({ setGrp: { ...g, [d.dataset.grp]: d.open } }); }); }, true);
+        const tf = $('#tfs-slf', sec), tt = $('#tfs-slt', sec), tg = $('#tfs-tgm', sec), ci = $('#tfs-city', sec);
+        if (tf) tf.onchange = e => { const v = e.target.value || '23:00'; TF.mutate(s => { s.settings.sleepFrom = v; }); sleepSet({ from: v }); };
+        if (tt) tt.onchange = e => { const v = e.target.value || '06:00'; TF.mutate(s => { s.settings.sleepTo = v; }); sleepSet({ to: v }); };
+        if (tg) tg.onclick = () => { if (window.tfOpenTagMgr) window.tfOpenTagMgr(); };
+        if (ci) ci.onchange = e => chrome.storage.local.get('px').then(r => chrome.storage.local.set({ px: { ...(r.px || {}), outCity: e.target.value.trim() }, prefsAt: Date.now() }));
+        const pvr = $('#tfs-pvr', sec), pvn = $('#tfs-pvn', sec); // 新プレビューのUIの大きさ(1〜100%)
+        const pvSave = pc => { pc = Math.min(100, Math.max(1, +pc || 25)); chrome.storage.local.get('px').then(r => chrome.storage.local.set({ px: { ...(r.px || {}), pvScale: +(pc / 100).toFixed(6) }, prefsAt: Date.now() })); return pc; };
+        if (pvr && pvn) {
+          pvr.oninput = () => { pvn.value = pvr.value; };
+          pvr.onchange = () => pvSave(pvn.value);
+          pvn.onchange = () => { const pc = pvSave(pvn.value); pvn.value = +pc.toFixed(1); pvr.value = Math.round(pc); };
+        }
+      });
+      sec.addEventListener('click', e => {
+        const del = e.target.closest && e.target.closest('[data-chdel]');
+        if (del) { const keys = del.dataset.chdel.split('\n'); chrome.storage.local.get('chSet').then(r => { const o = { ...(r.chSet || {}) }; keys.forEach(k => delete o[k]); return chrome.storage.local.set({ chSet: o, prefsAt: Date.now() }); }); del.closest('.tf-cmrow').remove(); return; }
+        const t = e.target.closest && e.target.closest('.tf-seg button[data-px]'); if (!t) return;
+        const [store, key] = t.dataset.px.split('.'), spec = SPEC.find(r => r[1] === store && r[2] === key);
+        let v = t.dataset.v;
+        if (spec && spec[0] === 'b') v = v === 'true'; else if (spec && spec[0] === 's') { const o = spec[4].find(x => String(x[0]) === String(v)); v = o ? o[0] : v; } // 数値は数値のまま保存
+        t.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === t));
+        if (store === key) { chrome.storage.local.set({ [store]: v, prefsAt: Date.now() }); return; }
+        chrome.storage.local.get(store).then(r => { const o = { ...(r[store] || {}) }; o[key] = v; return chrome.storage.local.set({ [store]: o, prefsAt: Date.now() }); });
+      });
+    }
+    { // 整理・通知: 通知(フォルダごとのルール・知らせ方)・フォルダ別の再生速度。保存先: notifyRules / notifyFolders / folderRates(いずれもDrive同期の対象)
+      const nsec = $('#tfs-ntsec', p), rsec = $('#tfs-ratesec', p);
+      const MODE_LB = [['inherit', '親に合わせる'], ['off', 'オフ'], ['now', 'すぐ'], ['window', '時間帯だけ'], ['kw', 'キーワードだけ']], LV_LB = [['high', '高'], ['normal', '中'], ['low', '低']];
+      const opt = (list, v) => list.map(([k, l]) => `<option value="${k}"${String(k) === String(v) ? ' selected' : ''}>${l}</option>`).join('');
+      const folders = () => S.groups.map(g => ({ id: g.id, parent: g.parent }));
+      const saveNt = R => chrome.storage.local.set({ notifyRules: R, notifyFolders: S.groups.filter(g => ((R.folders[g.id] || {}).mode || 'off') !== 'off').map(g => g.id), prefsAt: Date.now() });
+      const drawNt = async () => {
+        const R = await TG.notifyRules(), fl = folders();
+        const rows = TF.flat(S.groups).map(({ g, depth }) => {
+          const own = R.folders[g.id], mode = (own && own.mode) || (g.parent ? 'inherit' : 'off'), eff = TG.ruleFor(R, fl, g.id), lv = (own && own.level) || 'normal';
+          return `<div class="tf-ntrow" data-nf="${esc(g.id)}" style="--d:${depth}"><span class="tf-ntname"><i style="background:${esc(g.color || '#888')}"></i>${esc(g.name)}</span>
+            <select data-nk="mode" title="通知のタイミング">${opt(g.parent ? MODE_LB : MODE_LB.slice(1), mode)}</select>
+            <select data-nk="level" title="重要度"${mode === 'inherit' || mode === 'off' ? ' disabled' : ''}>${opt(LV_LB, lv)}</select>
+            <span class="tf-ntwin"${mode === 'window' ? '' : ' hidden'}><input type="time" data-nk="from" value="${esc((own && own.from) || '19:00')}"> 〜 <input type="time" data-nk="to" value="${esc((own && own.to) || '23:00')}"></span>
+            ${mode === 'inherit' ? `<span class="tf-nteff">→ ${esc((MODE_LB.find(x => x[0] === eff.mode) || [0, 'オフ'])[1])}</span>` : ''}</div>`;
+        }).join('');
+        const sel = (k, list, v, attr) => `<select class="tf-ntsel" ${attr}="${k}">${opt(list, v)}</select>`;
+        const cb = (attr, k, on, label) => `<label class="tf-sw tf-srow"><input type="checkbox" ${attr}="${k}" ${on ? 'checked' : ''}><span></span>${label}</label>`;
+        const row2 = (label, ctl) => `<div class="tf-cmrow"><span>${label}</span>${ctl}</div>`;
+        nsec.innerHTML = `<div class="tf-card"><div class="tf-ch">🔔 通知</div>
+          <details class="tf-nthelp"><summary>通知する動画の選び方(おすすめ)</summary><ul>
+            <li><b>すぐ見たいフォルダだけ「すぐ」</b>(ニュース・推しの配信者など)。重要度「高」は閉じるまで残ります。</li>
+            <li><b>まとめて見るフォルダは「時間帯だけ」</b>(エンタメ・ゲーム等を 19:00〜23:00 など)。時間外の新着は時間帯の始めにまとめて届きます。</li>
+            <li><b>数が多いフォルダは「キーワードだけ」</b>にして、下の例外キーワード(LIVE・生配信・速報など)を含む動画だけ知らせると、通知が増えすぎません。</li>
+            <li><b>登録チャンネルの配信</b>はフォルダと別に「配信」でオン(見逃したくない人向け)。</li>
+            <li>それ以外のフォルダは「オフ」のままでOK。新着はサイドバーの「新着動画」でまとめて見られます。</li></ul></details>
+          <div class="tf-ntsub">知らせ方</div>
+          ${row2('表示', sel('show', [['both', 'PCの通知＋YouTube画面の右下'], ['pc', 'PCの通知(Windowsの右下)'], ['page', 'YouTube画面の右下からスライド']], R.show, 'data-ng'))}
+          ${row2('新着の確認の間隔<em>YouTubeのタブを開いている間</em>', sel('interval', [['5', '5分'], ['10', '10分'], ['15', '15分'], ['30', '30分']], String(R.interval), 'data-ng'))}
+          <div class="tf-ntsub">フォルダごと</div>${rows || '<p class="tf-note">フォルダがありません</p>'}
+          <div class="tf-ntsub">例外キーワード</div>
+          <p class="tf-note">タイトルにこの言葉を含む動画は、フォルダが「時間帯だけ」「キーワードだけ」でもすぐ知らせます(カンマ区切り)。</p>
+          <input class="tf-ntkw" data-ng="kw" value="${esc(R.kw)}" placeholder="LIVE, 生配信, 速報">
+          ${row2('キーワードの重要度', sel('kwLevel', LV_LB, R.kwLevel, 'data-ng'))}
+          ${cb('data-ng', 'kwAll', R.kwAll, '通知オフのフォルダ・未分類の登録チャンネルにも使う')}
+          <div class="tf-ntsub">登録チャンネルの配信</div>
+          ${cb('data-nl', 'on', R.live.on, '配信が始まったら知らせる')}
+          ${row2('対象', sel('scope', [['all', 'すべての登録チャンネル'], ['notify', '通知オンのフォルダのチャンネルだけ']], R.live.scope, 'data-nl'))}
+          ${cb('data-nl', 'upcoming', R.live.upcoming, '配信予定(待機所)ができたときも知らせる')}
+          ${row2('配信の重要度', sel('level', LV_LB, R.live.level, 'data-nl'))}
+          <div class="tf-ntbtns"><button data-nt="test" data-lv="normal">テスト通知(中)</button><button data-nt="test" data-lv="high">テスト通知(高)</button><button data-nt="check">今すぐ新着を確認</button></div>
+          <p class="tf-note">新着の確認は YouTube のタブを開いている間に行います。「時間帯だけ」の通知は、時間になるとバックグラウンドから届きます。</p></div>`;
+      };
+      nsec.addEventListener('change', async e => {
+        const t = e.target, R = await TG.notifyRules();
+        if (t.dataset.nk) {
+          const id = t.closest('[data-nf]').dataset.nf, k = t.dataset.nk;
+          if (k === 'mode' && t.value === 'inherit') delete R.folders[id]; else R.folders[id] = { level: 'normal', from: '19:00', to: '23:00', ...(R.folders[id] || {}), [k]: t.value };
+          await saveNt(R); if (k === 'mode') drawNt();
+        } else if (t.dataset.ng) { R[t.dataset.ng] = t.type === 'checkbox' ? t.checked : t.dataset.ng === 'interval' ? +t.value : t.value; await saveNt(R); }
+        else if (t.dataset.nl) { R.live = { ...R.live, [t.dataset.nl]: t.type === 'checkbox' ? t.checked : t.value }; await saveNt(R); }
+      });
+      nsec.addEventListener('click', e => {
+        const b = e.target.closest && e.target.closest('[data-nt]'); if (!b) return;
+        if (b.dataset.nt === 'test') chrome.runtime.sendMessage({ type: 'tg-notify-test', level: b.dataset.lv }).catch(() => toast('拡張機能に接続できません。YouTubeのページを更新(F5)してください'));
+        else { toast('新着を確認しています…'); chrome.runtime.sendMessage({ type: 'tg-check-now' }, r => { void chrome.runtime.lastError; toast(r && r.ok === false ? r.error : '確認しました'); }); }
+      });
+      const drawRate = async () => {
+        const { folderRates: rates = {} } = await chrome.storage.local.get('folderRates'), RATES = ['', '0.75', '1', '1.25', '1.5', '1.75', '2'];
+        const rows = TF.flat(S.groups).map(({ g, depth }) => `<div class="tf-ntrow" style="--d:${depth}"><span class="tf-ntname"><i style="background:${esc(g.color || '#888')}"></i>${esc(g.name)}</span>
+          <select data-rate="${esc(g.id)}">${RATES.map(r => `<option value="${r}"${String(rates[g.id] || '') === r ? ' selected' : ''}>${r ? r + ' 倍' : depth ? '親フォルダと同じ' : '指定なし'}</option>`).join('')}</select></div>`).join('');
+        const n = Object.keys(rates).filter(k => rates[k]).length;
+        rsec.innerHTML = `<div class="tf-card"><div class="tf-ch">🎚 フォルダ別の再生速度</div><p class="tf-note">動画を開いたとき、そのチャンネルが入っているフォルダの速度に自動で合わせます(サブフォルダが「親フォルダと同じ」なら親の設定)。開いたあとに手で変えた速度はそのまま。${n ? `(${n} フォルダ設定済み)` : ''}</p>
+          <div class="tf-ntsub">フォルダごと</div>${rows || '<p class="tf-note">フォルダがありません</p>'}</div>`;
+      };
+      rsec.addEventListener('change', async e => {
+        const t = e.target; if (!t.dataset.rate) return;
+        const { folderRates = {} } = await chrome.storage.local.get('folderRates');
+        if (t.value) folderRates[t.dataset.rate] = +t.value; else delete folderRates[t.dataset.rate];
+        await chrome.storage.local.set({ folderRates, prefsAt: Date.now() });
+      });
+      // ---- 🎯 集中モード(保存先: focus。判定は focus.js の TFF) ----
+      const fsec = $('#tfs-focussec', p), DAYS = ['日', '月', '火', '水', '木', '金', '土'];
+      const drawFocus = async () => {
+        const F = await TFF.cfg(), stt = TFF.state(F), hm = t => new Date(t).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        const gname = id => (S.groups.find(g => g.id === id) || {}).name || id;
+        const now = stt.temp ? `🎯 「${(F.tempAllow || []).map(gname).join('・')}」だけに集中中(${hm(F.tempUntil)} まで)` : !F.on ? 'オフ' : stt.active ? `🔒 集中モード中(${hm(stt.until)} まで)` : stt.unlocked ? `一時解除中(${hm(F.unlockUntil)} まで)` : '待機中(時間帯の外)';
+        const slots = F.slots.map((sl, i) => `<div class="tf-fcslot" data-si="${i}"><div class="tf-fcdays">${DAYS.map((d, k) => `<label class="${sl.days.includes(k) ? 'on' : ''}"><input type="checkbox" data-fd="${k}" ${sl.days.includes(k) ? 'checked' : ''}>${d}</label>`).join('')}</div>
+          <span class="tf-trange"><input type="time" data-ft="from" value="${esc(sl.from)}"><b>〜</b><input type="time" data-ft="to" value="${esc(sl.to)}"></span><button class="tf-xbtn" data-fc="delslot" data-si="${i}" title="この時間帯を消す">✕</button></div>`).join('');
+        const list = F.type === 'allow' ? F.allow : F.lock, tops = S.groups.filter(g => !g.parent || !S.groups.some(x => x.id === g.parent));
+        const fchk = (id, name, color) => `<label class="tf-fcf ${list.includes(id) ? 'on' : ''}"><input type="checkbox" data-ff="${esc(id)}" ${list.includes(id) ? 'checked' : ''}><i style="background:${esc(color || '#888')}"></i>${esc(name)}</label>`;
+        const cb = (attr, k, on, label, sub) => `<label class="tf-sw tf-srow"><input type="checkbox" ${attr}="${k}" ${on ? 'checked' : ''}><span></span><div>${label}${sub ? `<div class="tf-note" style="margin:0">${sub}</div>` : ''}</div></label>`;
+        fsec.innerHTML = `<div class="tf-card"><div class="tf-ch">🎯 集中モード</div>
+          <p class="tf-note">決めた曜日・時間帯は、選んだフォルダの動画を見えなくします(通知とは別)。つい関係ない動画を見てしまうのを防ぎます。</p>
+          ${cb('data-fg', 'on', F.on, '<b>集中モードを使う</b>', 'いまの状態：' + esc(now))}
+          ${stt.temp ? '<div class="tf-ntbtns"><button data-fc="endtemp">「だけに集中」を終える</button></div>' : ''}
+          <div class="tf-ntsub">時間帯</div>${slots}<div class="tf-ntbtns"><button data-fc="addslot">＋ 時間帯を追加</button></div>
+          <div class="tf-ntsub">見えなくするフォルダ</div>
+          <div class="tf-cmrow"><span>やり方</span><div class="tf-seg"><button type="button" data-fc="type" data-v="lock" class="${F.type !== 'allow' ? 'on' : ''}">選んだフォルダを隠す</button><button type="button" data-fc="type" data-v="allow" class="${F.type === 'allow' ? 'on' : ''}">選んだフォルダだけ見られる</button></div></div>
+          <p class="tf-note">${F.type === 'allow' ? '✅ を付けたフォルダ(例：学習・ビジネス)だけ見られます。ほかのフォルダ・登録していないチャンネルは見えなくなります。' : '✅ を付けたフォルダ(例：エンタメ・ゲーム)が見えなくなります。中のフォルダも一緒に隠れます。'}</p>
+          <div class="tf-fcfs">${tops.map(g => fchk(g.id, g.name, g.color)).join('')}${fchk('__unsorted', '未分類', '#888')}</div>
+          <div class="tf-ntsub">隠す場所</div>
+          <label class="tf-sw tf-srow"><input type="checkbox" checked disabled><span></span>登録チャンネル画面(フォルダ・すべて・新着)</label>
+          ${cb('data-fg', 'hideHome', F.hideHome, 'ホーム・検索・再生画面の横の動画もぼかす')}
+          ${cb('data-fg', 'blockWatch', F.blockWatch, '見えないチャンネルの動画を開いたらロック画面を出す')}
+          <div class="tf-ntsub">一時解除</div>
+          <div class="tf-cmrow"><span>「少しだけ解除」の長さ<em>押してから10秒待つと解除できます</em></span><select class="tf-ntsel" data-fg="unlockMin">${opt([['5', '5分'], ['15', '15分'], ['30', '30分'], ['60', '60分']], String(F.unlockMin))}</select></div>
+          ${stt.unlocked ? '<div class="tf-ntbtns"><button data-fc="relock">今すぐ集中モードに戻す</button></div>' : ''}</div>`;
+      };
+      const fsave = async patch => { const cur = await TFF.cfg(); await chrome.storage.local.set({ focus: { ...cur, ...patch }, prefsAt: Date.now() }); drawFocus(); };
+      fsec.addEventListener('change', async e => {
+        const t = e.target;
+        if (t.dataset.fg) return fsave({ [t.dataset.fg]: t.type === 'checkbox' ? t.checked : +t.value });
+        const row = t.closest('.tf-fcslot');
+        if (row) { const cur = await TFF.cfg(), sl = cur.slots[+row.dataset.si]; if (!sl) return;
+          if (t.dataset.fd != null) { const d = +t.dataset.fd; sl.days = t.checked ? [...new Set([...sl.days, d])].sort() : sl.days.filter(x => x !== d); }
+          if (t.dataset.ft) sl[t.dataset.ft] = t.value;
+          return fsave({ slots: cur.slots }); }
+        if (t.dataset.ff) { const cur = await TFF.cfg(), k = cur.type === 'allow' ? 'allow' : 'lock', set = new Set(cur[k]); t.checked ? set.add(t.dataset.ff) : set.delete(t.dataset.ff); fsave({ [k]: [...set] }); }
+      });
+      fsec.addEventListener('click', async e => {
+        const b = e.target.closest && e.target.closest('[data-fc]'); if (!b) return;
+        const a = b.dataset.fc, cur = await TFF.cfg();
+        if (a === 'type') fsave({ type: b.dataset.v });
+        else if (a === 'addslot') fsave({ slots: [...cur.slots, { days: [1, 2, 3, 4, 5], from: '09:00', to: '18:00' }] });
+        else if (a === 'delslot') fsave({ slots: cur.slots.filter((_, i) => i !== +b.dataset.si) });
+        else if (a === 'endtemp') fsave({ tempUntil: 0, tempAllow: [] });
+        else if (a === 'relock') fsave({ unlockUntil: 0 });
+      });
+      // ---- 🎲 ランダムタグ(保存先: playedTags。溜まり方は playedtags.js、並べ方・選び方は元のTubeFolioと同じ) ----
+      const rsec2 = $('#tfs-randsec', p);
+      const drawRand = async () => {
+        const { playedTags = {} } = await chrome.storage.local.get('playedTags');
+        const rows = Object.entries(playedTags).filter(([, e]) => !e.x).sort((a, b) => (b[1].own ? 1 : 0) - (a[1].own ? 1 : 0) || (b[1].n || 0) - (a[1].n || 0) || (b[1].at || 0) - (a[1].at || 0));
+        const ngs = Object.entries(playedTags).filter(([, e]) => e.ng).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+        const chip = ([k, e]) => `<span class="tf-rn ${e.own ? 'own' : ''}" data-wk="${esc(e.t)}">${esc(e.t)}${e.own ? '' : `<small>${e.n || 0}</small>`}<button data-rn="ng" data-k="${esc(k)}" title="削除して、次回から追加しない">🚫</button><button data-rn="del" data-k="${esc(k)}" title="削除(また見た動画に付いていたら増えます)">✕</button></span>`;
+        const ngChip = ([k, e]) => `<span class="tf-rn ng">${esc(e.t)}<button data-rn="back" data-k="${esc(k)}" title="除外をやめる">↩</button></span>`;
+        rsec2.innerHTML = `<div class="tf-card"><div class="tf-ch">🎲 ランダムタグ</div>
+          <p class="tf-note">「おすすめ」の検索で「🎲 ランダムタグ」を押すと、ここからランダムに選んで、キーワードに入れて探します(回数の多いタグほど選ばれやすい)。動画を30秒以上見ると、その動画のタグが自動で増えます。</p>
+          <div class="tf-ntsub">タグを追加</div><div class="tf-rnadd"><input class="tf-ntkw" id="tfs-rn-in" placeholder="タグ(カンマ区切りで複数)"><button class="tf-xbtn" data-rn="add">追加</button></div>
+          <div class="tf-ntsub">今のタグ(${rows.length} 個)</div><div class="tf-rnl">${rows.map(chip).join('') || '<p class="tf-note">まだありません</p>'}</div>
+          ${rows.length ? '<div class="tf-ntbtns"><button data-rn="clear">自動で溜まったタグをすべて削除</button></div>' : ''}
+          <div class="tf-ntsub">追加しないタグ(${ngs.length} 個)</div><p class="tf-note">ここに入れたタグは、動画を見ても自動で増えません(ランダムにも使いません)。上のタグの「🚫」で移せます。</p>
+          <div class="tf-rnadd"><input class="tf-ntkw" id="tfs-rn-ng" placeholder="追加しないタグ(カンマ区切りで複数)"><button class="tf-xbtn" data-rn="ngadd">登録</button></div>
+          <div class="tf-rnl">${ngs.map(ngChip).join('') || '<p class="tf-note">まだありません</p>'}</div></div>`;
+      };
+      const rsave = async fn => { const { playedTags: cur = {} } = await chrome.storage.local.get('playedTags'); fn(cur); await chrome.storage.local.set({ playedTags: cur, tagEditAt: Date.now() }); drawRand(); };
+      const words = id => ($(id, rsec2).value || '').split(/[,、，\n]/).map(x => x.trim()).filter(Boolean);
+      rsec2.addEventListener('click', e => {
+        const b = e.target.closest && e.target.closest('[data-rn]'); if (!b) return;
+        const a = b.dataset.rn, k = b.dataset.k;
+        if (a === 'add') { const w = words('#tfs-rn-in'); if (w.length) rsave(cur => w.forEach(t => { const kk = t.toLowerCase(); cur[kk] = { t, n: Math.max(3, (cur[kk] || {}).n || 0), at: Date.now(), own: true }; })); }
+        else if (a === 'ngadd') { const w = words('#tfs-rn-ng'); if (w.length) rsave(cur => w.forEach(t => { cur[t.toLowerCase()] = { t, n: 0, at: Date.now(), x: true, ng: true }; })); }
+        else if (a === 'del') rsave(cur => { if (cur[k]) cur[k] = { ...cur[k], x: true, at: Date.now() }; });
+        else if (a === 'ng') rsave(cur => { if (cur[k]) cur[k] = { t: cur[k].t, n: cur[k].n || 0, at: Date.now(), x: true, ng: true }; });
+        else if (a === 'back') rsave(cur => { if (cur[k]) cur[k] = { t: cur[k].t, n: 0, at: Date.now(), x: true }; });
+        else if (a === 'clear') { if (confirm('自動で溜まったタグをすべて削除しますか？(自分で追加したタグは残ります)')) rsave(cur => { for (const [kk, v] of Object.entries(cur)) if (!v.own && !v.ng) cur[kk] = { ...v, x: true, at: Date.now() }; }); }
+      });
+      rsec2.addEventListener('keydown', e => { if (e.key !== 'Enter') return; const id = e.target.id; if (id === 'tfs-rn-in') rsec2.querySelector('[data-rn="add"]').click(); else if (id === 'tfs-rn-ng') rsec2.querySelector('[data-rn="ngadd"]').click(); });
+      const showO = s => { p.dataset.osub = s; p.querySelectorAll('.tf-subtabs[data-tab="org"] button').forEach(b => b.classList.toggle('on', b.dataset.osub === s)); try { localStorage.setItem('tfSetOSub', s); } catch (e) { /* なし */ } if (s === 'notify') drawNt(); else if (s === 'rate') drawRate(); else if (s === 'focus') drawFocus(); else drawRand(); };
+      p.querySelectorAll('.tf-subtabs[data-tab="org"] button').forEach(b => { b.onclick = () => showO(b.dataset.osub); });
+      { let s0 = 'notify'; try { s0 = localStorage.getItem('tfSetOSub') || 'notify'; } catch (e) { /* なし */ } showO(['rate', 'focus', 'random'].includes(s0) ? s0 : 'notify'); }
+    }
+    { // 動作ログ: 設定の中で、最新の記録を直接見られる(開いている間は、新しい記録が入ると自動で更新)
+      const box = $('#tfs-logbox', p), list = $('#tfs-lgl', p), warnOnly = $('#tfs-lgwarn', p); let all = [];
+      const p2 = n => String(n).padStart(2, '0'), tm = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; };
+      const shown = () => all.filter(x => !warnOnly.checked || x.l !== 'info').slice(0, 80);
+      const draw = () => { const l = shown(); list.innerHTML = l.length ? l.map(x => `<div class="lr ${esc(x.l)}"><span>${tm(x.t)}</span><b>${esc(x.c)}</b>${esc(x.m)}</div>`).join('') : '<div class="lr">まだログはありません</div>'; };
+      const load = () => chrome.storage.local.get('tgLog').then(r => { all = (r.tgLog || []).slice().reverse(); draw(); });
+      const onCh = ch => { if (ch.tgLog) { all = (ch.tgLog.newValue || []).slice().reverse(); draw(); } };
+      let logOn = false; // 「📜 動作ログ」のサブタブを開いたときに読み込み、開いている間は新しい記録で自動更新
+      const startLog = () => { if (logOn) return; logOn = true; load(); chrome.storage.onChanged.addListener(onCh); };
+      const showSub = s => { p.dataset.sub = s; p.querySelectorAll('.tf-subtabs button[data-sub]').forEach(b => b.classList.toggle('on', b.dataset.sub === s)); try { localStorage.setItem('tfSetSub', s); } catch (e) { /* なし */ } if (s === 'log') startLog(); requestAnimationFrame(() => { const l = parseFloat(p.style.left); if (!isNaN(l)) p.style.left = Math.max(8, Math.min(l, innerWidth - p.offsetWidth - 8)) + 'px'; }); }; // 広がったときに、画面の右にはみ出さないよう、左へずらす
+      p.querySelectorAll('.tf-subtabs button[data-sub]').forEach(b => { b.onclick = () => showSub(b.dataset.sub); });
+      { let s0 = 'sync'; try { s0 = localStorage.getItem('tfSetSub') || 'sync'; } catch (e) { /* なし */ } showSub(s0); }
+      warnOnly.onchange = draw;
+      $('#tfs-lgcopy', p).onclick = async () => { await navigator.clipboard.writeText(shown().map(x => `${new Date(x.t).toLocaleString('ja-JP')}\t${x.c}\t${x.l}\t${x.m}`).join('\n')); toast('ログをコピーしました'); };
+      $('#tfs-lgclr', p).onclick = async () => { if (confirm('動作ログをすべて消去しますか?')) { await chrome.storage.local.set({ tgLog: [] }); load(); } };
+      $('#tfs-lgfull', p).onclick = () => { chrome.runtime.sendMessage({ type: 'openLog' }); closeSettings(); };
+    }
     $('#tfs-sync', p).onclick = () => { $('#tfs-st', p).textContent = '同期中…'; chrome.runtime.sendMessage({ type: 'syncNow', interactive: true }, r => { const e = $('#tfs-st'); if (e) e.textContent = r && r.ok ? '☁ 同期しました' : '⚠ ' + ((r && r.error) || '失敗'); }); };
     setTimeout(() => document.addEventListener('mousedown', outsideSet, true), 0);
   }
@@ -758,11 +967,16 @@
       e.preventDefault(); e.stopPropagation();
       const v = lbCard && videoId(lbCard); if (!v) return toast('動画を特定できませんでした');
       lb.disabled = true; lb.textContent = '…';
-      chrome.runtime.sendMessage({ type: 'plAdd', videoId: v }, r => {
-        lb.disabled = false;
-        if (r && r.ok) { lb.textContent = '✓'; lb.classList.add('done'); toast('「TubeFolio2 後で見る」に追加しました'); }
-        else { lb.textContent = LBI; toast('追加できませんでした: ' + ((r && r.error) || '不明なエラー'), 6000); }
-      });
+      const fail = msg => { lb.disabled = false; lb.textContent = LBI; toast(msg, 6000); };
+      const stale = '拡張機能が更新されました。YouTubeのページを更新(F5)してから、もう一度押してください'; // 再読み込みの直後は、開いているタブが古いままで、何も起きない
+      if (!chrome.runtime || !chrome.runtime.id) return fail(stale);
+      try {
+        chrome.runtime.sendMessage({ type: 'plAdd', videoId: v }, r => {
+          const le = chrome.runtime.lastError; lb.disabled = false;
+          if (r && r.ok) { lb.textContent = '✓'; lb.classList.add('done'); toast('「TubeFolio2 後で見る」に追加しました'); }
+          else { lb.textContent = LBI; toast(le ? '拡張機能に接続できません。YouTubeのページを更新(F5)してください' : '追加できませんでした: ' + ((r && r.error) || '不明なエラー'), 6000); }
+        });
+      } catch (err) { fail(stale); }
     });
     document.body.appendChild(lb); return lb;
   }
@@ -877,9 +1091,16 @@
     // メイン画面のいじった設定を、YouTube標準に戻す(1回だけ)。以後の変更は、各設定のスイッチから
     if (S.settings.mainReset !== 1) { await TF.mutate(st => { st.settings.thumb = {}; st.settings.test = {}; st.settings.place = {}; st.settings.hideCreate = false; st.settings.hideChips = false; st.settings.mainReset = 1; }); S = await TF.get(); }
     chrome.storage.onChanged.addListener(async () => { S = await TF.get(); refresh(); });
-    new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
-    window.addEventListener('yt-navigate-start', () => { closeView(); });
-    window.addEventListener('yt-navigate-finish', () => { schedule(); checkImport(); queueSync(); });
+    // 再生画面・ショートでは、YouTube側が絶えず書き換わる(コメント・関連動画・チャット)ので、一覧用の更新は走らせない(再生直後の反応が重くなるため)
+    new MutationObserver(() => { if (/^\/(watch|shorts)/.test(location.pathname)) return; schedule(); }).observe(document.body, { childList: true, subtree: true });
+    // 再生画面・ショートへ移るときは、下のガラスバーを、移った瞬間に隠す(次の更新を待つと、再生が始まってもしばらく残る)
+    window.addEventListener('yt-navigate-start', e => {
+      closeView();
+      if (/^\/(watch|shorts)/.test(location.pathname) || document.querySelector('ytd-watch-flexy:not([hidden]), ytd-shorts:not([hidden])')) { navHold = true; renderHBar(); }
+      const d = e.detail || {}, u = d.url || (d.endpoint && d.endpoint.commandMetadata && d.endpoint.commandMetadata.webCommandMetadata && d.endpoint.commandMetadata.webCommandMetadata.url) || '';
+      if (/^\/(watch|shorts)/.test(String(u).replace(/^https?:\/\/[^\/]+/, ''))) { const b = $('#tf-hbar'); if (b) b.style.display = 'none'; document.documentElement.removeAttribute('data-tf-hbot'); }
+    });
+    window.addEventListener('yt-navigate-finish', () => { schedule(); checkImport(); queueSync(); if (navHold) setTimeout(() => { navHold = false; schedule(); }, 600); });
     window.addEventListener('resize', schedule);
     // 登録/非登録の枠は、サムネの位置を測って重ねている。画像の読み込み・ホバーでの拡大が終わったあと・列の組み替えのあとで、位置がずれたままにならないよう、測り直す
     document.addEventListener('load', e => { if (e.target && e.target.tagName === 'IMG') schedule(); }, true);
@@ -901,4 +1122,36 @@
     }
   }
   init();
+})();
+
+// ---------- 画面内の通知(右下からスライド。サムネ+タイトル) / 新着の確認の依頼(バックグラウンドから) ----------
+(() => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const TOAST_MS = { high: 0, normal: 12000, low: 6000 }; // 0=閉じるまで残す
+  function showToasts(items) {
+    let box = document.getElementById('tg-toasts');
+    if (!box) { box = document.createElement('div'); box.id = 'tg-toasts'; document.body.appendChild(box); }
+    const KIND = { live: '🔴 配信中', upcoming: '⏰ 配信予定', kw: '⚡ キーワード', new: '新着' };
+    items.slice(0, 6).forEach((it, i) => setTimeout(() => {
+      const t = document.createElement('div');
+      t.className = `tg-toast tg-lv-${it.level || 'normal'}`;
+      const when = it.kind === 'upcoming' && it.at ? ` ${new Date(it.at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}〜` : '';
+      t.innerHTML = `<img src="https://i.ytimg.com/vi/${esc(it.v)}/mqdefault.jpg" alt="">
+        <div class="tg-t-body"><div class="tg-t-head"><span class="tg-t-kind">${KIND[it.kind] || '新着'}${esc(when)}</span><span class="tg-t-folder">${esc(it.folder || '')}</span></div>
+          <div class="tg-t-title">${esc(it.title || '')}</div><div class="tg-t-ch">${esc(it.ch || '')}</div></div>
+        <button class="tg-t-x" title="閉じる">✕</button>`;
+      const close = () => { t.classList.remove('in'); setTimeout(() => t.remove(), 350); };
+      t.querySelector('.tg-t-x').addEventListener('click', e => { e.stopPropagation(); close(); });
+      t.addEventListener('click', () => { close(); location.assign('/watch?v=' + encodeURIComponent(it.v)); });
+      box.appendChild(t);
+      requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('in')));
+      const ms = TOAST_MS[it.level || 'normal'];
+      if (ms) { let tm = setTimeout(close, ms); t.addEventListener('mouseenter', () => clearTimeout(tm)); t.addEventListener('mouseleave', () => { tm = setTimeout(close, 4000); }); }
+    }, i * 250));
+    if (items.length > 6) setTimeout(() => showToasts([{ v: items[6].v, title: `ほか ${items.length - 6} 本の新着があります`, ch: '', folder: '', level: 'low', kind: 'new' }]), 1700);
+  }
+  chrome.runtime.onMessage.addListener((m, s, reply) => {
+    if (m && m.type === 'tg-toast') { showToasts(m.items || []); reply({ ok: true }); return; }
+    if (m && m.type === 'tg-check') { TGX.check({ force: !!m.force }).then(r => reply({ ok: true, ...r }), e => reply({ ok: false, error: e.message })); return true; }
+  });
 })();

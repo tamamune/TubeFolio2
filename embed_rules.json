@@ -1,0 +1,5 @@
+[
+  { "id": 1, "priority": 1,
+    "action": { "type": "modifyHeaders", "requestHeaders": [{ "header": "referer", "operation": "set", "value": "https://tubefolio.example/" }] },
+    "condition": { "urlFilter": "/embed/*tgref=1", "requestDomains": ["www.youtube.com", "www.youtube-nocookie.com"], "resourceTypes": ["sub_frame"] } }
+]

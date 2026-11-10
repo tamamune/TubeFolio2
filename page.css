@@ -161,3 +161,13 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .sortseg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 16px; background: var(--chip); margin-right: 6px; }
 .sortseg button { border: 0; border-radius: 14px; padding: 4px 10px; background: none; color: var(--sub); font: 500 12px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; }
 .sortseg button.on { background: var(--fg); color: var(--bg); }
+/* サムネの左下の「×」(再生リストから削除) */
+.th .vdel { position: absolute; left: 6px; bottom: 6px; z-index: 6; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.72); color: #fff; font: 700 16px/26px Roboto, Arial, sans-serif; text-align: center; cursor: pointer; opacity: .9; }
+.th .vdel:hover { background: #cc0000; opacity: 1; }
+.th .vdel:disabled { opacity: .5; cursor: default; }
+
+/* 集中モード中は、見えないチャンネルのカードをぼかして押せなくする(focus.js) */
+[data-tglock] { position: relative; }
+[data-tglock] > * { filter: blur(14px) grayscale(.8); opacity: .35; pointer-events: none; user-select: none; }
+[data-tglock]::after { content: "🔒 集中モード中"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 15px Roboto, Arial, "Noto Sans JP", sans-serif; color: var(--fg, #fff); text-shadow: 0 1px 6px rgba(0,0,0,.6); pointer-events: none; }
+.rgo.rrand { margin-left: 6px; padding: 0 14px; background: var(--chip, rgba(128,128,128,.18)); color: var(--fg); border: 1px solid var(--line, rgba(128,128,128,.3)); }

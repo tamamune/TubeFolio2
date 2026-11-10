@@ -1,0 +1,63 @@
+.tg-c-panel {
+  --tg-cw: 30%;
+  position: absolute; top: 12px; bottom: 64px; right: 12px; width: var(--tg-cw); min-width: 220px; z-index: 58;
+  pointer-events: auto; background: transparent;
+  font-family: Roboto, Arial, "Noto Sans JP", sans-serif;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 30px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 30px), transparent 100%);
+}
+.tg-c-panel.tg-c-left { right: auto; left: 12px; }
+.tg-c-list { height: 100%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.35) transparent; padding: 0 6px; box-sizing: border-box; }
+.tg-c-list::-webkit-scrollbar { width: 6px; }
+.tg-c-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.35); border-radius: 3px; }
+.tg-c-item { margin: 0 0 12px; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 1px 2px #000; }
+.tg-c-meta { display: flex; gap: 8px; align-items: baseline; font-size: 12px; opacity: .95; }
+.tg-c-author { color: #9ed0ff; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+.tg-c-like { color: #ffb4b4; }
+.tg-c-time { color: #ddd; font-size: 11px; }
+.tg-c-text { font-size: 15px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; font-weight: 500; }
+.tg-c-note { color: #fff; font-size: 13px; text-shadow: 0 0 3px #000; padding: 8px 0; }
+.tg-c-panel:hover .tg-c-list { background: rgba(0,0,0,.25); border-radius: 8px; }
+.tg-c-btn.tg-c-inbar { display: inline-flex !important; align-items: center !important; justify-content: center !important; width: 48px !important; min-width: 48px !important; height: 100% !important; min-height: 40px; padding: 0 !important; box-sizing: border-box; opacity: 1 !important; }
+.tg-c-btn.tg-c-inbar svg { width: 28px !important; height: 28px !important; min-width: 28px; flex: none; fill: #fff !important; transform: none !important; }
+.tg-c-btn.tg-c-off svg { opacity: .45; }
+.tg-c-btn.tg-c-float {
+  position: absolute; top: 12px; right: 12px; z-index: 1000;
+  width: 36px; height: 36px; padding: 7px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(0,0,0,.6); opacity: 0; transition: opacity .2s;
+}
+.tg-c-btn.tg-c-float svg { fill: #fff; }
+#movie_player:hover .tg-c-btn.tg-c-float { opacity: 1; }
+.tg-c-menu {
+  position: absolute; bottom: 60px; right: 12px; z-index: 1001;
+  background: rgba(28,28,28,.95); color: #fff; border-radius: 10px; padding: 10px 12px;
+  font: 13px Roboto, Arial, "Noto Sans JP", sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.5);
+}
+.tg-c-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.tg-c-row + .tg-c-row { margin-top: 8px; }
+.tg-c-row > div { display: flex; gap: 4px; }
+.tg-c-row button { border: none; border-radius: 6px; padding: 5px 10px; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; font: inherit; }
+.tg-c-row button.on { background: #fff; color: #0f0f0f; font-weight: 700; }
+.tg-c-panel { transition: opacity .6s; }
+.tg-c-panel.tg-c-done { opacity: 0; pointer-events: none; }
+.tg-c-hint { font-size: 11px; opacity: .7; margin-top: 6px; }
+.tg-c-item.tg-tr { display: flex; gap: 8px; cursor: pointer; opacity: .55; transition: opacity .2s; }
+.tg-c-item.tg-tr.cur { opacity: 1; }
+.tg-c-item.tg-tr.cur .tg-c-text { font-weight: 700; }
+.tg-c-item.tg-tr:hover { opacity: .9; }
+.tg-c-panel .tg-ts { border: none; background: rgba(62,166,255,.25); color: #8cc8ff; padding: 0 4px; border-radius: 4px; font: inherit; font-weight: 700; cursor: pointer; }
+.tg-c-panel .tg-ts:hover { background: #3ea6ff; color: #0f0f0f; }
+.tg-c-orig { margin-top: 3px; font-size: 11px; opacity: .75; }
+.tg-c-orig span { display: block; margin-top: 2px; white-space: pre-wrap; }
+.tg-c-orig span[hidden] { display: none; }
+.tg-c-trbtn { border: none; background: rgba(255,255,255,.12); color: inherit; border-radius: 8px; padding: 0 6px; font: inherit; cursor: pointer; }
+.tg-c-grip { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); z-index: 2; padding: 2px 10px; border-radius: 10px; background: rgba(0,0,0,.6); color: #fff; font: 600 11px Roboto, Arial, "Noto Sans JP", sans-serif; cursor: grab; opacity: 0; transition: opacity .2s; user-select: none; }
+.tg-c-panel:hover .tg-c-grip, .tg-c-panel.tg-c-dragging .tg-c-grip { opacity: 1; }
+.tg-c-panel.tg-c-dragging .tg-c-grip { cursor: grabbing; }
+.tg-c-panel.tg-c-free { -webkit-mask-image: none; mask-image: none; }
+.tg-c-panel.tg-c-dragging { outline: 2px dashed rgba(62,166,255,.8); outline-offset: 2px; }
+.tg-c-panel:hover { -webkit-mask-image: none; mask-image: none; }
+html.tg-tbm .tg-c-btn.tg-c-inbar, html.tg-tbm .tg-px-tool, html.tg-tbm .tg-px-sub, html.tg-tbm .tg-px-spk, html.tg-tbm .tg-px-chbtn { width: 0 !important; min-width: 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+.tg-tb-x, .tg-c-x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 14px; width: 26px; height: 26px; border-radius: 50%; }
+.tg-tb-x:hover, .tg-c-x:hover { background: rgba(255,255,255,.15); }
+.tg-c-h { display: flex; align-items: center; justify-content: space-between; font-weight: 700; margin-bottom: 4px; }

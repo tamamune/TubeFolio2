@@ -1,10 +1,11 @@
 // Google Drive 同期(appDataFolder の tubefolio2.json)。background.js から importScripts で読み込む。
 // 方式: 全体を1ファイルで保存。最終更新(rev)が新しい方が勝つ。
-const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'bookmarks', 'playedTags'];
+// Drive に共有するデータ(各PCに登録した TubeFolio2 の設定・登録データ)。YouTube 自身が共有しているもの(視聴履歴・登録チャンネル・再生リスト本体)と、取り直せるキャッシュ・この端末だけの記録(動作ログ・画像のサムネ等)は含めない。
+const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags'];
 const SYNC_FILE = 'tubefolio2.json';
 const DRIVE = 'https://www.googleapis.com';
 
-const setStatus = (state, msg) => chrome.storage.local.set({ syncStatus: { state, msg: msg || '', at: Date.now() } });
+const setStatus = (state, msg) => { try { if (typeof bgLog === 'function' && (state === 'error' || state === 'ok')) bgLog('Drive同期', msg || (state === 'ok' ? '完了' : '失敗'), state === 'error' ? 'error' : 'info'); } catch (e) { /* 無視 */ } return chrome.storage.local.set({ syncStatus: { state, msg: msg || '', at: Date.now() } }); };
 
 async function driveToken(interactive) {
   // トークンは拡張機能を更新(再読み込み)しても残るよう storage.local に保存する

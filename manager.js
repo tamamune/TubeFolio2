@@ -416,11 +416,13 @@
     $('#statsTgl').onclick = toggleStats;
     const st = t => { const e = $('#gfly-st'); if (e) e.textContent = t; };
     const drv = (type, ask, done) => { if (ask && !confirm(ask)) return; st('通信中…'); chrome.runtime.sendMessage({ type, interactive: true }, r => { const t = r && r.ok ? '☁ ' + done : '⚠ ' + ((r && r.error) || '失敗'); st(t); toast(t); }); };
-    const KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'bookmarks', 'playedTags'];
+    const KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags'];
     const closeFly = () => { const f = $('#gfly'); if (f) f.remove(); };
     const act = async g => {
       if (g === 'reload') { closeFly(); toast('拡張機能を再読み込みします…'); setTimeout(() => chrome.runtime.reload(), 400); }
+      else if (g === 'log') { closeFly(); chrome.runtime.sendMessage({ type: 'openLog' }); }
       else if (g === 'assist') { closeFly(); openAssistCfg(); }
+      else if (g === 'assistTgl') { TF.mutate(s => { s.settings.assist = !s.settings.assist; }).then(() => { const b = $('#gAssist'); if (b) b.textContent = assistOn() ? '🪄 振り分け補助:オン' : '🪄 振り分け補助:オフ'; }); }
       else if (g === 'yt') { closeFly(); toast('YouTubeから取り込み中…'); $('#ytimp').click(); }
       else if (g === 'sync') drv('syncNow', null, '同期しました');
       else if (g === 'up') drv('driveUp', 'この端末の内容で、Google Driveのデータを上書きします。よろしいですか?', 'アップロードしました');
@@ -439,12 +441,13 @@
       const hv0 = Math.max(1, Math.min(4, +(S.settings && S.settings.hoverVideos) || 2));
       const f = document.createElement('div'); f.id = 'gfly';
       f.innerHTML = `<div class="gtabs">${[['org', '📂 整理'], ['sync', '☁ 同期'], ['etc', '🔧 その他']].map(([k, l]) => `<button class="gtab${k === (f.dataset.cur = (() => { try { return localStorage.getItem('tfMgrTab') || 'org'; } catch (e) { return 'org'; } })()) ? ' on' : ''}" data-tb="${k}">${l}</button>`).join('')}</div>
-        <div data-gt="org"><div class="fh">登録チャンネル</div><button data-g="yt">⟳ YouTubeから取り込む</button><button data-g="assist">🪄 振り分け補助の設定(点数・キーワード)</button>
+        <div data-gt="org"><div class="fh">登録チャンネル</div><button data-g="yt">⟳ YouTubeから取り込む</button>
+        <div class="fh">振り分け補助</div><button data-g="assist">🪄 振り分け補助の設定(${assistOn() ? 'オン' : 'オフ'})</button>
         <div class="fh">マウスオーバーで出す動画の数</div><div class="fseg">${[1, 2, 3, 4].map(n => `<button data-hv="${n}" class="${hv0 === n ? 'act' : ''}">${n}本</button>`).join('')}</div>
         <div class="fh">マウスオーバーで出す種類</div><div class="fseg">${TYPES.map(([f, lb]) => `<button data-ht="${f}" class="${ht0 === f ? 'act' : ''}">${lb.replace(/^\S+ /, '').replace('ライブ配信', 'ライブ・配信')}</button>`).join('')}</div></div>
         <div data-gt="sync"><div class="fh">Google Drive</div><button data-g="sync">☁ 今すぐ同期</button><button data-g="up">⬆ この端末の内容をアップロード</button><button data-g="down">⬇ Driveの内容をダウンロード</button><div class="fn" id="gfly-st"></div>
         <div class="fh">ファイル(JSON)</div><button data-g="exp">📤 JSONで書き出す</button><button data-g="imp">📥 JSONから読み込む</button></div>
-        <div data-gt="etc"><button data-g="reload">🔄 拡張機能を再読み込み(更新を反映)</button></div>`;
+        <div data-gt="etc"><button data-g="log">📜 動作ログを開く</button><button data-g="reload">🔄 拡張機能を再読み込み(更新を反映)</button></div>`;
       document.body.appendChild(f);
       const r = b.getBoundingClientRect(); f.style.top = Math.round(r.bottom + 8) + 'px'; f.style.left = Math.max(8, Math.min(r.right - 250, innerWidth - 258)) + 'px';
       const showT = t => { f.dataset.cur = t; f.querySelectorAll('.gtab').forEach(b => b.classList.toggle('on', b.dataset.tb === t)); f.querySelectorAll('[data-gt]').forEach(d => { d.hidden = d.dataset.gt !== t; }); try { localStorage.setItem('tfMgrTab', t); } catch (e) { /* なし */ } };
@@ -544,6 +547,7 @@
     const num = (k, lb, mn, mx, note = '') => `<label class="ar-row"><span>${lb}${note ? `<em>${note}</em>` : ''}</span><input type="number" data-r="${k}" min="${mn}" max="${mx}" value="${R[k]}"></label>`;
     const chk = (k, lb) => `<label class="ar-chk"><input type="checkbox" data-r="${k}" ${R[k] ? 'checked' : ''}><span>${lb}</span></label>`;
     d.innerHTML = `<div class="ar"><h3>🪄 振り分け補助の設定</h3>
+      <label class="ar-chk"><input type="checkbox" id="ar-on" ${assistOn() ? 'checked' : ''}><span><b>振り分け補助を使う</b>(フォルダに入っていないチャンネルに、フォルダの候補を出します)</span></label>
       <p class="ar-note">フォルダに入っていないチャンネルごとに、チャンネル名・最近の動画タイトル・説明文に、フォルダのキーワードが何回出るかで点数をつけ、点数の高いフォルダを候補に出します。キーワードは、フォルダの編集で設定します(空欄ならフォルダ名から自動)。</p>
       <div class="ar-sub">点数のつけ方</div>
       ${num('nameScore', 'チャンネル名に入っている', 0, 20, '1語につき')}${num('titleScore', '動画タイトルに入っている', 0, 20, '1本・1語につき')}${num('titleCount', '見る動画タイトルの本数', 3, 30, '最近の動画から')}
@@ -561,6 +565,7 @@
     d.addEventListener('input', e => { if (e.target.id !== 'arq') return; const w = e.target.value.trim().toLowerCase(); d.querySelectorAll('.ar-kw').forEach(l => { l.hidden = !!w && !l.dataset.n.includes(w); }); });
     d.addEventListener('change', e => { const i = e.target.closest('[data-kw]'); if (!i) return; const kw = TF.kwList(i.value); TF.mutate(s => { const g = s.groups.find(x => x.id === i.dataset.kw); if (!g) return; if (kw.length) g.kw = kw; else delete g.kw; }); });
     d.addEventListener('click', e => { const a = e.target.closest('[data-a]'); if (!a) return; if (a.dataset.a === 'reset') { TF.mutate(s => { s.settings.assistRules = {}; }).then(() => { d.close(); openAssistCfg(); }); } else d.close(); });
+    d.addEventListener('change', e => { if (e.target.id === 'ar-on') TF.mutate(s => { s.settings.assist = e.target.checked; }); });
     d.addEventListener('close', () => d.remove()); d.showModal();
   }
 

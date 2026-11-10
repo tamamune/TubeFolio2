@@ -1,4 +1,19 @@
 const openMgr = () => chrome.tabs.create({ url: chrome.runtime.getURL('manager.html') });
+// ---- 動作ログ(元のTubeFolioから移植): 設定 →「📜 動作ログ」で見られる。保存先は storage の tgLog(この端末だけ・同期しない) ----
+// 保存はバックグラウンドだけが行う(同時書き込みで消えないように)。YouTubeのタブは、2秒ごとにまとめて 'tg-log' で送ってくる。
+var TG_LOG_MAX = 2000, _bgLogBuf = [], _bgLogT = null, _bgLogChain = Promise.resolve();
+function writeLog(items) {
+  _bgLogChain = _bgLogChain.then(async () => {
+    const { tgLog = [] } = await chrome.storage.local.get('tgLog');
+    await chrome.storage.local.set({ tgLog: tgLog.concat(items).slice(-TG_LOG_MAX) });
+  }).catch(() => {});
+  return _bgLogChain;
+}
+function bgLog(cat, msg, level = 'info') {
+  _bgLogBuf.push({ t: Date.now(), c: cat, m: String(msg), l: level, s: 'bg' });
+  if (!_bgLogT) _bgLogT = setTimeout(() => { _bgLogT = null; writeLog(_bgLogBuf.splice(0)); }, 500);
+}
+const logged = (cat, p, what = '') => p.then(r => { bgLog(cat, (what || '完了') + (r && r.count != null ? `(${r.count}件)` : '')); return r; }, e => { bgLog(cat, String((e && e.message) || e), 'error'); throw e; });
 // 拡張機能のボタン(桜)を押す = 拡張機能を再読み込み(vivaldi://extensions のリロードと同じ)→ 開いているYouTubeと管理画面も読み込み直す。管理画面は開かない(右クリックのメニューから開ける)
 const reloadExtension = async () => { await chrome.storage.local.set({ tfReloadYt: Date.now() }); chrome.runtime.reload(); };
 chrome.action.onClicked.addListener(reloadExtension);
@@ -364,8 +379,8 @@ async function translateText(q, to) {
 // ---------- 再生画面のパネル用: 決まったサイトへのGET中継 / 関連動画 ----------
 async function xfetch(url, as, st) {
   const u = new URL(url);
-  if (u.protocol !== 'https:' || !['sponsor.ajay.app', 'ja.wikipedia.org'].includes(u.hostname)) return null;
-  const r = await fetch(u.href, { credentials: 'omit' });
+  if (u.protocol !== 'https:' || !['sponsor.ajay.app', 'api.github.com', 'ja.wikipedia.org', 'en.wikipedia.org', 'api.open-meteo.com', 'geocoding-api.open-meteo.com', 'ipapi.co', 'archive.org'].includes(u.hostname)) return null;
+  const r = await fetch(u.href, { credentials: 'omit', headers: u.hostname === 'api.github.com' ? { Accept: 'application/vnd.github+json' } : {} });
   if (!r.ok) return st ? { _http: r.status } : null;
   return as === 'text' ? r.text() : r.json();
 }
@@ -406,10 +421,13 @@ async function chText(key) {
 const shortsOwnerCache = new Map();
 chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
-  if (m.type === 'feedAll') { feedAll(m.days || 4, !!m.force, m.kind).then(send).catch(e => send({ error: String(e) })); return true; }
+  if (m.type === 'feedAll') { logged('新着', feedAll(m.days || 4, !!m.force, m.kind), '新着一覧(' + (m.kind || 'v') + ')を取得').then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'feedStatus') { send(feedProgs[m.kind || 'v'] || idleProg()); return; }
-  if (m.type === 'plAdd') { plAdd(m.videoId, m.listId).then(send).catch(e => { if (!m.listId) chrome.storage.local.remove('plTargetId'); send({ error: String(e.message || e) }); }); return true; }
+  if (m.type === 'plAdd') { logged('再生リスト', plAdd(m.videoId, m.listId), '「後で見る」などに追加').then(send).catch(e => { if (!m.listId) chrome.storage.local.remove('plTargetId'); send({ error: String(e.message || e) }); }); return true; }
   if (m.type === 'cmtPage') { cmtPage(m.videoId, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'tg-log') { writeLog((m.items || []).slice(-200).map(x => ({ t: +x.t || Date.now(), c: String(x.c || '').slice(0, 40), m: String(x.m || '').slice(0, 600), l: ['info', 'warn', 'error'].includes(x.l) ? x.l : 'info', s: x.s === 'page' ? 'page' : 'yt' }))); send(true); return true; }
+  if (m.type === 'openLog') { chrome.tabs.create({ url: chrome.runtime.getURL('log.html') }); send(true); return true; }
+  if (m.type === 'tgTranslate') { translateText(String(m.q || '').slice(0, 1500), m.to || 'ja').then(r => send(r.text)).catch(() => send(null)); return true; } // 移植した comments.js 用: 訳した文字列だけを返す
   if (m.type === 'translate') { translateText(String(m.q || '').slice(0, 1500), m.to || 'ja').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'xfetch') { xfetch(m.url, m.as, m.st).then(send).catch(() => send(null)); return true; }
   if (m.type === 'related') { relatedOf(m.videoId).then(items => send({ items })).catch(e => send({ error: String(e.message || e) })); return true; }
@@ -417,9 +435,11 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (m.type === 'plDelete') { plDelete(m.id).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'ytHome') { ytHome(m.kind, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'ytSearch') { ytSearch(m.q, m.kind, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'plTargetInfo') { plTarget().then(id => send({ id })).catch(() => send({})); return true; }
+  if (m.type === 'plRemove') { plRemove(m).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plMove') { plMove(m).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plLists') { plLists().then(lists => send({ lists })).catch(e => send({ error: String(e.message || e) })); return true; }
-  if (m.type === 'plVideos') { Promise.all((m.ids || []).map(plVideos)).then(rs => { const seen = new Set(), items = []; rs.flat().forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); items.push(x); } }); send({ items }); }).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'plVideos') { Promise.all((m.ids || []).map(id => plVideos(id, m.order))).then(rs => { const seen = new Set(), items = []; rs.flatMap(r => r.items).forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); items.push(x); } }); send({ items, ordered: rs.every(r => r.ordered) }); }).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'feedClear') { // 新着一覧の保存結果(feedCache_*)・ショートの投稿日(spub)・メモリのキャッシュを消す。Drive同期の対象外の一時データだけ
     tcache.clear(); chrome.storage.local.remove(['feedCache_v', 'feedCache_s', 'feedCache_l', 'spub']).then(() => send({ ok: true })).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'newCounts') { // 各チャンネルの「N日以内の新着動画」件数(RSS・20分キャッシュ)
@@ -447,7 +467,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   }
   if (m.type === 'syncNow') { syncNow(!!m.interactive).then(send); return true; }
   if (m.type === 'driveUp' || m.type === 'driveDown') { driveForce(m.type === 'driveUp' ? 'up' : 'down').then(send); return true; }
-  if (m.type === 'importSubs') { importSubs().then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'importSubs') { logged('取り込み', importSubs(), '登録チャンネルの取り込み').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'scan') { limit(() => scan(m.key)).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'openManager') openMgr();
   if (m.type === 'chInfo' || m.type === 'avatar') {
@@ -475,22 +495,33 @@ async function ytCtx() {
   if (!key) throw new Error('YouTubeの情報を取得できません');
   return (ytApi = { key, ver: ver || '2.20260101.00.00' });
 }
-async function authBrowse(browseId, continuation) {
+async function authBrowse(browseId, continuation, params) {
   const c = await ytCtx(), headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
   const body = { context: { client: { clientName: 'WEB', clientVersion: c.ver, hl: 'ja', gl: 'JP' } } };
-  if (continuation) body.continuation = continuation; else body.browseId = browseId;
+  if (continuation) body.continuation = continuation; else { body.browseId = browseId; if (params) body.params = params; }
   const r = await fetch(`${ORIGIN}/youtubei/v1/browse?key=${c.key}&prettyPrint=false`, { method: 'POST', credentials: 'include', headers, body: JSON.stringify(body) });
   if (!r.ok) throw new Error('browse ' + r.status + (r.status === 401 || r.status === 403 ? '(ログインが必要です)' : ''));
   return r.json();
 }
 const txt = o => !o ? '' : (o.simpleText || o.content || (o.runs || []).map(x => x.text).join('') || '');
 const lastThumb = t => t && t.thumbnails && t.thumbnails.length ? t.thumbnails[t.thumbnails.length - 1].url : '';
+// 投稿者の欄から、チャンネルID(UC…)と @ハンドルを取る(一覧のチャンネルアイコンを、登録チャンネルの情報から引くため)
+const bylineIds = o => { const be = o && o.runs && o.runs[0] && o.runs[0].navigationEndpoint && o.runs[0].navigationEndpoint.browseEndpoint, h = be && be.canonicalBaseUrl && /\/(@[^\/?#]+)/.exec(decodeURIComponent(be.canonicalBaseUrl)); return { chId: (be && be.browseId) || '', handle: h ? decodeURIComponent(h[1]).toLowerCase() : '' }; };
 // 再生リスト「TubeFolio2 後で見る」へ動画を追加(ホームのサムネの「＋」ボタンから)。再生リストのIDは、見つかったら覚えておく
+// 追加先: 再生リスト「TubeFolio2 後で見る」。同じ名前に近いリストが複数あるとき(古いもの・名前違い)は、名前が完全に同じものを選ぶ。
+// 覚えてあるIDが、今も同じ名前のリストを指していなければ、選び直す。候補が複数あるときは、動作ログに残す。
 async function plTarget() {
-  const { plTargetId } = await chrome.storage.local.get('plTargetId'); if (plTargetId) return plTargetId;
-  const t = (await plLists()).find(x => /TubeFolio2\s*後で見る/.test(x.title || ''));
-  if (!t) throw new Error('再生リスト「TubeFolio2 後で見る」が見つかりません');
-  await chrome.storage.local.set({ plTargetId: t.id }); return t.id;
+  const { plTargetId } = await chrome.storage.local.get('plTargetId');
+  const norm = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const lists = await plLists();
+  const exact = lists.filter(x => norm(x.title) === 'TubeFolio2 後で見る'), loose = lists.filter(x => /TubeFolio2\s*後で見る/.test(x.title || ''));
+  const cand = exact.length ? exact : loose;
+  if (!cand.length) throw new Error('再生リスト「TubeFolio2 後で見る」が見つかりません');
+  if (cand.length > 1) bgLog('再生リスト', `「TubeFolio2 後で見る」に近い再生リストが ${cand.length} 個あります: ${cand.map(x => `${x.id}(${norm(x.title)}・${x.count || '?'})`).join(' / ')}`, 'warn');
+  const t = cand.find(x => x.id === plTargetId) || cand[0];
+  if (t.id !== plTargetId) await chrome.storage.local.set({ plTargetId: t.id });
+  await chrome.storage.local.set({ plTargetName: t.title });
+  return t.id;
 }
 async function plPost(path, body) {
   const c = await ytCtx(), headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
@@ -602,6 +633,8 @@ async function plAdd(videoId, listId0) {
     body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: c.ver, hl: 'ja', gl: 'JP' } }, playlistId: listId, actions: [{ action: 'ACTION_ADD_VIDEO', addedVideoId: videoId, dedupeOption: 'DEDUPE_OPTION_SKIP' }] }) });
   if (!r.ok) throw new Error('追加 ' + r.status + (r.status === 401 || r.status === 403 ? '(ログインが必要です)' : ''));
   const j = await r.json(); if (j.status && j.status !== 'STATUS_SUCCEEDED') throw new Error(j.status);
+  { const { plTargetName } = await chrome.storage.local.get('plTargetName'); bgLog('再生リスト', `追加先: ${listId0 ? listId0 : listId}(${plTargetName || '名前不明'})・動画 ${videoId}`); }
+  chrome.storage.local.set({ plAddedAt: Date.now() }).catch(() => {}); // 「視聴」ページが、開いている一覧を取り直す合図(この端末だけ・同期しない)
   return { ok: true };
 }
 // 再生リスト一覧: [{ id, title, count, thumb }]。ライブラリ(後で見る・高く評価した動画)は、ページ側でひとつにまとめる
@@ -629,15 +662,27 @@ async function plLists() {
   return [...out.values()];
 }
 // 再生リストの動画: [{ id, title, ch, len, thumb }]
-async function plVideos(listId) {
-  const out = []; let tok = null;
-  for (let i = 0; i < 5 && out.length < 300; i++) {
-    const j = tok ? await authBrowse(null, tok) : await authBrowse('VL' + listId); tok = null;
+async function plVideos(listId, order) {
+  const out = []; let tok = null, ordered = false, first = true;
+  for (let i = 0; i < 12 && out.length < 1200; i++) {
+    let j = tok ? await authBrowse(null, tok) : await authBrowse('VL' + listId); tok = null;
+    if (first) { // YouTube の並べ替えメニュー(追加日の新しい順 / 古い順)で、そのまま並べ替えたものを取る
+      first = false;
+      if (order === 'new' || order === 'old') {
+        let want = null; const menu = [];
+        (function w(o) { if (!o || typeof o !== 'object') return; const m = o.sortFilterSubMenuRenderer; if (m) { (m.subMenuItems || []).forEach(it => { const t = txt(it.title) || String(it.title || ''), isNew = /追加日.*(新しい|最新)|Date added (newest)/i.test(t), isOld = /追加日.*古い|Date added (oldest)/i.test(t); menu.push(t + (it.selected ? '*' : '')); if ((order === 'new' && isNew) || (order === 'old' && isOld)) want = { sel: !!it.selected, tok: it.serviceEndpoint && it.serviceEndpoint.continuationCommand && it.serviceEndpoint.continuationCommand.token }; }); return; } Object.values(o).forEach(w); })(j);
+        if (want) { if (want.sel) ordered = true; else if (want.tok) { j = await authBrowse(null, want.tok); ordered = true; } }
+        bgLog('再生リスト', `並べ替え(${order}): ${want ? 'YouTube側の並べ替えを使いました' : '並べ替えメニューが見つかりません'}・メニュー [${menu.join(' / ') || 'なし'}]・${listId}`);
+      }
+    }
     (function walk(o) {
       if (!o || typeof o !== 'object') return;
-      if (o.continuationCommand && o.continuationCommand.token && !tok) tok = o.continuationCommand.token;
+      if (o.continuationItemRenderer && !tok) { // 続きの読み込みの印だけを使う(並べ替えメニューの印は使わない)。印は、形式によって、continuationCommand か commandExecutorCommand の中にある
+        (function f(x) { if (!x || typeof x !== 'object' || tok) return; if (x.continuationCommand && x.continuationCommand.token) { tok = x.continuationCommand.token; return; } Object.values(x).forEach(f); })(o.continuationItemRenderer);
+        return;
+      }
       const v = o.playlistVideoRenderer;
-      if (v && v.videoId) { const ov = (v.thumbnailOverlays || []).find(x => x.thumbnailOverlayResumePlaybackRenderer); out.push({ id: v.videoId, setId: v.setVideoId || '', title: txt(v.title), ch: txt(v.shortBylineText), len: txt(v.lengthText), pct: ov ? ov.thumbnailOverlayResumePlaybackRenderer.percentDurationWatched || 0 : 0, thumb: lastThumb(v.thumbnail), pub: pubMs(txt(v.videoInfo)) }); return; }
+      if (v && v.videoId) { const ov = (v.thumbnailOverlays || []).find(x => x.thumbnailOverlayResumePlaybackRenderer); out.push({ id: v.videoId, setId: v.setVideoId || '', title: txt(v.title), ch: txt(v.shortBylineText), ...bylineIds(v.shortBylineText), len: txt(v.lengthText), pct: ov ? ov.thumbnailOverlayResumePlaybackRenderer.percentDurationWatched || 0 : 0, thumb: lastThumb(v.thumbnail), pub: pubMs(txt(v.videoInfo)) }); return; }
       const lv = o.lockupViewModel;
       if (lv && /VIDEO/.test(lv.contentType || '') && lv.contentId) {
         const m = lv.metadata && lv.metadata.lockupMetadataViewModel, im = lv.contentImage && lv.contentImage.thumbnailViewModel && lv.contentImage.thumbnailViewModel.image;
@@ -649,5 +694,168 @@ async function plVideos(listId) {
     })(j);
     if (!tok) break;
   }
+  return { items: out, ordered };
+}
+
+// ---- 移植した再生画面の機能(xtra.js)用: 推定の低評価(Return YouTube Dislike)と、決まったサイトへのGETの中継 ----
+chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg && msg.type === 'ryd') {
+    fetch(`https://returnyoutubedislikeapi.com/votes?videoId=${encodeURIComponent(msg.v)}`)
+      .then(r => (r.ok ? r.json() : null)).then(j => reply(j ? { likes: j.likes || 0, dislikes: j.dislikes || 0, views: j.viewCount || 0 } : null)).catch(() => reply(null));
+    return true;
+  }
+});
+
+// ---- プレビュー用: 動画のコマ割り画像(ストーリーボード)の情報。拡張機能のページ(YouTubeの枠の中)からは、YouTubeへ直接つなげないので、ここで取る ----
+const sbMemBg = new Map();
+async function sbInfo(vid) {
+  if (!/^[\w-]{11}$/.test(vid || '')) return null;
+  if (sbMemBg.has(vid)) return sbMemBg.get(vid);
+  // ログイン情報つき(ほかの取得と同じ plPost)で player を呼ぶ。ログイン情報なしだと、storyboards が返らないことがある
+  const p = await plPost('player', { videoId: vid }), spec = (p.storyboards && p.storyboards.playerStoryboardSpecRenderer && p.storyboards.playerStoryboardSpecRenderer.spec) || '';
+  if (!spec) bgLog('プレビュー', `コマ割り画像の情報が返りません(${vid}・状態 ${(p.playabilityStatus && p.playabilityStatus.status) || '不明'}${p.playabilityStatus && p.playabilityStatus.reason ? '・' + p.playabilityStatus.reason : ''})`, 'warn');
+  let out = null;
+  if (spec) {
+    const [base, ...lv] = spec.split('|'), i = lv.length - 1, f = (lv[i] || '').split('#');
+    if (f.length >= 8) { const [w, h, count, cols, rows, interval, name, sigh] = f; out = { w: +w, h: +h, count: +count, cols: +cols, rows: +rows, interval: +interval || 0, dur: +(p.videoDetails && p.videoDetails.lengthSeconds) || 0, base, i, name, sigh }; }
+  }
+  sbMemBg.set(vid, out);
   return out;
 }
+chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg && msg.type === 'sbInfo') { sbInfo(msg.v).then(reply).catch(e => { bgLog('プレビュー', 'コマ割り画像の取得に失敗: ' + String((e && e.message) || e), 'warn'); reply(null); }); return true; }
+});
+
+// ---- 一覧のチャンネルアイコン: 登録チャンネルにないチャンネルの分は、チャンネルのページから取る(1チャンネル1回。覚えておく) ----
+const chAvMem = new Map();
+async function chAvatar(chId) {
+  if (!/^UC[\w-]{22}$/.test(chId || '')) return '';
+  if (chAvMem.has(chId)) return chAvMem.get(chId);
+  const { chAvCache = {} } = await chrome.storage.local.get('chAvCache');
+  if (chAvCache[chId]) { chAvMem.set(chId, chAvCache[chId]); return chAvCache[chId]; }
+  const j = await authBrowse(chId);
+  let url = '';
+  const find = o => { if (!o || typeof o !== 'object' || url) return; const av = o.avatar; if (av && av.thumbnails && av.thumbnails.length) { url = av.thumbnails[av.thumbnails.length - 1].url; return; } const am = o.avatarViewModel; if (am && am.image && am.image.sources && am.image.sources.length) { url = am.image.sources[am.image.sources.length - 1].url; return; } Object.values(o).forEach(find); };
+  find(j.header); if (!url) find(j.metadata);
+  if (url) { chAvMem.set(chId, url); chAvCache[chId] = url; const ks = Object.keys(chAvCache); if (ks.length > 800) ks.slice(0, ks.length - 800).forEach(k => delete chAvCache[k]); await chrome.storage.local.set({ chAvCache }); }
+  return url;
+}
+chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg && msg.type === 'chAvatar') { chAvatar(msg.id).then(url => reply({ url })).catch(() => reply({ url: '' })); return true; }
+});
+
+// 再生リストから動画を削除(視聴ページの×ボタン)。setVideoId があればそれで、なければ動画IDで消す
+async function plRemove(m) {
+  if (!m.listId || ['LL'].includes(m.listId)) throw new Error('このリストからは削除できません');
+  if (!/^[\w-]{11}$/.test(m.videoId || '')) throw new Error('指定が不正です');
+  await plEdit(m.listId, [m.setId ? { action: 'ACTION_REMOVE_VIDEO', setVideoId: m.setId, removedVideoId: m.videoId } : { action: 'ACTION_REMOVE_VIDEO_BY_VIDEO_ID', removedVideoId: m.videoId }]);
+  bgLog('再生リスト', `削除: ${m.listId}・動画 ${m.videoId}`);
+  return { ok: true };
+}
+
+// ---- 「次のおすすめ動画」: 見ている動画の投稿者の再生リストのうち、この動画が入っているものを探し、その「次の動画」を返す ----
+//   URLに再生リストの指定がなくても、投稿者が作った再生リストにこの動画が入っていれば、リストの次の動画を1本目に出すため。
+//   投稿者の再生リスト(最大12件)を順に調べ、見つかった時点で終わる。結果は覚えておく(同じ動画は、再度調べない)。
+const crMem = new Map(), crChPl = new Map();
+async function creatorNext(vid) {
+  if (!/^[\w-]{11}$/.test(vid || '')) return null;
+  if (crMem.has(vid)) return crMem.get(vid);
+  const p = await plPost('player', { videoId: vid }), chId = p.videoDetails && p.videoDetails.channelId;
+  let res = null;
+  if (/^UC[\w-]{22}$/.test(chId || '')) {
+    let lists = crChPl.get(chId);
+    if (!lists) {
+      lists = []; // 投稿者の「再生リスト」タブ
+      const j = await authBrowse(chId, null, 'EglwbGF5bGlzdHPyBgQKAkIA');
+      (function w(o) {
+        if (!o || typeof o !== 'object' || lists.length >= 12) return;
+        const g = o.gridPlaylistRenderer || o.playlistRenderer; if (g && g.playlistId) { lists.push({ id: g.playlistId, title: txt(g.title) }); return; }
+        const lv = o.lockupViewModel; if (lv && /PLAYLIST/.test(lv.contentType || '') && lv.contentId) { const m = lv.metadata && lv.metadata.lockupMetadataViewModel; lists.push({ id: lv.contentId, title: m ? txt(m.title) : '' }); return; }
+        Object.values(o).forEach(w);
+      })(j.contents || j);
+      lists = lists.filter(x => !/^RD/.test(x.id)); crChPl.set(chId, lists);
+    }
+    for (const l of lists) {
+      let r; try { r = await plVideos(l.id); } catch (e) { continue; }
+      const items = (r && r.items) || [], i = items.findIndex(x => x.id === vid);
+      if (i >= 0 && items[i + 1]) { const n = items[i + 1]; res = { listId: l.id, listTitle: l.title, next: { id: n.id, title: n.title, ch: n.ch, len: n.len } }; break; }
+    }
+  }
+  crMem.set(vid, res);
+  bgLog('次のおすすめ', res ? `投稿者の再生リスト「${res.listTitle}」に入っています。リストの次: ${res.next.title}` : `投稿者の再生リストに入っていません(${vid})`);
+  return res;
+}
+chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg && msg.type === 'creatorNext') { creatorNext(msg.v).then(reply).catch(e => { bgLog('次のおすすめ', '投稿者の再生リストを調べられません: ' + String((e && e.message) || e), 'warn'); reply(null); }); return true; }
+});
+
+// ---------- 新着の定期確認と通知(元のTubeFolioと同じ仕組み) ----------
+//   決めた間隔ごとに、開いているYouTubeのタブへ新着の確認を頼む(YouTubeのログイン情報を使うため)。
+//   新着はフォルダごとのルール(notifyRules)で振り分けて、YouTube画面の右下(サムネ+タイトル)か、PCの通知で知らせる。
+const NT_DEF = { folders: {}, kw: 'LIVE, 生配信, 配信中, 速報', kwLevel: 'high', kwAll: false, live: { on: true, scope: 'all', upcoming: false, level: 'high' }, show: 'both', interval: 15 };
+async function ntRules() {
+  const { notifyRules } = await chrome.storage.local.get('notifyRules'), r = notifyRules || {};
+  return { ...NT_DEF, ...r, live: { ...NT_DEF.live, ...(r.live || {}) }, folders: r.folders || {} };
+}
+async function setupCheckAlarm() {
+  const iv = Math.max(5, (await ntRules()).interval || 15);
+  const a = await chrome.alarms.get('tg-check');
+  if (!a || a.periodInMinutes !== iv) chrome.alarms.create('tg-check', { periodInMinutes: iv, delayInMinutes: 1 });
+  const q = await chrome.alarms.get('tg-queue');
+  if (!q) chrome.alarms.create('tg-queue', { periodInMinutes: 5, delayInMinutes: 1 });
+}
+chrome.runtime.onInstalled.addListener(setupCheckAlarm);
+chrome.runtime.onStartup.addListener(setupCheckAlarm);
+setupCheckAlarm();
+chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.notifyRules) setupCheckAlarm(); });
+
+async function askTab(msg) {
+  const tabs = await chrome.tabs.query({ url: 'https://www.youtube.com/*' });
+  if (!tabs.length) return { ok: false, error: 'YouTubeのタブが開いていません(YouTubeを開いてからもう一度押してください)' };
+  tabs.sort((a, b) => (b.active - a.active) || (b.lastAccessed || 0) - (a.lastAccessed || 0));
+  for (const t of tabs) { try { return await chrome.tabs.sendMessage(t.id, msg); } catch { /* 拡張機能の更新前に開いたタブ等 */ } }
+  return { ok: false, error: 'YouTubeのタブを再読み込みしてください' };
+}
+chrome.alarms.onAlarm.addListener(a => {
+  if (a.name === 'tg-check') { flushQueue(); askTab({ type: 'tg-check', force: false }).then(r => { if (r && r.ok === false) bgLog('新着', '定期確認:' + r.error, 'warn'); }); }
+  if (a.name === 'tg-queue') flushQueue();
+});
+async function flushQueue() { // 時間帯待ちの通知を、時間になったら出す
+  const { notifyQueue = [] } = await chrome.storage.local.get('notifyQueue');
+  if (!notifyQueue.length) return;
+  const now = Date.now(), due = notifyQueue.filter(x => x.due <= now);
+  if (!due.length) return;
+  await chrome.storage.local.set({ notifyQueue: notifyQueue.filter(x => x.due > now) });
+  deliver(due.filter(x => now - x.due < 2 * 864e5), '時間帯'); // 2日以上待ったものは出さない
+}
+const notifUrl = new Map();
+const NT_KIND = { live: '🔴 配信中', upcoming: '⏰ 配信予定', kw: '⚡', new: '' };
+const ntLabel = it => `${NT_KIND[it.kind] ? NT_KIND[it.kind] + ' ' : ''}【${it.folder}】${it.ch}`;
+async function deliver(items, why = '') {
+  if (!items.length) return;
+  const rules = await ntRules();
+  bgLog('通知', `${why ? why + ':' : ''}${items.length}本 ` + items.slice(0, 5).map(x => `${ntLabel(x)}(${x.level === 'high' ? '高' : x.level === 'low' ? '低' : '中'})`).join('、'));
+  let toPage = rules.show !== 'pc', toPc = rules.show !== 'page';
+  if (toPage) { const r = await askTab({ type: 'tg-toast', items }); if (!r || !r.ok) { toPage = false; toPc = true; } } // YouTubeのタブが無ければPCの通知で
+  if (!toPc) return;
+  const icon = chrome.runtime.getURL('icon128.png');
+  const high = items.filter(x => x.level === 'high'), rest = items.filter(x => x.level !== 'high');
+  const single = it => {
+    const id = 'tg-' + it.v + '-' + Date.now() + Math.random().toString(36).slice(2, 5);
+    notifUrl.set(id, 'https://www.youtube.com/watch?v=' + it.v);
+    const when = it.kind === 'upcoming' && it.at ? `(${new Date(it.at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}〜)` : '';
+    chrome.notifications.create(id, { type: 'basic', iconUrl: icon, title: ntLabel(it), message: it.title + when, priority: it.level === 'high' ? 2 : it.level === 'low' ? 0 : 1, requireInteraction: it.level === 'high', silent: it.level === 'low' });
+  };
+  high.forEach(single);
+  if (rest.length <= 3) rest.forEach(single);
+  else {
+    const id = 'tg-many-' + Date.now(); notifUrl.set(id, 'https://www.youtube.com/feed/subscriptions');
+    chrome.notifications.create(id, { type: 'list', iconUrl: icon, title: `新着 ${rest.length} 本(${[...new Set(rest.map(x => x.folder))].join('・')})`, message: '', items: rest.slice(0, 5).map(x => ({ title: x.ch, message: x.title })), priority: 1, silent: rest.every(x => x.level === 'low') });
+  }
+}
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (msg && msg.type === 'tg-check-now') { askTab({ type: 'tg-check', force: true }).then(reply); return true; }
+  if (msg && msg.type === 'tg-notify-test') { deliver([{ v: 'dQw4w9WgXcQ', title: 'テスト通知です(クリックで動画を開きます)', ch: 'TubeFolio2', folder: 'テスト', level: msg.level || 'normal', kind: msg.kind || 'new' }], 'テスト').then(() => reply({ ok: true })); return true; }
+  if (msg && msg.type === 'tg-notify') deliver(msg.items || []);
+});
+chrome.notifications.onClicked.addListener(id => { const url = notifUrl.get(id); if (url) chrome.tabs.create({ url }); chrome.notifications.clear(id); });
