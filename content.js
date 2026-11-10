@@ -707,7 +707,13 @@
         if (tg) tg.onclick = () => { if (window.tfOpenTagMgr) window.tfOpenTagMgr(); };
         if (ci) ci.onchange = e => chrome.storage.local.get('px').then(r => chrome.storage.local.set({ px: { ...(r.px || {}), outCity: e.target.value.trim() }, prefsAt: Date.now() }));
         const pvr = $('#tfs-pvr', sec), pvn = $('#tfs-pvn', sec); // 新プレビューのUIの大きさ(1〜100%)
-        const pvSave = pc => { pc = Math.min(100, Math.max(1, +pc || 25)); chrome.storage.local.get('px').then(r => chrome.storage.local.set({ px: { ...(r.px || {}), pvScale: +(pc / 100).toFixed(6) }, prefsAt: Date.now() })); return pc; };
+        // 大きさは新プレビューでだけ効くので、大きさを変えたら方式も「新プレビュー」にする(旧のままだと何%にしても変わらない)
+        const pvSave = pc => {
+          pc = Math.min(100, Math.max(1, +pc || 25));
+          chrome.storage.local.get('px').then(r => chrome.storage.local.set({ px: { ...(r.px || {}), pvScale: +(pc / 100).toFixed(6), pvMode: 'new' }, prefsAt: Date.now() }));
+          sec.querySelectorAll('.tf-seg button[data-px="px.pvMode"]').forEach(b => b.classList.toggle('on', b.dataset.v === 'new'));
+          return pc;
+        };
         if (pvr && pvn) {
           pvr.oninput = () => { pvn.value = pvr.value; };
           pvr.onchange = () => pvSave(pvn.value);
