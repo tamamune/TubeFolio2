@@ -1,5 +1,5 @@
 // 再生した動画のタグの管理(旧TubeFolioの「ランダムタグ」の管理を、今の作りに合わせたもの)。
-//   playedTags: { 小文字のタグ: { t: タグ, n: 見た動画の本数, at: 最後に見た時刻, own: 自分で追加, pin: 表示する, ng: 追加しない } }  ← storage。Drive同期の対象
+//   playedTags: { 小文字のタグ: { t: タグ, n: 見た動画の本数, at: 最後に見た時刻, own: 自分で追加, pin: 表示する, ng: 追加しない, keep: 消さない(自動削除・すべて削除の対象外。設定のランダムタグで 📌) } }  ← storage。Drive同期の対象
 //   再生画面で30秒以上見た動画のタグが、自動で溜まる(watch.js)。どれを「表示」するかは、ユーザーが決める(★)。
 //   表示にしたタグは、再生画面の「🏷 タグ」タブに、チップで出る(panel.js)。
 (() => {
@@ -44,7 +44,7 @@
       else if (act === 'add') words(v('add')).forEach(t => { const kk = t.toLowerCase(); tags[kk] = { ...(tags[kk] || { n: 0 }), t, own: true, pin: true, at: Date.now() }; delete tags[kk].ng; });
       else if (act === 'ngadd') words(v('ngadd')).forEach(t => { const kk = t.toLowerCase(); tags[kk] = { ...(tags[kk] || { n: 0 }), t, ng: true, pin: false, at: Date.now() }; });
       else if (act === 'pinall') Object.values(tags).forEach(x => { x.pin = false; });
-      else if (act === 'clear') { if (!confirm('自動で溜まったタグを、すべて削除します。(自分で追加したタグと、追加しないタグは、残ります)')) return; Object.keys(tags).forEach(kk => { if (!tags[kk].own && !tags[kk].ng) delete tags[kk]; }); }
+      else if (act === 'clear') { if (!confirm('自動で溜まったタグを、すべて削除します。(自分で追加したタグと、追加しないタグは、残ります)')) return; Object.keys(tags).forEach(kk => { if (!tags[kk].own && !tags[kk].ng && !tags[kk].keep) delete tags[kk]; }); }
       save(); draw();
     });
     box.addEventListener('keydown', e => { if (e.key !== 'Enter' || e.isComposing) return; const f = e.target.dataset && e.target.dataset.f; if (f === 'add' || f === 'ngadd') { e.preventDefault(); box.querySelector(`[data-a="${f}"]`).click(); } });

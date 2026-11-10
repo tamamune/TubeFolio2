@@ -21,8 +21,8 @@
         e.n++; e.at = Date.now(); playedTags[k] = e;
       }
       const keys = Object.keys(playedTags);
-      // 多すぎたら古いものから捨てる（自分で追加したものは残す）
-      const auto = keys.filter(k => !playedTags[k].own);
+      // 多すぎたら古いものから捨てる（自分で追加したもの・📌 消さないタグ・追加しないタグは残す）
+      const auto = keys.filter(k => !playedTags[k].own && !playedTags[k].keep && !playedTags[k].ng);
       if (keys.length > 500) auto.sort((a, b) => playedTags[a].at - playedTags[b].at).slice(0, keys.length - 500).forEach(k => delete playedTags[k]);
       await chrome.storage.local.set({ playedTags });
     } catch { tagRecorded.delete(id); }

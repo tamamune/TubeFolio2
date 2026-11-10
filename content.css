@@ -1,10 +1,12 @@
 :root {
   --tf-bg: #ffffff; --tf-fg: #0f0f0f; --tf-sub: #606060; --tf-line: rgba(0,0,0,.1);
   --tf-chip: rgba(0,0,0,.05); --tf-acc: #3a86ff; --tf-shadow: 0 8px 28px rgba(0,0,0,.18);
+  --tf-keep: #c77700; --tf-keep-bg: rgba(255,170,0,.14);
 }
 html[dark] {
   --tf-bg: #212121; --tf-fg: #f1f1f1; --tf-sub: #aaa; --tf-line: rgba(255,255,255,.12);
   --tf-chip: rgba(255,255,255,.1); --tf-shadow: 0 8px 28px rgba(0,0,0,.6);
+  --tf-keep: #ffb300; --tf-keep-bg: rgba(255,179,0,.16);
 }
 .tf-hide { display: none !important; }
 
@@ -961,4 +963,7 @@ html:not([dark]) .tg-ul-box { background: #fff; color: #0f0f0f; }
 #tf-set .tf-rn small { color: var(--tf-sub); } #tf-set .tf-rn.own { border-color: var(--tf-acc); } #tf-set .tf-rn.ng { opacity: .75; }
 #tf-set .tf-rn button { border: 0; background: transparent; color: var(--tf-sub); cursor: pointer; padding: 1px 4px; font-size: 12px; } #tf-set .tf-rn button:hover { color: var(--tf-fg); }
 #tf-set.tf-glass .tf-fcdays label, #tf-set.tf-glass .tf-fcf, #tf-set.tf-glass .tf-rn { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.22); color: #fff; }
+/* 📌 消さないタグ(ランダムタグ)。ガラス調の設定は、ダーク/ライトどちらでも暗い背景+白い文字なので、ダーク用の色にする */
+#tf-set .tf-rn.keep { border-color: var(--tf-keep); background: var(--tf-keep-bg); }
+#tf-set.tf-glass .tf-rn.keep { border-color: #ffb300; background: rgba(255,179,0,.2); }
 #tf-set.tf-glass .tf-fcdays label.on, #tf-set.tf-glass .tf-fcf.on { background: #fff; color: #222; }

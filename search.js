@@ -14,7 +14,7 @@ function recPage() {
   const seg = (arr, cur, a) => `<span class="rseg">${arr.map(([k, t]) => `<button data-${a}="${k}" class="${k === cur ? 'on' : ''}">${t}</button>`).join('')}</span>`;
   main.innerHTML = `<div class="head"><h1>検索</h1><span class="sp"></span><span id="st"></span><button id="rclr" class="rclr" title="検索で取得したデータ(新着の一覧・ショートの投稿日・結果)を空にします。表示の速さを調べるときに使います">🗑 検索データを空にする</button></div>
     <div class="rrow"><span class="rl">対象</span><span id="rs">${seg(SCOPES, scope, 's')}</span><span class="rl">種類</span><span id="rk">${seg(KINDS, kind, 'k')}</span></div>
-    <div id="rfold" class="rfold"></div><form id="rf" class="rform"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button class="rgo" type="submit">検索</button><button class="rgo rrand" type="button" id="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button></form>
+    <div id="rfold" class="rfold"></div><form id="rf" class="rform"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button class="rgo" type="submit">検索</button><button class="rgo rrand" type="button" id="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button><span class="rseg rrn" id="rrn" title="ランダムタグをいくつ選ぶか。2つ以上は「a | b | c」(どれかを含む)でまとめて探す"></span></form>
     <div id="rres"></div><div class="rmore"><button id="rmore" class="rgo" hidden>もっと見る</button></div><div id="rsent" style="height:1px"></div>`;
   const $ = s => main.querySelector(s), box = $('#rres'), st = $('#st');
   // サムネが無い(404 / YouTubeの灰色の代用画像=小さい)ときは、別の画像に順に差し替える。拡張機能のページはインラインの onerror が使えないので、まとめて監視する
@@ -89,9 +89,11 @@ function recPage() {
     try {
       if (scope === 'reg') {
         st.textContent = '取得中…';
-        const w = q.toLowerCase().split(/\s+/).filter(Boolean);
+        // キーワード: スペース区切りは「すべて含む」、「|」区切りは「どれかを含む」(YouTubeの検索と同じ。例: a b | c = 「aとb」か「c」)
+        const ors = q.toLowerCase().split('|').map(s => s.split(/\s+/).filter(Boolean)).filter(w => w.length);
+        const hit = x => { const s = (x.title + ' ' + x.ch).toLowerCase(); return !ors.length || ors.some(w => w.every(k => s.includes(k))); };
         const apply = items => { // 取れた分から順に描く(全チャンネルの取得を待たない)
-          regItems = items.filter(x => !w.length || w.every(k => (x.title + ' ' + x.ch).toLowerCase().includes(k))).sort((a, b) => Date.parse(b.published) - Date.parse(a.published));
+          regItems = items.filter(hit).sort((a, b) => Date.parse(b.published) - Date.parse(a.published));
           regItems.forEach(x => { x.when = x.published ? '投稿 ' + hm(new Date(x.published)) : ''; x.kind = kind; x.chId = ''; });
           if (regItems.length) drawReg();
         };
@@ -130,15 +132,29 @@ function recPage() {
     toast('検索データを空にしました。もう一度「検索」を押すと、取得し直します');
   });
   $('#rf').addEventListener('submit', e => { e.preventDefault(); run(false); });
-  // 🎲 ランダムタグ: 溜まったタグ(playedTags)から、回数の多いものほど選ばれやすく1つ選んで、キーワードに入れて探す
+  // 🎲 ランダムタグ: 溜まったタグ(playedTags)から、回数の多いものほど選ばれやすく選んで、キーワードに入れて探す
+  //   いくつ選ぶか(1〜3)は px.randN(Drive同期)。2つ以上は、別々のタグを選んで「a | b | c」(どれかを含む)でまとめて探す
+  let randN = 1;
+  const drawRandN = () => { $('#rrn').innerHTML = [1, 2, 3].map(n => `<button type="button" data-rn="${n}" class="${n === randN ? 'on' : ''}">${n}つ</button>`).join(''); };
+  chrome.storage.local.get('px').then(r => { randN = Math.min(3, Math.max(1, +((r.px || {}).randN) || 1)); drawRandN(); });
+  drawRandN();
+  $('#rrn').addEventListener('click', async e => {
+    const b = e.target.closest('[data-rn]'); if (!b) return;
+    randN = +b.dataset.rn; drawRandN();
+    const { px = {} } = await chrome.storage.local.get('px'); await chrome.storage.local.set({ px: { ...px, randN }, prefsAt: Date.now() });
+  });
   $('#rrand').addEventListener('click', async () => {
     const { playedTags = {} } = await chrome.storage.local.get('playedTags');
     const list = Object.values(playedTags).filter(e => e && e.t && !e.x && !e.ng);
     if (!list.length) { st.textContent = 'ランダム用のタグがありません(設定 → 整理・通知 → ランダムタグ で追加できます)'; return; }
-    const w = list.map(e => Math.sqrt(Math.max(1, e.n || 1))), sum = w.reduce((a, b) => a + b, 0);
-    let r = Math.random() * sum, pick = list[0];
-    for (let i = 0; i < list.length; i++) { r -= w[i]; if (r <= 0) { pick = list[i]; break; } }
-    $('#rq').value = pick.t; run(false);
+    const picks = [];
+    for (let k = 0; k < randN && list.length; k++) { // 選んだタグは候補から外して、同じタグが重ならないようにする
+      const w = list.map(e => Math.sqrt(Math.max(1, e.n || 1))), sum = w.reduce((a, b) => a + b, 0);
+      let r = Math.random() * sum, i = 0;
+      for (; i < list.length - 1; i++) { r -= w[i]; if (r <= 0) break; }
+      picks.push(list.splice(i, 1)[0].t);
+    }
+    $('#rq').value = picks.join(' | '); run(false);
   });
   $('#rmore').addEventListener('click', () => run(true));
   $('#rs').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (!b) return; scope = b.dataset.s; lset('tfRecScope', scope); $('#rs').innerHTML = seg(SCOPES, scope, 's'); run(false); });

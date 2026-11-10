@@ -858,15 +858,19 @@
       const rsec2 = $('#tfs-randsec', p);
       const drawRand = async () => {
         const { playedTags = {} } = await chrome.storage.local.get('playedTags');
-        const rows = Object.entries(playedTags).filter(([, e]) => !e.x).sort((a, b) => (b[1].own ? 1 : 0) - (a[1].own ? 1 : 0) || (b[1].n || 0) - (a[1].n || 0) || (b[1].at || 0) - (a[1].at || 0));
+        const rows = Object.entries(playedTags).filter(([, e]) => !e.x).sort((a, b) => (b[1].own ? 1 : 0) - (a[1].own ? 1 : 0) || (b[1].keep ? 1 : 0) - (a[1].keep ? 1 : 0) || (b[1].n || 0) - (a[1].n || 0) || (b[1].at || 0) - (a[1].at || 0));
         const ngs = Object.entries(playedTags).filter(([, e]) => e.ng).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
-        const chip = ([k, e]) => `<span class="tf-rn ${e.own ? 'own' : ''}" data-wk="${esc(e.t)}">${esc(e.t)}${e.own ? '' : `<small>${e.n || 0}</small>`}<button data-rn="ng" data-k="${esc(k)}" title="削除して、次回から追加しない">🚫</button><button data-rn="del" data-k="${esc(k)}" title="削除(また見た動画に付いていたら増えます)">✕</button></span>`;
+        const keeps = rows.filter(([, e]) => e.keep && !e.own); // 📌 消さないタグ(自分で追加したタグは、もともと消えない)
+        const chip = ([k, e]) => `<span class="tf-rn ${e.own ? 'own' : ''} ${e.keep ? 'keep' : ''}" data-wk="${esc(e.t)}">${esc(e.t)}${e.own ? '' : `<small>${e.n || 0}</small>`}${e.own ? '' : `<button data-rn="keep" data-k="${esc(k)}" title="${e.keep ? '消さないタグをやめる' : '消さないタグにする(タグが溜まりすぎたときの自動削除や「すべて削除」で消えない)'}">${e.keep ? '📌' : '📍'}</button>`}<button data-rn="ng" data-k="${esc(k)}" title="削除して、次回から追加しない">🚫</button><button data-rn="del" data-k="${esc(k)}" title="削除(また見た動画に付いていたら増えます)">✕</button></span>`;
         const ngChip = ([k, e]) => `<span class="tf-rn ng">${esc(e.t)}<button data-rn="back" data-k="${esc(k)}" title="除外をやめる">↩</button></span>`;
+        const keepChip = ([k, e]) => `<span class="tf-rn keep">${esc(e.t)}<small>${e.n || 0}</small><button data-rn="keep" data-k="${esc(k)}" title="消さないタグをやめる">↩</button></span>`;
         rsec2.innerHTML = `<div class="tf-card"><div class="tf-ch">🎲 ランダムタグ</div>
-          <p class="tf-note">「おすすめ」の検索で「🎲 ランダムタグ」を押すと、ここからランダムに選んで、キーワードに入れて探します(回数の多いタグほど選ばれやすい)。動画を30秒以上見ると、その動画のタグが自動で増えます。</p>
+          <p class="tf-note">「おすすめ」の検索で「🎲 ランダムタグ」を押すと、ここからランダムに選んで、キーワードに入れて探します(回数の多いタグほど選ばれやすい)。ボタンの横の「1つ / 2つ / 3つ」で、選ぶ数を変えられます(2つ以上は「a | b | c」で、どれかを含む動画をまとめて探します)。動画を30秒以上見ると、その動画のタグが自動で増えます。</p>
           <div class="tf-ntsub">タグを追加</div><div class="tf-rnadd"><input class="tf-ntkw" id="tfs-rn-in" placeholder="タグ(カンマ区切りで複数)"><button class="tf-xbtn" data-rn="add">追加</button></div>
           <div class="tf-ntsub">今のタグ(${rows.length} 個)</div><div class="tf-rnl">${rows.map(chip).join('') || '<p class="tf-note">まだありません</p>'}</div>
           ${rows.length ? '<div class="tf-ntbtns"><button data-rn="clear">自動で溜まったタグをすべて削除</button></div>' : ''}
+          <div class="tf-ntsub">📌 消さないタグ(${keeps.length} 個)</div><p class="tf-note">タグが溜まりすぎたときの自動削除(古いものから)や「すべて削除」で、消えないタグです。上のタグの「📍」を押すと、ここに入ります(自分で追加したタグは、もともと消えません)。</p>
+          <div class="tf-rnl">${keeps.map(keepChip).join('') || '<p class="tf-note">まだありません</p>'}</div>
           <div class="tf-ntsub">追加しないタグ(${ngs.length} 個)</div><p class="tf-note">ここに入れたタグは、動画を見ても自動で増えません(ランダムにも使いません)。上のタグの「🚫」で移せます。</p>
           <div class="tf-rnadd"><input class="tf-ntkw" id="tfs-rn-ng" placeholder="追加しないタグ(カンマ区切りで複数)"><button class="tf-xbtn" data-rn="ngadd">登録</button></div>
           <div class="tf-rnl">${ngs.map(ngChip).join('') || '<p class="tf-note">まだありません</p>'}</div></div>`;
@@ -878,10 +882,11 @@
         const a = b.dataset.rn, k = b.dataset.k;
         if (a === 'add') { const w = words('#tfs-rn-in'); if (w.length) rsave(cur => w.forEach(t => { const kk = t.toLowerCase(); cur[kk] = { t, n: Math.max(3, (cur[kk] || {}).n || 0), at: Date.now(), own: true }; })); }
         else if (a === 'ngadd') { const w = words('#tfs-rn-ng'); if (w.length) rsave(cur => w.forEach(t => { cur[t.toLowerCase()] = { t, n: 0, at: Date.now(), x: true, ng: true }; })); }
-        else if (a === 'del') rsave(cur => { if (cur[k]) cur[k] = { ...cur[k], x: true, at: Date.now() }; });
+        else if (a === 'del') rsave(cur => { if (cur[k]) cur[k] = { ...cur[k], x: true, keep: false, at: Date.now() }; });
+        else if (a === 'keep') rsave(cur => { if (cur[k]) cur[k] = { ...cur[k], keep: !cur[k].keep }; });
         else if (a === 'ng') rsave(cur => { if (cur[k]) cur[k] = { t: cur[k].t, n: cur[k].n || 0, at: Date.now(), x: true, ng: true }; });
         else if (a === 'back') rsave(cur => { if (cur[k]) cur[k] = { t: cur[k].t, n: 0, at: Date.now(), x: true }; });
-        else if (a === 'clear') { if (confirm('自動で溜まったタグをすべて削除しますか？(自分で追加したタグは残ります)')) rsave(cur => { for (const [kk, v] of Object.entries(cur)) if (!v.own && !v.ng) cur[kk] = { ...v, x: true, at: Date.now() }; }); }
+        else if (a === 'clear') { if (confirm('自動で溜まったタグをすべて削除しますか？(自分で追加したタグと、📌 消さないタグは残ります)')) rsave(cur => { for (const [kk, v] of Object.entries(cur)) if (!v.own && !v.ng && !v.keep) cur[kk] = { ...v, x: true, at: Date.now() }; }); }
       });
       rsec2.addEventListener('keydown', e => { if (e.key !== 'Enter') return; const id = e.target.id; if (id === 'tfs-rn-in') rsec2.querySelector('[data-rn="add"]').click(); else if (id === 'tfs-rn-ng') rsec2.querySelector('[data-rn="ngadd"]').click(); });
       const showO = s => { p.dataset.osub = s; p.querySelectorAll('.tf-subtabs[data-tab="org"] button').forEach(b => b.classList.toggle('on', b.dataset.osub === s)); try { localStorage.setItem('tfSetOSub', s); } catch (e) { /* なし */ } if (s === 'notify') drawNt(); else if (s === 'rate') drawRate(); else if (s === 'focus') drawFocus(); else drawRand(); };

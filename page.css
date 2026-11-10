@@ -170,4 +170,5 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 [data-tglock] { position: relative; }
 [data-tglock] > * { filter: blur(14px) grayscale(.8); opacity: .35; pointer-events: none; user-select: none; }
 [data-tglock]::after { content: "🔒 集中モード中"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 15px Roboto, Arial, "Noto Sans JP", sans-serif; color: var(--fg, #fff); text-shadow: 0 1px 6px rgba(0,0,0,.6); pointer-events: none; }
+.rrn { margin-left: 6px; align-self: center; } /* 🎲 ランダムタグをいくつ選ぶか(1〜3つ) */
 .rgo.rrand { margin-left: 6px; padding: 0 14px; background: var(--chip, rgba(128,128,128,.18)); color: var(--fg); border: 1px solid var(--line, rgba(128,128,128,.3)); }
