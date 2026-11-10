@@ -1,7 +1,8 @@
 // Google Drive 同期(appDataFolder の tubefolio2.json)。background.js から importScripts で読み込む。
 // 方式: 全体を1ファイルで保存。最終更新(rev)が新しい方が勝つ。
 // Drive に共有するデータ(各PCに登録した TubeFolio2 の設定・登録データ)。YouTube 自身が共有しているもの(視聴履歴・登録チャンネル・再生リスト本体)と、取り直せるキャッシュ・この端末だけの記録(動作ログ・画像のサムネ等)は含めない。
-const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags'];
+const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags', 'trendHours'];
+// 同期しないキャッシュ(取り直せる): trendsCache4 / trendsCache24(急上昇ワード)・t1_<日付>(急上昇動画)。trends-bg.js が作る
 const SYNC_FILE = 'tubefolio2.json';
 const DRIVE = 'https://www.googleapis.com';
 

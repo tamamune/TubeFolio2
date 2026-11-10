@@ -189,7 +189,7 @@ async function scan(key) {
 }
 
 // ---- 登録チャンネル取り込み(バックグラウンド実行・タブを開かない) ----
-importScripts('store.js', 'drive-config.js', 'sync.js');
+importScripts('store.js', 'drive-config.js', 'sync.js', 'trends-bg.js');
 
 // 一度だけ: 既定の⭐のままのフォルダに、名前に合うアイコンを自動設定(既存データがある場合のみ)
 chrome.storage.local.get(['groups', 'settings']).then(async raw => {

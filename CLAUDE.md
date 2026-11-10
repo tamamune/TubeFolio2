@@ -1,8 +1,8 @@
 # TubeFolio2 開発ルール(どのPCで修正する場合も必ず守る)
 
 ## Google Drive 同期は必須
-- 各PCで登録した TubeFolio2 の設定・登録データは、すべて Google Drive(appDataFolder の `tubefolio2.json`)に保存し、他のPCでも共有できる状態を保つこと。対象は [sync.js](sync.js) の `SYNC_KEYS`(groups / channels / settings / meta / activity / cmt / px / folderRates / sleepWin / chSet / later / laterRemoved / folderSeen / cchap / pickMode / notifyRules / notifyFolders / focus / ui / bookmarks / playedTags / focus)。
-- 同期しないもの(理由): YouTube 自身が共有しているデータ(視聴履歴・登録チャンネルの本体・再生リストの本体)、取り直せるキャッシュ(feedCache_* / spub / chTitles / chAvCache / wbCache / ghCache)、この端末だけの記録(tgLog / syncStatus / syncMeta / ブックマークのサムネ画像 bmt:…)。
+- 各PCで登録した TubeFolio2 の設定・登録データは、すべて Google Drive(appDataFolder の `tubefolio2.json`)に保存し、他のPCでも共有できる状態を保つこと。対象は [sync.js](sync.js) の `SYNC_KEYS`(groups / channels / settings / meta / activity / cmt / px / folderRates / sleepWin / chSet / later / laterRemoved / folderSeen / cchap / pickMode / notifyRules / notifyFolders / focus / ui / bookmarks / playedTags / trendHours)。
+- 同期しないもの(理由): YouTube 自身が共有しているデータ(視聴履歴・登録チャンネルの本体・再生リストの本体)、取り直せるキャッシュ(feedCache_* / spub / chTitles / chAvCache / wbCache / ghCache / 急上昇の trendsCache4・trendsCache24・t1_<日付>)、この端末だけの記録(tgLog / syncStatus / syncMeta / ブックマークのサムネ画像 bmt:…)。
 - 新しく保存するデータ(storage のキー)を追加したら、必ず `sync.js` の `SYNC_KEYS` に加えて同期対象にすること。同期対象外にするなら理由を明記する。
 - 保存や取得の処理を変更しても、同期(ローカル変更の検知→rev更新→Driveへ送信 / 起動時・5分ごと・手動での取り込み)が壊れていないことを確認すること。
 - 拡張機能IDは `manifest.json` の `key` で固定している(`ffjjmiikoghongpjbdcchhgclecokekm`)。`key` を消さない。OAuthのリダイレクトURIはこのIDに紐づく。
