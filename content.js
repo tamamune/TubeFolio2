@@ -233,6 +233,20 @@
     });
   }
   setInterval(markPlayed, 1500);
+  // ホーム: チャンネル名の下に、フォルダ設定で登録したフォルダの名前を出す(フォルダの色の点 + 名前)。
+  //   チャンネル名の行の中には入れない(名前の読み取り bylineText に混ざらないよう、行の後ろに、別の行として足す)。YouTube がカードを作り直して消えたら、次の見回りで付け直す
+  const folderChip = (card, gs) => {
+    let fc = card.querySelector('.tf-fch');
+    if (!gs.length) { if (fc) fc.remove(); return; }
+    const m = card.querySelector('yt-content-metadata-view-model'), row = m && m.querySelector('[class*="metadata-row" i]'), old = m ? null : card.querySelector('ytd-channel-name');
+    if (!m && !old) { if (fc) fc.remove(); return; }
+    if (!fc) fc = el('div', 'tf-fch');
+    if (row) { if (row.nextElementSibling !== fc) row.after(fc); } else if (m) { if (fc.parentElement !== m) m.appendChild(fc); } else if (old.nextElementSibling !== fc) old.after(fc);
+    const sig = gs.map(g => g.id + '\u0001' + g.name + '\u0001' + g.color).join('\u0002');
+    if (fc.dataset.s === sig) return;
+    fc.dataset.s = sig; fc.textContent = '';
+    gs.forEach(g => { const i = el('span'); i.textContent = g.name; i.title = 'フォルダ: ' + g.name; if (/^#[0-9a-f]{3,8}$/i.test(g.color || '')) i.style.setProperty('--c', g.color); fc.appendChild(i); });
+  };
   function processCards() {
     document.querySelectorAll(CARD).forEach(card => {
       if (card.matches('yt-lockup-view-model') && card.closest(OUTER)) return;
@@ -242,6 +256,7 @@
       const gs0 = key && S.channels[key] ? S.channels[key].groups.map(groupOf).filter(Boolean) : [];
       if (gs0.length) { card.setAttribute('data-tf-on', ''); card.style.setProperty('--tf-c', gs0[0].color); }
       else if (card.hasAttribute('data-tf-on')) { card.removeAttribute('data-tf-on'); card.style.removeProperty('--tf-c'); }
+      folderChip(card, isHome() ? gs0 : []);
       // ホーム: 登録/非登録の見分け(新D)。クラスを付けるだけで、見た目はCSS。設定で動画ごとに入り切り
       const isSubCh = key ? !!S.channels[key] : (!card.querySelector('a[href*="list=RD"]') && bylineText(card) ? false : null); // null = チャンネルを判定できないカード。名前の行があって一致する登録チャンネルが無ければ、非登録とする
       if (isHome()) {

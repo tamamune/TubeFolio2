@@ -828,32 +828,51 @@ const TGPlayerX = (() => {
     const d = new Date(), x = d.getHours() * 60 + d.getMinutes(), a = hm(sleep.from), b = hm(sleep.to);
     return a <= b ? x >= a && x < b : x >= a || x < b;
   }
+  // お知らせは、プレーヤーの中ではなく、ページのいちばん手前(position: fixed)に、プレーヤーに重ねて出す。
+  //   プレーヤーの中に置くと、ページの読み込み中に YouTube がプレーヤーを作り直したり、フォーカスを取ったりして、ボタンが押せなくなることがある。
+  //   延長の時間は、リスト(select)ではなく、ボタンを並べる(リストは、ページが動くと勝手に閉じてしまう)。ボタンは、押した瞬間(pointerdown)に動く
   function remind(kind, html, later) {
     const p = player();
-    if (!p || p.querySelector('.tg-px-rem')) return;
+    if (!p || document.querySelector('.tg-px-rem')) return;
     const d = document.createElement('div');
     d.className = 'tg-px-rem ' + kind;
-    // 就寝：延長する時間を選べる（初期 30分・1時間も）
+    const def = cfg.bedExt || 30;
     const ext = kind === 'bed'
-      ? `<select class="tg-px-rem-sel" title="延長する時間">${[[10, '10分'], [15, '15分'], [30, '30分'], [45, '45分'], [60, '1時間'], [90, '1.5時間'], [120, '2時間']].map(([m, l]) => `<option value="${m}" ${m === (cfg.bedExt || 30) ? 'selected' : ''}>${l}</option>`).join('')}</select><button data-r="ext">延長する</button>`
-      : `<button data-r="later">あと${later}分</button>`;
-    d.innerHTML = `<div class="tg-px-rem-t">${html}</div><div class="tg-px-rem-b"><button data-r="pause">⏸ 一時停止する</button>${ext}<button data-r="x">閉じる</button></div>`;
-    ['mousedown', 'mouseup', 'dblclick', 'click', 'keydown'].forEach(t => d.addEventListener(t, e => e.stopPropagation()));
-    d.addEventListener('click', e => {
-      const b = e.target.closest('[data-r]');
-      if (!b) return;
+      ? `<div class="tg-px-rem-ext"><span>延長する</span>${[[10, '10分'], [15, '15分'], [30, '30分'], [45, '45分'], [60, '1時間'], [90, '1.5時間'], [120, '2時間']].map(([m, l]) => `<button data-r="ext" data-m="${m}"${m === def ? ' class="def"' : ''} title="${l}あとに、もう一度お知らせします">${l}</button>`).join('')}</div>`
+      : '';
+    d.innerHTML = `<div class="tg-px-rem-t">${html}</div><div class="tg-px-rem-b"><button data-r="pause">⏸ 一時停止する</button>${kind === 'bed' ? '' : `<button data-r="later">あと${later}分</button>`}<button data-r="x">閉じる</button></div>${ext}`;
+    ['mousedown', 'mouseup', 'dblclick', 'click', 'keydown', 'keyup', 'pointerdown', 'pointerup', 'wheel'].forEach(t => d.addEventListener(t, e => e.stopPropagation()));
+    // 位置: プレーヤーの見えている部分の中央(プレーヤーが画面の外なら、画面の中央)。画面からはみ出さないようにする
+    const place = () => {
+      const host = document.fullscreenElement || document.documentElement;
+      if (d.parentElement !== host) host.appendChild(d);
+      const pl = player(), r = pl ? pl.getBoundingClientRect() : null, W = innerWidth, H = innerHeight;
+      let x = W / 2, y = H / 2;
+      if (r && r.width > 80 && r.bottom > 40 && r.top < H - 40 && r.right > 40 && r.left < W - 40) { x = (Math.max(0, r.left) + Math.min(W, r.right)) / 2; y = (Math.max(0, r.top) + Math.min(H, r.bottom)) / 2; }
+      const w = d.offsetWidth / 2 + 8, h = d.offsetHeight / 2 + 8;
+      x = Math.round(Math.max(w, Math.min(W - w, x))); y = Math.round(Math.max(h, Math.min(H - h, y)));
+      if (d.style.left !== x + 'px') d.style.left = x + 'px';
+      if (d.style.top !== y + 'px') d.style.top = y + 'px';
+    };
+    const pt = setInterval(place, 250);
+    addEventListener('scroll', place, true); addEventListener('resize', place); document.addEventListener('fullscreenchange', place);
+    let done = false;
+    const act = b => {
+      if (done) return; done = true;
       const r = b.dataset.r;
       if (r === 'pause') { video()?.pause(); if (kind === 'brk') cont = 0; }
       if (kind === 'brk') nextBrk = cont + (r === 'later' ? later : cfg.brk) * 60;
       else {
-        const m = r === 'ext' ? +(d.querySelector('.tg-px-rem-sel')?.value || 30) : 30;
+        const m = r === 'ext' ? +(b.dataset.m || 30) : 30;
         nextBed = Date.now() + m * 60e3;
         if (r === 'ext') TG.log('リマインダー', `就寝のお知らせを ${m} 分延長`);
       }
       d.classList.add('out');
-      setTimeout(() => d.remove(), 400);
-    });
-    p.appendChild(d);
+      setTimeout(() => { clearInterval(pt); removeEventListener('scroll', place, true); removeEventListener('resize', place); document.removeEventListener('fullscreenchange', place); d.remove(); }, 400);
+    };
+    d.addEventListener('pointerdown', e => { const b = e.button === 0 && e.target.closest('[data-r]'); if (b) { e.preventDefault(); act(b); } });
+    d.addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) act(b); }); // キーボード(Enter / スペース)で押したとき
+    place(); place(); // 2回目: 大きさが決まってから、はみ出しを直す
     TG.log('リマインダー', kind === 'brk' ? `連続 ${Math.round(cont / 60)} 分で休憩をお知らせ` : '就寝時間をお知らせ');
   }
   function checkRemind(dt) {

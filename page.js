@@ -161,9 +161,9 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
 //   行き先: カードに付けたチャンネルID / @ハンドル → 登録チャンネル(名前で照らし合わせる) → どれも分からないときは、YouTube でチャンネル名を探す
 {
   const nrm = t => String(t || '').normalize('NFKC').trim().toLowerCase();
-  let byName = new Map(), ids = {};
-  const load = () => Promise.all([TF.get(), chrome.storage.local.get('meta')]).then(([S, m]) => { byName = new Map(); Object.values(S.channels).forEach(c => { const n = nrm(TF.clean(c.name)); if (n) byName.set(n, c.key); }); ids = Object.fromEntries(Object.entries(m.meta || {}).map(([k, v]) => [k, v && v.id])); }).catch(() => {});
-  load(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.channels) load(); });
+  let byName = new Map(), ids = {}, chans = {}, grps = [];
+  const load = () => Promise.all([TF.get(), chrome.storage.local.get('meta')]).then(([S, m]) => { chans = S.channels || {}; grps = S.groups || []; byName = new Map(); Object.values(S.channels).forEach(c => { const n = nrm(TF.clean(c.name)); if (n) byName.set(n, c.key); }); ids = Object.fromEntries(Object.entries(m.meta || {}).map(([k, v]) => [k, v && v.id])); }).then(() => { mark(); document.querySelectorAll('.card[data-ch]').forEach(cd => markFold(cd)); }).catch(() => {});
+  load(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && (ch.channels || ch.groups)) load(); });
   const urlOfKey = k => 'https://www.youtube.com/' + (/^UC[\w-]{22}$/.test(k) ? 'channel/' + k : k.startsWith('@') ? k : '@' + k);
   const chUrl = cd => {
     const name = (cd.dataset.ch || '').trim(), key = cd.dataset.chkey || byName.get(nrm(name)) || '';
@@ -180,7 +180,24 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
   }, true);
   document.addEventListener('auxclick', e => { if (e.button !== 1) return; const t = chEl(e), u = t && chUrl(t.closest('.card')); if (u) { e.preventDefault(); e.stopPropagation(); window.open(u, '_blank'); } }, true); // 中ボタン: 別のタブで
   const mark = () => document.querySelectorAll('.card[data-ch]').forEach(cd => { if (!(cd.dataset.ch || '').trim()) return; const sm = cd.querySelector('.tx > small:not(.dt)'), av = cd.querySelector('.inf > .av'); [sm, av].forEach(x => { if (x && !x.classList.contains('chl')) { x.classList.add('chl'); x.title = 'チャンネルのページを開く: ' + cd.dataset.ch; } }); });
-  let t = 0; new MutationObserver(() => { clearTimeout(t); t = setTimeout(mark, 200); }).observe(main, { childList: true, subtree: true }); mark();
+  // フォルダ設定で登録したフォルダの名前を、チャンネル名の下に出す(フォルダの色の点 + 名前。複数のフォルダに入っているチャンネルは、全部)
+  const idKey = id => { if (!id) return ''; if (chans[id]) return id; const k = Object.keys(ids).find(x => ids[x] === id); return k && chans[k] ? k : ''; };
+  const foldersOf = cd => {
+    const key = (cd.dataset.chkey && chans[cd.dataset.chkey] ? cd.dataset.chkey : '') || idKey(cd.dataset.chid) || byName.get(nrm(TF.clean(cd.dataset.ch || ''))) || byName.get(nrm(cd.dataset.ch)) || '';
+    const c = key && chans[key]; return c ? (c.groups || []).map(id => grps.find(g => g.id === id)).filter(Boolean) : [];
+  };
+  const markFold = cd => {
+    const tx = cd.querySelector('.tx'); if (!tx) return;
+    const gs = foldersOf(cd); let fc = tx.querySelector(':scope > .fch');
+    if (!gs.length) { if (fc) fc.remove(); return; }
+    const sig = gs.map(g => g.id + '\u0001' + g.name + '\u0001' + g.color).join('\u0002');
+    if (!fc) { fc = document.createElement('span'); fc.className = 'fch'; const sm = tx.querySelector(':scope > small:not(.dt)'); if (sm) sm.after(fc); else tx.appendChild(fc); }
+    if (fc.dataset.s === sig) return;
+    fc.dataset.s = sig; fc.textContent = '';
+    gs.forEach(g => { const i = document.createElement('i'); i.textContent = g.name; i.title = 'フォルダ: ' + g.name; if (/^#[0-9a-f]{3,8}$/i.test(g.color || '')) i.style.setProperty('--c', g.color); fc.appendChild(i); });
+  };
+  const mark0 = mark, markAllFold = () => document.querySelectorAll('.card[data-ch]').forEach(markFold);
+  let t = 0; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => { mark0(); markAllFold(); }, 200); }).observe(main, { childList: true, subtree: true }); mark0(); markAllFold();
 }
 // ページの中をクリックしたことを、YouTube側(親)へ知らせる(親で開いているメニューを閉じるため)
 document.addEventListener('mousedown', () => { try { parent.postMessage({ tfClick: 1 }, '*'); } catch (e) { /* 無視 */ } }, true);

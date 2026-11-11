@@ -76,9 +76,22 @@ function recPage() {
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#rfx')) { e.preventDefault(); TF.mutate(s => { s.settings.plFolder = 'all'; }); } });
   chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.settings && ((ch.settings.newValue || {}).plFolder || 'all') !== fold) loadFold().then(() => { foldNote(); if (scope === 'reg' && regItems.length) { drawReg(); st.textContent = visibleCount() + '件(直近' + DAYS + '日)'; if (!visibleCount()) note('このフォルダのチャンネルに、新着がありません'); } }); });
   const visibleCount = () => regItems.filter(folderOk).length;
+  // 取得の途中に何度も呼ばれるので、全部を作り直さない: すでに出ているカードはそのまま残し、増えた分だけを正しい位置に差し込む(作り直すと、サムネが読み込み直しになって、ちかちかする)
   function drawReg() { // 日付ごとの見出し(押すと折りたたみ)
     const days = new Map(); regItems.filter(folderOk).forEach(x => { const k = dkey(new Date(x.published)); if (!days.has(k)) days.set(k, []); days.get(k).push(x); });
-    box.innerHTML = [...days.entries()].map(([k, arr], i) => { const d = new Date(arr[0].published); return `<section class="day" data-k="rec-${k}"><div class="dh"><span class="fd">▾</span><h2>${ymd(d)}${dkey(new Date()) === k ? ' ・今日' : ''}</h2><span class="cnt">${arr.length}件</span></div><div class="grid${kind === 's' ? ' shorts' : ''}">${arr.map(cardOf).join('')}</div></section>`; }).join('');
+    [...box.children].forEach(c => { if (!c.matches('section.day')) c.remove(); }); // 「見つかりませんでした」などの案内を消す
+    const tpl = document.createElement('template'), mk = h => { tpl.innerHTML = h; return tpl.content.firstElementChild; };
+    const secs = new Map([...box.children].map(s => [s.dataset.k, s])); let prevS = null;
+    days.forEach((arr, k) => {
+      let s = secs.get('rec-' + k); secs.delete('rec-' + k);
+      if (!s) { const d = new Date(arr[0].published); s = mk(`<section class="day" data-k="rec-${k}"><div class="dh"><span class="fd">▾</span><h2>${ymd(d)}${dkey(new Date()) === k ? ' ・今日' : ''}</h2><span class="cnt"></span></div><div class="grid${kind === 's' ? ' shorts' : ''}"></div></section>`); }
+      const at = prevS ? prevS.nextElementSibling : box.firstElementChild; if (at !== s) box.insertBefore(s, at); prevS = s;
+      const cnt = s.querySelector('.cnt'), ct = arr.length + '件'; if (cnt.textContent !== ct) cnt.textContent = ct;
+      const grid = s.querySelector('.grid'), have = new Map([...grid.children].map(c => [c.dataset.v, c])); let prev = null;
+      arr.forEach(x => { let c = have.get(x.id); have.delete(x.id); if (!c) c = mk(cardOf(x)); const w = prev ? prev.nextElementSibling : grid.firstElementChild; if (w !== c) grid.insertBefore(c, w); prev = c; });
+      have.forEach(c => c.remove());
+    });
+    secs.forEach(s => s.remove());
     shown = regItems.length; foldNote();
   }
   async function run(more) {

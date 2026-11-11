@@ -1105,3 +1105,7 @@ html:has(#movie_player.ytp-fullscreen) #tf-wadd, html:fullscreen #tf-wadd { disp
 .tf-part.tv-i .tv-t::after, ytd-compact-video-renderer.tf-part ytd-thumbnail::after { content: var(--tf-pct-s, "") "%"; top: 4px; left: 4px; padding: 0 6px; }
 .tf-pbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; height: 4px; background: var(--tf-pb-bg); pointer-events: none; }
 .tf-pbar > i { display: block; height: 100%; background: var(--tf-pb-fg); }
+/* ホーム: フォルダ設定で登録したフォルダ。チャンネル名の下に、フォルダの色の点と名前(ダーク / ライトは --tf-* の変数で切り替わる) */
+.tf-fch { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; margin-top: 3px; }
+.tf-fch > span { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; box-sizing: border-box; padding: 0 8px 0 6px; border-radius: 9px; background: var(--tf-chip); color: var(--tf-fg); font: 500 11px/18px Roboto, Arial, "Noto Sans JP", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-fch > span::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--tf-sub)); }

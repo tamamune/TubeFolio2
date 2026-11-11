@@ -285,3 +285,7 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .card .chl { cursor: pointer; }
 .card .tx small.chl:hover { color: var(--fg); text-decoration: underline; }
 .card .inf > .av.chl:hover { outline: 2px solid var(--sub); outline-offset: 1px; }
+/* フォルダ設定で登録したフォルダ: チャンネル名の下に、フォルダの色の点と名前 */
+.card .tx > .fch { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.card .tx > .fch > i { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; box-sizing: border-box; padding: 0 7px 0 6px; border-radius: 8px; background: var(--chip); color: var(--fg); font-style: normal; font-size: 11px; line-height: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .tx > .fch > i::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--sub)); }
