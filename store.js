@@ -119,16 +119,24 @@ const TF = (() => {
   const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags', 'trendHours',
     'fOpen', 'hideMembers', 'setGrp', 'cmtNames', 'hist', 'plSeen'];
 
-  // 視聴履歴(hist)から、「再生済み」の動画IDの集まりを作る。見た時間の合計が、30秒以上(短い動画は、長さの半分以上。ショートは5秒以上)
-  const playedSet = hist => {
-    const sum = new Map(), out = new Set(), v = (hist && hist.v) || {};
-    ((hist && hist.p) || []).forEach(x => sum.set(x[1], (sum.get(x[1]) || 0) + (x[2] || 0)));
-    sum.forEach((sec, id) => { const m = v[id] || []; if (m[4] ? sec >= 5 : (sec >= 30 || (m[3] > 0 && sec >= m[3] * 0.5))) out.add(id); });
-    return out;
+  // 視聴履歴(hist)から、動画ごとの「どこまで見たか」を作る: Map(動画ID → { sec: 見た時間の合計(秒), pos: いちばん先まで進んだ位置(秒), len: 長さ(秒。0 = 分からない), short })
+  //   再生の記録は [開始(秒), 動画ID, 見た秒数, いちばん先まで進んだ位置(秒。無いこともある)]
+  const playedInfo = hist => {
+    const m = new Map(), v = (hist && hist.v) || {};
+    ((hist && hist.p) || []).forEach(x => { if (!Array.isArray(x)) return; let e = m.get(x[1]); if (!e) { const d = v[x[1]] || []; m.set(x[1], e = { sec: 0, pos: 0, len: +d[3] || 0, short: !!d[4] }); } e.sec += x[2] || 0; if ((x[3] || 0) > e.pos) e.pos = x[3]; });
+    return m;
   };
+  // 何パーセント見たか(0〜100)。len = 一覧のカードから分かる長さ(秒。履歴に長さが無いとき用)。長さが分からないときは -1
+  //   「見た時間の合計 ÷ 長さ」と「いちばん先まで進んだ位置 ÷ 長さ」の、大きい方(倍速で見ても、最後まで見れば 100% になる)
+  const pctOf = (e, len) => { if (!e) return 0; const L = e.len || len || 0; if (!L) return -1; return Math.max(0, Math.min(100, Math.round(Math.max(e.sec, e.pos) / L * 100))); };
+  const PLAYED_PCT = 80; // これ以上見たら「視聴済み」(それより少ないものは「途中 ◯%」)
+  // 視聴済みか: 8割以上見た動画(ショートは5秒以上。長さが分からない動画は、3分以上見たもの)
+  const isPlayed = (e, len) => { if (!e) return false; if (e.short) return e.sec >= 5; const p = pctOf(e, len); return p < 0 ? e.sec >= 180 : p >= PLAYED_PCT; };
+  // 「視聴済み」の動画IDの集まり(少し再生しただけの動画は、含めない)
+  const playedSet = hist => { const out = new Set(); playedInfo(hist).forEach((e, id) => { if (isPlayed(e)) out.add(id); }); return out; };
 
   return {
-    SYNC_KEYS, playedSet,
+    SYNC_KEYS, playedSet, playedInfo, pctOf, isPlayed, PLAYED_PCT,
     KW_DICT, kwList, defaultKw, groupKw,
     PALETTE, ICONS, ANIME, get, mutate, uid, keyFromHref, subtree, flat, clean, suggestIcon,
     // 既定アイコン(⭐)のままのフォルダに、名前に合うアイコンを設定する。変更件数を返す
@@ -165,6 +173,22 @@ const TF = (() => {
       if (i >= 0) c.groups.splice(i, 1); else c.groups.push(gid);
     }),
     addGroup: (name, icon, color) => mutate(s => { s.groups.push({ id: uid(), name, icon: icon || '📁', color: color || PALETTE[s.groups.length % PALETTE.length] }); }),
-    exportJson: async () => JSON.stringify({ app: 'TubeFolio2', ...(await get()) }, null, 2)
+    // YouTube の登録チャンネルの一覧(list: [{ key, name, avatar, id }])に、チャンネルを合わせる: 一覧にあるものを足し、一覧に無いもの(登録を解除したチャンネル)を消す。
+    //   同じチャンネルかどうかは、キー(@ハンドル / UC…)と、チャンネルID(meta の id)の両方で見る(ハンドルを変えたチャンネルを、消さないように)。
+    //   消す数が多すぎるとき(20件より多く、かつ半分より多い)は、取り込みの失敗かもしれないので、消さずに held(消すはずだった数)を返す。force = true なら、必ず消す
+    syncChannels: async (list, force) => {
+      const meta = (await chrome.storage.local.get('meta')).meta || {}, keys = new Set(list.map(c => c.key)), ids = new Set(list.map(c => c.id).filter(Boolean));
+      const idOf = c => (/^UC[\w-]{22}$/.test(c.key) ? c.key : (meta[c.key] && meta[c.key].id) || c.id || '');
+      const removed = []; let held = 0;
+      await mutate(s => {
+        list.forEach(c => { const o = s.channels[c.key]; s.channels[c.key] = { groups: [], addedAt: Date.now(), ...o, key: c.key, name: c.name || (o && o.name) || c.key, avatar: c.avatar || (o && o.avatar) || '' }; });
+        const all = Object.values(s.channels), gone = all.filter(c => !keys.has(c.key) && !ids.has(idOf(c)));
+        if (!force && gone.length > 20 && gone.length > all.length / 2) { held = gone.length; return; }
+        gone.forEach(c => { removed.push(c.name || c.key); delete s.channels[c.key]; });
+      });
+      return { removed, held };
+    },
+    // Drive同期と同じ内容(TF.SYNC_KEYS のすべて)を、JSON にする
+    exportJson: async () => JSON.stringify({ app: 'TubeFolio2', version: 1, exportedAt: new Date().toISOString(), data: await chrome.storage.local.get(SYNC_KEYS) }, null, 2)
   };
 })();

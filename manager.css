@@ -523,5 +523,8 @@ dialog#dlg { width: min(760px, 96vw); max-height: 94vh; overflow-y: auto; }
 :root { --pl-bg: rgba(0,0,0,.82); --pl-fg: #fff; }
 a.played { position: relative; }
 a.played img { opacity: .32; filter: grayscale(.6); transition: opacity .15s, filter .15s; } a.played:hover img { opacity: 1; filter: none; }
-a.played::before { content: "✓ 再生済み"; position: absolute; top: 6px; left: 6px; z-index: 2; padding: 2px 7px; border-radius: 6px; background: var(--pl-bg); color: var(--pl-fg); font: 700 11px/17px sans-serif; white-space: nowrap; pointer-events: none; }
+a.played::before { content: "✓ 視聴済み"; position: absolute; top: 6px; left: 6px; z-index: 2; padding: 2px 7px; border-radius: 6px; background: var(--pl-bg); color: var(--pl-fg); font: 700 11px/17px sans-serif; white-space: nowrap; pointer-events: none; }
 a.played b { color: var(--sub); }
+
+/* 「まとめて入れる」を非表示にしているとき(⚙ チャンネル管理の設定 → 整理): カードのチェックを出さない */
+body.nobulk .card .chk { display: none; }

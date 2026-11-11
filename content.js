@@ -200,22 +200,36 @@
   // 「TubeFolio2 後で見る」に入っている動画(背景が持つ控え plLaterIds)。一覧のサムネに「登録済み」の印を出す。10分より古ければ、取り直してもらう
   let laterIds = new Set(), laterList = '';
   const loadLater = () => chrome.storage.local.get('plLaterIds').then(r => { const c = r.plLaterIds; laterIds = new Set((c && c.ids) || []); laterList = (c && c.id) || ''; markPlayed(); if (!c || Date.now() - (c.t || 0) > 600e3) { try { chrome.runtime.sendMessage({ type: 'plLaterSync' }, () => void chrome.runtime.lastError); } catch (e) { /* 無視 */ } } }).catch(() => {});
-  setTimeout(loadLater, 1500); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.plLaterIds) { const c = ch.plLaterIds.newValue; laterIds = new Set((c && c.ids) || []); laterList = (c && c.id) || ''; markPlayed(); if (typeof paintLb === 'function') paintLb(); } });
-  let playedIds = new Set();
-  const loadPlayed = () => chrome.storage.local.get('hist').then(r => { playedIds = TF.playedSet(r.hist); markPlayed(); }).catch(() => {});
+  setTimeout(loadLater, 1500); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.plLaterIds) { const c = ch.plLaterIds.newValue; laterIds = new Set((c && c.ids) || []); laterList = (c && c.id) || ''; markPlayed(); } });
+  let playedIds = new Set(), playInfo = new Map();
+  const loadPlayed = () => chrome.storage.local.get('hist').then(r => { playInfo = TF.playedInfo(r.hist); playedIds = TF.playedSet(r.hist); markPlayed(); }).catch(() => {});
   loadPlayed(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.hist) loadPlayed(); });
-  // 再生済みの動画: サムネを薄くして、左上に「✓ 再生済み」の印を出す(設定 dimPlayed。既定オン)。
-  //   再生済み = この拡張機能の視聴履歴(hist)にある動画、または YouTube の赤い進み具合(見た割合)が1割以上の動画。
+  // どこまで見たかの印(設定 dimPlayed。既定オン):
+  //   視聴済み(8割以上見た動画) = サムネを薄くして、左上に「✓ 視聴済み」。途中まで見た動画 = 薄くせず、左上に「途中 ◯%」。少し再生しただけでは、視聴済みにしない。
+  //   見た割合 = YouTube の赤い進み具合(見た割合)と、この拡張機能の視聴履歴(hist。見た時間 ÷ 長さ)の、大きい方。YouTube の赤い線が無いときは、同じ線をこちらで出す。
   //   どのページでも付ける(ホーム・登録チャンネル・検索・チャンネル・再生画面の関連動画・ショートの棚・急上昇動画のパネル)。印を付けるだけなので軽い
+  const pctOfCard = (card, id) => {
+    const e = id ? playInfo.get(id) : null, yt = watchedPct(card); let p = yt;
+    if (e) { const h = TF.pctOf(e, 0); p = Math.max(p, TF.isPlayed(e) ? Math.max(h, TF.PLAYED_PCT) : Math.max(h, 0)); }
+    return { pct: Math.round(Math.min(100, p)), yt };
+  };
   function markPlayed() {
     if (!S || document.hidden) return;
     const on = S.settings.dimPlayed !== false;
     document.querySelectorAll(CARD + ', ' + SHORTS_SEL + ', a.tv-i').forEach(card => {
       if (card.matches('yt-lockup-view-model') && card.closest(OUTER)) return;
       if (!card.matches(SHORTS_SEL) && card.querySelector(SHORTS_SEL)) return; // ショートの棚は、中のショート1つずつに付ける
-      const id = card.dataset.v || videoId(card), dim = on && !!id && (playedIds.has(id) || watchedPct(card) >= 10);
+      const id = card.dataset.v || videoId(card), { pct, yt } = pctOfCard(card, id);
+      const dim = on && !!id && pct >= TF.PLAYED_PCT, part = on && !!id && !dim && pct >= 1 && !card.matches(SHORTS_SEL);
       if (card.classList.contains('tf-played') !== dim) card.classList.toggle('tf-played', dim);
+      if (card.classList.contains('tf-part') !== part) card.classList.toggle('tf-part', part);
+      { const v = part ? `"${pct}"` : ''; if (card.style.getPropertyValue('--tf-pct-s') !== v) { if (v) card.style.setProperty('--tf-pct-s', v); else card.style.removeProperty('--tf-pct-s'); } }
+      { // YouTube の赤い線が無い動画(この拡張機能の履歴だけにあるもの)には、同じ線を出す
+        const want = on && !!id && yt < 1 && pct >= 1 && !card.matches(SHORTS_SEL + ', a.tv-i'), th = want ? card.querySelector('ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail') : null; let pb = card.querySelector('.tf-pbar');
+        if (!th) { if (pb) pb.remove(); } else { if (pb && pb.parentElement !== th) { pb.remove(); pb = null; } if (!pb) { pb = el('span', 'tf-pbar'); pb.appendChild(el('i')); th.appendChild(pb); } const w = pct + '%'; if (pb.firstChild.style.width !== w) pb.firstChild.style.width = w; }
+      }
       const inl = !!id && laterIds.has(id); if (card.classList.contains('tf-inlater') !== inl) card.classList.toggle('tf-inlater', inl); // 「TubeFolio2 後で見る」に登録済み
+      laterBtnFor(card, id, inl);
     });
   }
   setInterval(markPlayed, 1500);
@@ -249,7 +263,7 @@
         const gs = key && S.channels[key] ? S.channels[key].groups.filter(id => groupOf(id)) : [];
         if (ag === 'none') hide = gs.length > 0;
         else if (ag !== 'all') { const sub = TF.subtree(S.groups, ag); hide = !gs.some(id => sub.has(id)); }
-        if (!hide && S.settings.hideWatched && watchedPct(card) >= 80) hide = true;
+        if (!hide && S.settings.hideWatched && pctOfCard(card, videoId(card)).pct >= TF.PLAYED_PCT) hide = true; // 視聴済み(8割以上見た動画)を隠す
       }
       if (S.settings.hideMix && card.querySelector('a[href*="list=RD"]')) hide = true; // ミックスリスト(自動で作られる再生リスト)を隠す
       card.classList.toggle('tf-hide', hide);
@@ -303,7 +317,7 @@
   function bgImport() {
     toast('取り込み中…(バックグラウンド)', 60000);
     chrome.runtime.sendMessage({ type: 'importSubs' }, r => {
-      if (r && !r.error) toast(`✓ ${r.count}件のチャンネルを取り込みました`, 6000);
+      if (r && !r.error) toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録を解除した ${r.removed}件を消しました)` : r.held ? `(登録に無い ${r.held}件は、数が多いので消していません。管理画面の「YouTubeから取り込む」で確かめられます)` : ''), 8000);
       else { toast('バックグラウンド取り込みに失敗。ページ経由で再試行します'); setTimeout(() => { location.href = '/feed/channels?tf_import=1'; }, 1500); }
     });
   }
@@ -372,6 +386,10 @@
       const seg = k => `<div class="fseg">${[0, 3, 4, 5, 6, 7, 8].map(n => `<button data-a="col" data-k="${k}" data-n="${n}" class="${colNow(k) === n ? 'act' : ''}">${n || '標準'}</button>`).join('')}</div>`;
       return `<div class="fh">動画の列数</div>${seg('v')}<div class="fh">ショート棚の列数</div>${seg('s')}`;
     }
+    if (key === 'disp') { // 表示の切り替え(以前は「視聴済み」と「低評価率」で、ボタンが2つだった)。押すたびに、その場で切り替わる(メニューは開いたまま)
+      const row = (a, on, ic, t, note) => `<button data-a="${a}" class="${on ? 'act' : ''}" title="${note}">${ic} ${t} ${on ? '✓' : ''}</button>`;
+      return `<div class="fh">表示の切り替え</div>${row('hw', !!S.settings.hideWatched, '🙈', '視聴済みを隠す', '登録チャンネルの一覧で、8割以上見た動画を隠します')}${row('dis', pxDis, '👎', '低評価率を表示', '一覧のサムネに、低評価の割合を出します')}${row('mem', hideMem, '👑', 'メンバー限定の動画を隠す', 'ホーム・検索・登録チャンネル・チャンネルのページで、メンバー限定の動画を隠します')}`;
+    }
     if (key === 'vtool') return `<div class="fh">再生リスト</div><button data-a="plnew">＋ 再生リストを新しく作る</button><button data-a="pldel">🗑 再生リストを削除</button>`;
     if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button><div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
     if (key === 'imp') return `<div class="fh">登録チャンネル</div><button data-a="imp">⟳ YouTubeから取り込む</button>`;
@@ -427,6 +445,8 @@
     else if (a === 'col') setCols(+d.n, d.k);
     else if (a === 'sync') { hubSt = '同期中…'; const e = $('#tf-fly-st'); if (e) e.textContent = hubSt; chrome.runtime.sendMessage({ type: 'syncNow', interactive: true }, r => { hubSt = r && r.ok ? '☁ 同期しました' : '⚠ ' + ((r && r.error) || '失敗'); const x = $('#tf-fly-st'); if (x) x.textContent = hubSt; }); }
     else if (a === 'hw') TF.mutate(s => { s.settings.hideWatched = !s.settings.hideWatched; });
+    else if (a === 'dis') { chrome.storage.local.get('px').then(r => { const px = r.px || {}; px.disBadge = px.disBadge === false; return chrome.storage.local.set({ px }); }); }
+    else if (a === 'mem') chrome.storage.local.set({ hideMembers: !hideMem }); // memhide.js が、この設定を見て隠す(Drive同期の対象)
     else if (a === 'hm') TF.mutate(s => { s.settings.hideMix = !s.settings.hideMix; });
     else if (a === 'hbh') TF.mutate(s => { s.settings.hbarHome = s.settings.hbarHome === 'closed' ? 'open' : 'closed'; });
     else if (a === 'hc') TF.mutate(s => { s.settings.hideCreate = s.settings.hideCreate !== true; });
@@ -467,7 +487,9 @@
   window.addEventListener('blur', () => setTimeout(() => { if (document.activeElement && document.activeElement.tagName === 'IFRAME') closeAllMenus(); }, 0)); // iframeへフォーカスが移ったとき
   document.addEventListener('mousedown', e => { if ($('#tf-gsb-fly.tf-barfly') && !e.target.closest('#tf-gsb-fly') && !e.target.closest('#tf-hbar [data-a="hub"]')) closeFly(); }, true);
   // 一覧のサムネの低評価率(xtra.js の設定 px.disBadge)の状態。ボタンの見た目に使う
-  let pxDis = true;
+  let pxDis = true, hideMem = false; // hideMem: メンバー限定の動画を隠す(storage の hideMembers。memhide.js が隠す)
+  chrome.storage.local.get('hideMembers').then(r => { hideMem = !!r.hideMembers; try { renderHBar(); } catch (e) { /* 無視 */ } });
+  chrome.storage.onChanged.addListener(ch => { if (ch.hideMembers) { hideMem = !!ch.hideMembers.newValue; try { renderHBar(); } catch (e) { /* 無視 */ } } });
   chrome.storage.local.get('px').then(r => { pxDis = !r.px || r.px.disBadge !== false; try { renderHBar(); } catch (e) { /* 無視 */ } });
   chrome.storage.onChanged.addListener(ch => { if (ch.px) { pxDis = !ch.px.newValue || ch.px.newValue.disBadge !== false; try { renderHBar(); } catch (e) { /* 無視 */ } } });
   // 再生画面からホームへ戻る途中(ロゴを押した直後)は、ホームの左メニュー等がまだ無く、バーの位置が決まらず左端から伸びて見えるので、移動が終わるまで出さない
@@ -488,7 +510,7 @@
     if (skip || (!chips && !fixed && !floatMode)) { html.removeAttribute('data-tf-hbot'); if (b) b.remove(); html.removeAttribute('data-tf-hbar'); html.removeAttribute('data-tf-hfix'); return; }
     if (!b) {
       b = el('div'); b.id = 'tf-hbar';
-      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).filter(([k]) => !TEST_PAGES.includes(k)).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-sep" data-only="later" hidden></span><button data-a="hub" data-k="vtool" data-only="later" class="tfh-vt" title="視聴のツール" hidden>ツール ▾</button><span class="tfh-grp">${['cols', 'folder', 'test'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => (k === 'test' ? `<button data-a="hw" id="tfh-hw" class="tfh-t" title="視聴済みを隠す">👁</button><button data-a="dis" id="tfh-dis" class="tfh-t" title="低評価率の表示">👎</button><button data-a="trw" id="tfh-trw" class="tfh-t" data-ic="🔥" title="急上昇ワード">🔥</button><button data-a="trv" id="tfh-trv" class="tfh-t" data-ic="📈" title="急上昇動画">📈</button>` : '') + `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
+      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).filter(([k]) => !TEST_PAGES.includes(k)).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-sep" data-only="later" hidden></span><button data-a="hub" data-k="vtool" data-only="later" class="tfh-vt" title="視聴のツール" hidden>ツール ▾</button><span class="tfh-grp">${['cols', 'folder', 'test'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => (k === 'test' ? `<button data-a="hub" data-k="disp" id="tfh-disp" class="tfh-t" data-ic="👁" title="表示の切り替え(視聴済み・低評価率・メンバー限定)">👁</button><button data-a="trw" id="tfh-trw" class="tfh-t" data-ic="🔥" title="急上昇ワード">🔥</button><button data-a="trv" id="tfh-trv" class="tfh-t" data-ic="📈" title="急上昇動画">📈</button>` : '') + `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
       b.addEventListener('wheel', e => { if (b.scrollWidth > b.clientWidth + 1 && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { b.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false }); // マウスのホイールでも、横に動かせる
       b.addEventListener('scroll', () => closeFly(), { passive: true });
       b.addEventListener('click', e => {
@@ -496,9 +518,7 @@
         const a = x.dataset.a;
         if (a === 'min') TF.mutate(s => { s.settings.hbarMin = !s.settings.hbarMin; });
         else if (a === 'pos') { const cur = HBAR_MODES.findIndex(m => m[0] === (S.settings.hbarPos || 'home')), nx = HBAR_MODES[(cur + 1) % HBAR_MODES.length][0]; TF.mutate(s => { s.settings.hbarPos = nx; }); }
-        else if (a === 'hw') TF.mutate(st => { st.settings.hideWatched = !st.settings.hideWatched; });
         else if (a === 'trw' || a === 'trv') document.dispatchEvent(new CustomEvent('tg-trend-toggle', { detail: a === 'trw' ? 'words' : 'tv' })); // 急上昇ワード / 急上昇動画のパネルを開く・閉じる(trends.js / trendvid.js)
-        else if (a === 'dis') { chrome.storage.local.get('px').then(r => { const px = r.px || {}; px.disBadge = px.disBadge === false; return chrome.storage.local.set({ px }); }); }
         else if (a === 'gear') { closeFly(); $('#tf-set') ? closeSettings() : openSettings(x); }
         else if (a === 'hub') { const f0 = $('#tf-gsb-fly'); const same = f0 && f0.dataset.k === x.dataset.k; closeFly(); if (!same) showBarFly(x); }
         else if (a === 'pg') openPg(x.dataset.p);
@@ -506,8 +526,8 @@
       });
     }
     { const bg = pageBg(); if (bg) html.style.setProperty('--tf-pagebg', bg); }
-    { const hw = $('#tfh-hw', b); if (hw) { const on = !!S.settings.hideWatched; hw.classList.toggle('on', on); hw.title = on ? '視聴済みを隠している(押すと表示する)' : '視聴済みを隠す'; hw.textContent = on ? '🙈' : '👁'; } }
-    { const db = $('#tfh-dis', b); if (db) { db.classList.toggle('on', pxDis); db.title = pxDis ? '低評価率を表示している(押すと隠す)' : '低評価率を表示'; } }
+    { const dp = $('#tfh-disp', b); if (dp) { const hid = !!S.settings.hideWatched || hideMem, tx = hid ? '🙈' : '👁'; dp.classList.toggle('on', hid); if (dp.textContent !== tx) dp.textContent = tx; // 何かを隠しているときは 🙈
+      dp.title = '表示の切り替え: ' + [S.settings.hideWatched ? '視聴済みを隠している' : '視聴済みを表示', pxDis ? '低評価率を表示' : '低評価率を隠している', hideMem ? 'メンバー限定を隠している' : 'メンバー限定を表示'].join(' ・ '); } }
     { const on = document.documentElement.getAttribute('data-tf-pgk') === 'later' && document.documentElement.hasAttribute('data-tf-pg'); b.querySelectorAll('[data-only="later"]').forEach(n => { if (n.hidden === on) n.hidden = !on; }); }
     { const pb = $('#tfh-pos', b), nm = (HBAR_MODES.find(m => m[0] === mode) || HBAR_MODES[0])[1]; if (pb) { const t = '配置:' + nm; if (pb.textContent !== t) pb.textContent = t; pb.title = 'ボタンの置き方を切り替える(今: ' + nm + ')'; } }
     { const f = $('#tf-gsb-fly.tf-barfly'); if (f && f.dataset.k) { const h = hubFlyHtml(f.dataset.k); if (f._h !== h) { const keep = f.scrollTop; f._h = h; f.innerHTML = h; f.scrollTop = keep; } } }
@@ -969,10 +989,10 @@
       const img = r.querySelector('img');
       list.push({ key, name, avatar: img && /^https:\/\/(yt3|lh3)\.|ggpht/.test(img.src) ? img.src : '' });
     });
-    await TF.upsertChannels(list);
+    const sy = list.length ? await TF.syncChannels(list, false) : { removed: [], held: 0 }; // 取り込みと同時に、登録を解除したチャンネルを消す
     window.scrollTo(0, 0);
     importing = false;
-    toast(`✓ ${list.length}件のチャンネルを取り込みました`, 6000);
+    toast(`✓ ${list.length}件のチャンネルを取り込みました` + (sy.removed.length ? `(登録を解除した ${sy.removed.length}件を消しました)` : ''), 6000);
     if (location.search.includes('tf_import')) setTimeout(() => { location.href = '/feed/subscriptions'; }, 1500);
   }
   function checkImport() {
@@ -999,63 +1019,47 @@
     }, { once: true });
   }
 
-  // ---------- ホーム・登録フィードのサムネに乗せると出る「🕒」: 再生リスト「TubeFolio2 後で見る」へ、ワンクリックで追加 ----------
-  // カードには何も足さず(YouTubeのホバープレビューを壊さないため)、画面に固定した1個のボタンを、乗せたサムネの左下に重ねる
-  const LBI = '🕒'; let lb = null, lbCard = null;
-  function laterBtn() {
-    if (lb) return lb;
-    lb = el('button', null, LBI); lb.id = 'tf-later'; lb.title = '再生リスト「TubeFolio2 後で見る」に追加'; lb.style.display = 'none';
-    lb.addEventListener('mouseleave', e => { if (!lbCard || !lbCard.contains(e.relatedTarget)) hideLb(); });
-    lb.addEventListener('click', e => {
-      e.preventDefault(); e.stopPropagation();
-      const v = lbCard && videoId(lbCard); if (!v) return toast('動画を特定できませんでした');
-      if (laterIds.has(v)) { // 登録済み: 押すと、再生リストから外す
-        if (!laterList) return toast('再生リストを確認中です。少し待ってから、もう一度押してください');
-        lb.disabled = true; lb.textContent = '…';
-        try { chrome.runtime.sendMessage({ type: 'plRemove', listId: laterList, videoId: v }, r => { void chrome.runtime.lastError; lb.disabled = false; if (r && r.ok) { laterIds.delete(v); toast('「TubeFolio2 後で見る」から外しました'); chrome.storage.local.set({ plAddedAt: Date.now() }).catch(() => {}); } else toast('外せませんでした: ' + ((r && r.error) || '不明なエラー'), 6000); paintLb(); markPlayed(); }); } catch (err) { lb.disabled = false; paintLb(); }
-        return;
-      }
-      lb.disabled = true; lb.textContent = '…';
-      const fail = msg => { lb.disabled = false; lb.textContent = LBI; toast(msg, 6000); };
-      const stale = '拡張機能が更新されました。YouTubeのページを更新(F5)してから、もう一度押してください'; // 再読み込みの直後は、開いているタブが古いままで、何も起きない
-      if (!chrome.runtime || !chrome.runtime.id) return fail(stale);
-      try {
-        chrome.runtime.sendMessage({ type: 'plAdd', videoId: v }, r => {
-          const le = chrome.runtime.lastError; lb.disabled = false;
-          if (r && r.ok) { laterIds.add(v); paintLb(); markPlayed(); toast('「TubeFolio2 後で見る」に追加しました'); }
-          else { lb.textContent = LBI; toast(le ? '拡張機能に接続できません。YouTubeのページを更新(F5)してください' : '追加できませんでした: ' + ((r && r.error) || '不明なエラー'), 6000); }
-        });
-      } catch (err) { fail(stale); }
-    });
-    document.body.appendChild(lb); return lb;
+  // ---------- 一覧(ホーム・検索・登録チャンネル・チャンネルのページ)のサムネの左下の「🕒」: 再生リスト「TubeFolio2 後で見る」へ、ワンクリックで追加 ----------
+  // いつも出しておく(以前は、サムネに乗せたときだけ出していた)。登録済みの動画は、緑の「✓ 登録済み」(押すと外す)。
+  // ボタンは、低評価率の印(.tg-disb)と同じように、サムネの中に足す。YouTube がカードを使い回すので、どの動画かは、押したときにカードから読む
+  const LBI = '🕒', LB_HOST = 'ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, yt-lockup-view-model';
+  const lbPaint = (b, inl) => { if (b.dataset.busy) return; const t = inl ? '✓ 登録済み' : LBI; if (b.textContent !== t) b.textContent = t; if (b.classList.contains('done') !== inl) { b.classList.toggle('done', inl); b.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加'; } };
+  // カードに、ボタンを付ける / 外す(markPlayed から、カードごとに呼ぶ)
+  function laterBtnFor(card, id, inl) {
+    const ok = !!id && card.matches(LB_HOST) && !card.closest('#tf-view, ytd-watch-flexy, ytd-miniplayer, ytd-playlist-panel-renderer') && !card.querySelector('a[href*="list=RD"]');
+    const th = ok ? card.querySelector('ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail') : null;
+    let b = card.querySelector('.tf-lbtn');
+    if (!th) { if (b) { b.remove(); card.classList.remove('tf-haslb'); } return; }
+    if (b && b.parentElement !== th) { b.remove(); b = null; }
+    if (!b) { b = el('button', 'tf-lbtn', LBI); b.type = 'button'; b.title = '再生リスト「TubeFolio2 後で見る」に追加'; th.appendChild(b); }
+    if (!card.classList.contains('tf-haslb')) card.classList.add('tf-haslb');
+    lbPaint(b, inl);
   }
-  // ボタンの見た目: 登録済みの動画は「✓」(緑)、まだの動画は「🕒」
-  function paintLb() {
-    if (!lb || lb.disabled) return; const v = lbCard && videoId(lbCard), inl = !!v && laterIds.has(v);
-    lb.textContent = inl ? '✓' : LBI; lb.classList.toggle('done', inl);
-    lb.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加';
+  function laterToggle(b) {
+    const card = b.closest(LB_HOST), v = card && videoId(card); if (!v) return toast('動画を特定できませんでした');
+    if (b.dataset.busy) return;
+    const stale = '拡張機能が更新されました。YouTubeのページを更新(F5)してから、もう一度押してください'; // 再読み込みの直後は、開いているタブが古いままで、何も起きない
+    if (!chrome.runtime || !chrome.runtime.id) return toast(stale, 6000);
+    const done = () => { delete b.dataset.busy; lbPaint(b, laterIds.has(v)); markPlayed(); };
+    if (laterIds.has(v)) { // 登録済み: 押すと、再生リストから外す
+      if (!laterList) return toast('再生リストを確認中です。少し待ってから、もう一度押してください');
+      b.dataset.busy = '1'; b.textContent = '…';
+      try { chrome.runtime.sendMessage({ type: 'plRemove', listId: laterList, videoId: v }, r => { void chrome.runtime.lastError; if (r && r.ok) { laterIds.delete(v); toast('「TubeFolio2 後で見る」から外しました'); chrome.storage.local.set({ plAddedAt: Date.now() }).catch(() => {}); } else toast('外せませんでした: ' + ((r && r.error) || '不明なエラー'), 6000); done(); }); } catch (err) { done(); toast(stale, 6000); }
+      return;
+    }
+    b.dataset.busy = '1'; b.textContent = '…';
+    try {
+      chrome.runtime.sendMessage({ type: 'plAdd', videoId: v }, r => {
+        const le = chrome.runtime.lastError;
+        if (r && r.ok) { laterIds.add(v); toast('「TubeFolio2 後で見る」に追加しました'); }
+        else toast(le ? '拡張機能に接続できません。YouTubeのページを更新(F5)してください' : '追加できませんでした: ' + ((r && r.error) || '不明なエラー'), 6000);
+        done();
+      });
+    } catch (err) { done(); toast(stale, 6000); }
   }
-  // ホバーでカードが拡大・移動するので、表示中は位置を取り直す
-  function placeLb() {
-    if (!lb || !lbCard || lb.style.display === 'none') return;
-    const t = lbCard.querySelector('ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail') || lbCard, r = t.getBoundingClientRect();
-    lb.style.left = (r.left + 8) + 'px'; lb.style.top = (r.bottom - 40) + 'px';
-  }
-  setInterval(placeLb, 120);
-  function hideLb() { if (lb) { lb.style.display = 'none'; lb.classList.remove('done'); lb.textContent = LBI; } lbCard = null; }
-  document.addEventListener('mouseover', e => {
-    if (!e.target.closest) return;
-    if (!(isHome() || isSubs())) return hideLb();
-    if (e.target.closest('#tf-later, ytd-video-preview, #video-preview')) return; // プレビュー中もボタンは残す
-    const card = e.target.closest(OUTER);
-    if (!card || card.closest('#tf-view')) return hideLb();
-    if (card === lbCard) return;
-    if (!videoId(card)) return hideLb();
-    lbCard = card;
-    const t = card.querySelector('ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail') || card, r = t.getBoundingClientRect(), b = laterBtn();
-    b.style.display = 'flex'; paintLb(); placeLb();
-  }, true);
-  window.addEventListener('scroll', hideLb, { passive: true });
+  // ボタンは、サムネのリンクの中にあるので、押しても動画へ移動しないように、先に受け取って止める
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.tf-lbtn'); if (!b) return; e.preventDefault(); e.stopImmediatePropagation(); laterToggle(b); }, true);
+  ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'auxclick', 'dblclick'].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest('.tf-lbtn')) e.stopPropagation(); }, true));
 
   // ---------- カードの「⋮」メニューに「TubeFolio2 後で見る に追加」を足す ----------
   // 再生リストの一覧を、メニューの隣に出す(自分の再生リストだけ。ライブラリ=保存した他人のリスト・ミックスは含めない。順番は手動で、設定(plMenuOrder)に保存=全端末で共有)

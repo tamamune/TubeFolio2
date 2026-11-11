@@ -179,6 +179,9 @@
     drawBulk(); drawStats();
   }
   function drawBulk() {
+    if (!bulkOn() && sel.size) sel.clear();
+    document.body.classList.toggle('nobulk', !bulkOn());
+    { const h = $('#howto'); if (h) h.textContent = 'フォルダへの登録: チャンネルの「📁 フォルダ」を押して、入れたいフォルダにチェックを付けます(1つのチャンネルを、いくつものフォルダに入れられます)。' + (bulkOn() ? 'まとめて入れるときは、カードを押して選んでから「📁 フォルダを選ぶ」。' : '') + '左のフォルダへドラッグしても入ります。'; }
     $('#bulk').hidden = !sel.size;
     $('#bcnt').textContent = `${sel.size}件選択中`;
     $('#bgroups').innerHTML = `<button data-pick="1" class="pk">📁 フォルダを選ぶ(まとめて入れる / 外す)</button>` + (grp(view) ? `<button data-rm="${view}" style="--c:#ef4444">このフォルダから外す</button>` : '');
@@ -314,6 +317,7 @@
     const k = card.dataset.k;
     const fb = e.target.closest('.fbtn'); if (fb) return openPick([k], fb); // 📁 フォルダ: このチャンネルを入れるフォルダを選ぶ
     const tx = e.target.closest('.tx[data-rmg]'); if (tx) { const gid = tx.dataset.rmg; justFiled.add(k); return void TF.mutate(st => { const c = st.channels[k]; if (c) c.groups = c.groups.filter(x => x !== gid); }).then(() => toast('フォルダから外しました')); } // タグの ×
+    if (!bulkOn()) return; // 「まとめて入れる」を非表示にしているときは、カードを押しても選ばない
     sel.has(k) ? sel.delete(k) : sel.add(k); drawGrid();
   });
   $('#grid').addEventListener('dragstart', e => {
@@ -435,14 +439,19 @@
   chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.syncStatus) paintSync(ch.syncStatus.newValue); });
   const ib = $('#ytimp');
   chrome.runtime.onMessage.addListener(m => { if (m && m.type === 'importProgress' && ib.disabled) ib.textContent = `取り込み中… ${m.n}件`; });
-  ib.onclick = () => {
+  // 取り込みと同時に、YouTube で登録を解除したチャンネルを、一覧から消す(フォルダからも外れる)。消す数が多すぎるときだけ、確かめる
+  const runImport = force => {
     ib.disabled = true; ib.textContent = '取り込み中…';
-    chrome.runtime.sendMessage({ type: 'importSubs' }, r => {
+    chrome.runtime.sendMessage({ type: 'importSubs', force: !!force }, r => {
       ib.disabled = false; ib.textContent = '⟳ YouTubeから取り込む';
-      if (r && !r.error) toast(`✓ ${r.count}件のチャンネルを取り込みました`);
+      if (r && !r.error) {
+        toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録を解除した ${r.removed}件を消しました)` : ''));
+        if (r.held && confirm(`YouTube の登録チャンネルに無いチャンネルが、${r.held}件あります(一覧の半分より多い数です)。\nこれらを、TubeFolio2 の一覧とフォルダから消しますか?\n\n※ 取り込みがうまくいっていないだけのこともあります。心当たりがなければ「キャンセル」を押してください。`)) runImport(true);
+      }
       else if (confirm('バックグラウンド取り込みに失敗しました(' + ((r && r.error) || '不明') + ')。YouTubeのタブを開いて取り込みますか?')) window.open('https://www.youtube.com/feed/channels?tf_import=1', '_blank');
     });
   };
+  ib.onclick = () => runImport(false);
   $('#gcancel').onclick = () => $('#dlg').close();
   $('#gform').onsubmit = () => {
     const name = $('#gname').value.trim(); if (!name) return;
@@ -501,7 +510,8 @@
       const f = document.createElement('div'); f.id = 'gfly';
       f.innerHTML = `<div class="gtabs">${[['org', '📂 整理'], ['sync', '☁ 同期'], ['etc', '🔧 その他']].map(([k, l]) => `<button class="gtab${k === (f.dataset.cur = (() => { try { return localStorage.getItem('tfMgrTab') || 'org'; } catch (e) { return 'org'; } })()) ? ' on' : ''}" data-tb="${k}">${l}</button>`).join('')}</div>
         <div data-gt="org"><div class="fh">登録チャンネル</div><button data-g="yt">⟳ YouTubeから取り込む</button>
-        <div class="fh">振り分け補助</div><button data-g="assist">🪄 振り分け補助の設定(${assistOn() ? 'オン' : 'オフ'})</button>
+        <div class="fh">まとめて入れる(カードを押して選ぶ)</div><div class="fseg">${[[1, '表示'], [0, '非表示']].map(([v, l]) => `<button data-bs="${v}" class="${bulkOn() === !!v ? 'act' : ''}">${l}</button>`).join('')}</div>
+        <div class="fh">振り分け補助(登録の補助)</div><button data-g="assistTgl" id="gAssist">${assistOn() ? '🪄 振り分け補助:オン' : '🪄 振り分け補助:オフ'}</button><button data-g="assist">⚙ 補助の設定(点数・キーワード)</button>
         <div class="fh">マウスオーバーで出す動画の数</div><div class="fseg">${[1, 2, 3, 4].map(n => `<button data-hv="${n}" class="${hv0 === n ? 'act' : ''}">${n}本</button>`).join('')}</div>
         <div class="fh">マウスオーバーで出す種類</div><div class="fseg">${TYPES.map(([f, lb]) => `<button data-ht="${f}" class="${ht0 === f ? 'act' : ''}">${lb.replace(/^\S+ /, '').replace('ライブ配信', 'ライブ・配信')}</button>`).join('')}</div></div>
         <div data-gt="sync"><div class="fh">Google Drive</div><button data-g="sync">☁ 今すぐ同期</button><button data-g="up">⬆ この端末の内容をアップロード</button><button data-g="down">⬇ Driveの内容をダウンロード</button><div class="fn" id="gfly-st"></div>
@@ -515,6 +525,8 @@
         const gtb = ev.target.closest('.gtab'); if (gtb) { showT(gtb.dataset.tb); return; }
         const hb = ev.target.closest('button[data-hv]');
         if (hb) { TF.mutate(st => { st.settings.hoverVideos = +hb.dataset.hv; }); f.querySelectorAll('[data-hv]').forEach(x => x.classList.toggle('act', x === hb)); return; }
+        const bs = ev.target.closest('button[data-bs]');
+        if (bs) { TF.mutate(st => { st.settings.bulkSel = bs.dataset.bs === '1'; }); f.querySelectorAll('[data-bs]').forEach(x => x.classList.toggle('act', x === bs)); return; }
         const tb = ev.target.closest('button[data-ht]');
         if (tb) { TF.mutate(st => { st.settings.hoverType = tb.dataset.ht; }); f.querySelectorAll('[data-ht]').forEach(x => x.classList.toggle('act', x === tb)); return; }
         const x = ev.target.closest('button[data-g]'); if (x) act(x.dataset.g);
@@ -542,6 +554,7 @@
   const RULES_DEF = { nameScore: 3, titleScore: 1, titleCount: 15, minScore: 2, bulkMin: 4, maxSugg: 3, useDict: true, fuzzy: true, useShorts: true, subfolder: true, useDesc: true, descScore: 1 };
   const rules = () => ({ ...RULES_DEF, ...((S.settings && S.settings.assistRules) || {}) });
   const assistOn = () => !!(S.settings && S.settings.assist);
+  const bulkOn = () => !(S.settings && S.settings.bulkSel === false); // カードを押して選び、まとめてフォルダに入れる機能(⚙ チャンネル管理の設定 → 整理 で、表示 / 非表示)
   let chTitles = {}; chrome.storage.local.get('chTitles').then(r => { chTitles = r.chTitles || {}; });
   const nrm = t => { t = String(t || ''); if (!rules().fuzzy) return t.toLowerCase(); return t.normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60)); };
   const pathName = g => { const n = []; let x = g, i = 0; while (x && i++ < 6) { n.unshift(x.name); x = x.parent ? grp(x.parent) : null; } return n.join(' ＞ '); };
@@ -572,6 +585,7 @@
   const bulkPlan = () => visible().filter(c => !filed(c).length).map(c => { const t = suggest(c)[0]; return t && t.sc >= rules().bulkMin ? { key: c.key, g: t.g } : null; }).filter(Boolean);
   function paintAssist() {
     const b = $('#assistBtn'); b.classList.toggle('on', assistOn()); b.textContent = assistOn() ? '🪄 振り分け補助:オン' : '🪄 振り分け補助:オフ';
+    { const n0 = chans().filter(c => !filed(c).length).length; b.title = `フォルダに入っていないチャンネル(今 ${n0}件)に、入れるフォルダの候補を出します。候補を押すと、そのフォルダに入ります(キーワードは、横の ⚙ か、フォルダの編集で設定)`; }
     const bb = $('#bulkAssist'), n = assistOn() ? bulkPlan().length : 0; bb.hidden = !n; bb.textContent = `🪄 一括適用 ${n}`; bb.title = `一致度の高い候補(${rules().bulkMin}点以上)を ${n} チャンネルにまとめて適用`;
   }
   let sIO = null, tQ = [], tBusy = 0, tSave = 0;

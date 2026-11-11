@@ -260,7 +260,7 @@ function collect(data, out) {
       let av = ((r.thumbnail || {}).thumbnails || []).slice(-1)[0];
       av = av ? av.url.replace(/^\/\//, 'https://') : '';
       const t = r.title || {};
-      if (key) out.set(key, { key, name: TF.clean(t.simpleText || (t.runs || []).map(x => x.text).join('')), avatar: av, id: /^UC[w-]{22}$/.test(r.channelId || '') ? r.channelId : '' });
+      if (key) out.set(key, { key, name: TF.clean(t.simpleText || (t.runs || []).map(x => x.text).join('')), avatar: av, id: /^UC[\w-]{22}$/.test(r.channelId || '') ? r.channelId : '' });
     }
     if (o.continuationItemRenderer) {
       const tok = (((o.continuationItemRenderer.continuationEndpoint || {}).continuationCommand) || {}).token;
@@ -270,7 +270,8 @@ function collect(data, out) {
   return next;
 }
 let importP = null;
-function importSubs() {
+// prune = true(「YouTubeから取り込む」を押したとき): 取り込みと同時に、登録を解除したチャンネルを一覧から消す(TF.syncChannels)。force = 消す数が多くても消す
+function importSubs(prune, force) {
   return importP || (importP = (async () => {
     const html = await (await fetch(`${ORIGIN}/feed/channels`, { credentials: 'include' })).text();
     const mi = html.match(/ytInitialData\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
@@ -278,8 +279,9 @@ function importSubs() {
     const apiKey = (html.match(/"INNERTUBE_API_KEY":"([^"]+)"/) || [])[1];
     const ver = (html.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/) || [])[1];
     const out = new Map();
-    let tok = collect(JSON.parse(mi[1]), out);
+    let tok = collect(JSON.parse(mi[1]), out), full = false;
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    if (!tok) full = true;
     for (let i = 0; tok && i < 200; i++) {
       const res = await fetch(`${ORIGIN}/youtubei/v1/browse?key=${apiKey}&prettyPrint=false`, {
         method: 'POST', credentials: 'include', headers,
@@ -287,12 +289,15 @@ function importSubs() {
       });
       if (!res.ok) throw new Error('browse ' + res.status);
       tok = collect(await res.json(), out);
+      if (!tok) full = true;
       chrome.runtime.sendMessage({ type: 'importProgress', n: out.size }).catch(() => {});
     }
     if (!out.size) throw new Error('no channels (ログインしていないか、YouTube側の形式が変わりました)');
-    await TF.upsertChannels([...out.values()]);
-    await bulkMetaIds([...out.values()]); // チャンネルID(UC…)を保存しておく(新着一覧が、チャンネルページを開かずにRSSを取れる)
-    return { count: out.size };
+    const list = [...out.values()]; let sync = { removed: [], held: 0 };
+    await bulkMetaIds(list); // チャンネルID(UC…)を保存しておく(新着一覧が、チャンネルページを開かずにRSSを取れる。登録を解除したチャンネルを見分けるのにも使う)
+    if (prune && full) sync = await TF.syncChannels(list, !!force); else await TF.upsertChannels(list); // 一覧を最後まで取れたときだけ、消す
+    if (sync.removed.length) { try { bgLog('取り込み', `登録を解除したチャンネルを ${sync.removed.length}件 消しました: ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ } }
+    return { count: out.size, removed: sync.removed.length, held: sync.held };
   })().finally(() => { importP = null; }));
 }
 
@@ -494,7 +499,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   }
   if (m.type === 'syncNow') { syncNow(!!m.interactive).then(send); return true; }
   if (m.type === 'driveUp' || m.type === 'driveDown') { driveForce(m.type === 'driveUp' ? 'up' : 'down').then(send); return true; }
-  if (m.type === 'importSubs') { logged('取り込み', importSubs(), '登録チャンネルの取り込み').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'importSubs') { logged('取り込み', importSubs(true, !!m.force), '登録チャンネルの取り込み').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'scan') { limit(() => scan(m.key)).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'openManager') openMgr();
   if (m.type === 'chInfo' || m.type === 'avatar') {

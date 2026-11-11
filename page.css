@@ -265,12 +265,23 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 /* 再生済みの動画: サムネを薄くして、左上に「✓ 再生済み」の印(乗せたら元の濃さ)。印は、写真の上に出るので、ライト/ダークとも、濃い地に白い文字 */
 :root { --pl-bg: rgba(0,0,0,.82); --pl-fg: #fff; --pl-op: .32; }
 .card.played .th img { opacity: var(--pl-op); filter: grayscale(.6); transition: opacity .15s, filter .15s; } .card.played:hover .th img { opacity: 1; filter: none; }
-.card.played .th::after { content: "✓ 再生済み"; position: absolute; top: 6px; left: 6px; z-index: 5; padding: 2px 7px; border-radius: 6px; background: var(--pl-bg); color: var(--pl-fg); font: 700 12px/18px Roboto, Arial, "Yu Gothic UI", sans-serif; white-space: nowrap; pointer-events: none; }
+.card.played .th::after { content: attr(data-pt); position: absolute; top: 6px; left: 6px; z-index: 5; padding: 2px 7px; border-radius: 6px; background: var(--pl-bg); color: var(--pl-fg); font: 700 12px/18px Roboto, Arial, "Yu Gothic UI", sans-serif; white-space: nowrap; pointer-events: none; }
 .grid.shorts .card.played .th::after { content: "✓"; }
 .card.played .tx b { color: var(--sub); }
 
 /* 「TubeFolio2 後で見る」に登録済みの動画: 検索ページは 🕒 ボタンを「✓」(緑)にして、いつも見せる。ほかの一覧は、サムネの左下に印 */
 :root { --il-bg: #1a8f4c; --il-fg: #fff; }
-.card.inlater .rlater { opacity: 1; background: var(--il-bg); border-color: var(--il-fg); color: var(--il-fg); font-weight: 700; }
+.rc .rlater { opacity: 1; background: rgba(20,20,24,.72); } /* 🕒 は、乗せなくても、いつも出す */
+.card.inlater .rlater { opacity: 1; width: auto; padding: 0 10px; border-radius: 16px; font-size: 12px; background: var(--il-bg); border-color: var(--il-fg); color: var(--il-fg); font-weight: 700; white-space: nowrap; }
 .card.inlater:not(.rc) .th::before { content: "✓ 後で見る 登録済み"; position: absolute; left: 6px; bottom: 6px; z-index: 5; padding: 2px 7px; border-radius: 6px; background: var(--il-bg); color: var(--il-fg); font: 700 12px/18px Roboto, Arial, "Yu Gothic UI", sans-serif; white-space: nowrap; pointer-events: none; }
 .grid.shorts .card.inlater:not(.rc) .th::before { content: "✓ 登録済み"; }
+
+/* どこまで見たか: サムネの下に赤い線(見た割合)。途中まで見た動画は、左上に「途中 ◯%」(薄くしない)。写真の上に出るので、ライト/ダークとも同じ色(変数で持つ) */
+:root { --pt-bg: rgba(176,96,0,.92); --pt-fg: #fff; --pb-bg: rgba(255,255,255,.38); --pb-fg: #ff0033; }
+.card.part .th::after { content: attr(data-pt); position: absolute; top: 6px; left: 6px; z-index: 5; padding: 2px 7px; border-radius: 6px; background: var(--pt-bg); color: var(--pt-fg); font: 700 12px/18px Roboto, Arial, "Yu Gothic UI", sans-serif; white-space: nowrap; pointer-events: none; }
+.th > .pbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; height: 4px; background: var(--pb-bg); pointer-events: none; }
+.th > .pbar > i { display: block; height: 100%; background: var(--pb-fg); }
+/* チャンネル名・チャンネルのアイコン: 押すと、チャンネルのページへ */
+.card .chl { cursor: pointer; }
+.card .tx small.chl:hover { color: var(--fg); text-decoration: underline; }
+.card .inf > .av.chl:hover { outline: 2px solid var(--sub); outline-offset: 1px; }

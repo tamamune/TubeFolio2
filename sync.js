@@ -6,6 +6,7 @@
 //   以前は「全体で新しい方が勝つ」だったので、別のPCで少し操作しただけで、もう一方のPCで登録した内容が丸ごと古い内容に戻ることがあった。
 //   視聴履歴(hist)・ランダムタグ(playedTags)・再生リストの登録日(plSeen)は、中身どうしを合わせる(どちらのPCの分も残す)。
 //   この端末で初めて同期するときは、Drive にデータがあれば、Drive の内容を取り込む(空の端末が Drive を上書きしないように)。
+//   2回目からは、キーの中の項目ごと(フォルダごと・チャンネルごと・設定の項目ごと)に、変えた側の内容を採る(下の merge3)。
 const SYNC_KEYS = TF.SYNC_KEYS;
 // 同期しないキャッシュ(取り直せる): trendsCache4 / trendsCache24(急上昇ワード)・t1_<日付>(急上昇動画)。trends-bg.js が作る
 const SYNC_FILE = 'tubefolio2.json';
@@ -88,6 +89,35 @@ const MERGE = {
 };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
+// ---- 項目ごとの統合(3者比較) ----
+//   キーの中身(フォルダ groups・チャンネル channels・設定 settings など)は、ひとかたまりで新旧を比べると、
+//   「別のPCで、設定を1つ変えただけ(バーの開閉など)」で、そのPCの古いフォルダ・チャンネルの内容が勝って、もう一方のPCで登録したフォルダが消えることがあった。
+//   そこで、前回の同期のときの内容(syncBase。この端末だけに置く)を覚えておき、項目ごとに「どちらが変えたか」を見る:
+//     この端末だけが変えた → この端末の内容 / 相手(Drive)だけが変えた → Drive の内容 / 両方が変えた → あとで変えた方(キーの時刻)。消した項目も、同じように伝わる。
+//   項目 = オブジェクトのキー(チャンネルごと・設定の項目ごと。3段まで)。フォルダ(id を持つ配列)は、フォルダごと(並び順は、並びを変えた側に合わせる)。
+//   そのほかの配列(後で見る・ブックマークなど)は、ひとかたまりで比べる(変えていない側が、変えた側に合わせる)。
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+const isIdList = v => Array.isArray(v) && v.every(x => isObj(x) && typeof x.id === 'string');
+function merge3(L, R, B, localNewer, depth = 0) {
+  if (same(L, R)) return L;
+  if (same(L, B)) return R; // この端末は変えていない
+  if (same(R, B)) return L; // 相手は変えていない
+  if (depth < 3 && isObj(L) && isObj(R)) {
+    const b = isObj(B) ? B : {}, out = {};
+    for (const f of new Set([...Object.keys(L), ...Object.keys(R)])) { const v = merge3(L[f], R[f], b[f], localNewer, depth + 1); if (v !== undefined) out[f] = v; }
+    return out;
+  }
+  if (depth === 0 && isIdList(L) && isIdList(R)) {
+    const map = a => Object.fromEntries(a.map(x => [x.id, x])), b = isIdList(B) ? B : [];
+    const m = merge3(map(L), map(R), map(b), localNewer, 1), ids = a => a.map(x => x.id).filter(id => id in m);
+    const moved = a => { const x = ids(a), y = ids(b).filter(id => x.includes(id)); return !same(x.filter(id => y.includes(id)), y); }; // 前回から、並び順を変えたか
+    const first = (moved(L) && (!moved(R) || localNewer)) ? ids(L) : ids(R), order = [...new Set([...first, ...ids(L), ...ids(R)])]; // 並びの元にしなかった側だけにあるフォルダは、後ろに足す
+    return order.map(id => m[id]);
+  }
+  return localNewer ? L : R;
+}
+const baseOf = data => { const o = {}; for (const k of SYNC_KEYS) if (!MERGE[k] && data[k] !== undefined) o[k] = data[k]; return o; }; // 次の同期で比べるための控え(中身どうしを合わせるキーは、要らない)
+
 let syncP = null, applying = false;
 const applySet = async set => { applying = true; try { await chrome.storage.local.set(set); } finally { setTimeout(() => { applying = false; }, 500); } };
 function syncNow(interactive) {
@@ -96,8 +126,8 @@ function syncNow(interactive) {
       await setStatus('syncing');
       const tok = await driveToken(interactive);
       const id = await findFile(tok);
-      const local = await chrome.storage.local.get([...SYNC_KEYS, 'syncMeta']);
-      const lm = local.syncMeta || {}, lrev = lm.rev || 0, lk = lm.k || {};
+      const local = await chrome.storage.local.get([...SYNC_KEYS, 'syncMeta', 'syncBase']);
+      const lm = local.syncMeta || {}, lrev = lm.rev || 0, lk = lm.k || {}, base = local.syncBase || null;
       let remote = null;
       if (id) { try { remote = await (await dapi(tok, `/drive/v3/files/${id}?alt=media`)).json(); } catch (e) { if (!/404/.test(e.message)) throw e; } }
       const rrev = remote ? remote.rev || 0 : 0, rk = (remote && remote.keys) || {}, rdata = (remote && remote.data) || {};
@@ -114,6 +144,12 @@ function syncNow(interactive) {
           if (!same(mv, rv)) push = true;
           continue;
         }
+        if (!first && base && base[k] !== undefined) { // 前回の同期の内容がある: 項目ごとに、変えた側の内容を採る
+          const mv = merge3(lv, rv, base[k], a >= b); data[k] = mv; keys[k] = Math.max(a, b);
+          if (!same(mv, lv)) { set[k] = mv; took++; }
+          if (!same(mv, rv)) push = true;
+          continue;
+        }
         if (first || b > a) { data[k] = rv; keys[k] = b; if (!same(lv, rv)) { set[k] = rv; took++; } }
         else if (a > b) { data[k] = lv; keys[k] = a; if (!same(lv, rv)) push = true; }
         else { data[k] = lv; keys[k] = a; }
@@ -121,6 +157,7 @@ function syncNow(interactive) {
       const rev = push ? Date.now() : Math.max(lrev, rrev);
       await applySet({ ...set, syncMeta: { rev, k: keys, init: true } });
       if (push) await upload(tok, id, JSON.stringify({ app: 'TubeFolio2', rev, keys, data }));
+      await chrome.storage.local.set({ syncBase: baseOf(data) }); // Drive と同じになった内容を、次の同期のために覚えておく(アップロードに失敗したときは、覚えない)
       await setStatus('ok', took && push ? '他のPCの内容を取り込み、この端末の変更をDriveに保存しました' : took ? '他のPCの内容を取り込みました' : push ? 'Driveに保存しました' : '最新です');
       return { ok: true };
     } catch (e) {
@@ -143,7 +180,7 @@ async function driveForce(dir) {
       const local = await chrome.storage.local.get(SYNC_KEYS), rev = Date.now(), data = {}, keys = {};
       SYNC_KEYS.forEach(k => { if (local[k] !== undefined) { data[k] = local[k]; keys[k] = rev; } });
       await upload(tok, id, JSON.stringify({ app: 'TubeFolio2', rev, keys, data }));
-      await chrome.storage.local.set({ syncMeta: { rev, k: keys, init: true } });
+      await chrome.storage.local.set({ syncMeta: { rev, k: keys, init: true }, syncBase: baseOf(data) });
       await setStatus('ok', 'Driveへアップロードしました');
     } else {
       if (!id) throw new Error('Driveにまだデータがありません');
@@ -151,7 +188,7 @@ async function driveForce(dir) {
       if (!remote || !remote.data) throw new Error('Driveのデータを読み込めませんでした');
       const rev = remote.rev || Date.now(), keys = {}, set = {};
       SYNC_KEYS.forEach(k => { if (remote.data[k] !== undefined) { set[k] = remote.data[k]; keys[k] = (remote.keys || {})[k] || rev; } });
-      await applySet({ ...set, syncMeta: { rev, k: keys, init: true } });
+      await applySet({ ...set, syncMeta: { rev, k: keys, init: true }, syncBase: baseOf(set) });
       await setStatus('ok', 'Driveからダウンロードしました');
     }
     return { ok: true };

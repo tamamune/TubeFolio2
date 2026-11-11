@@ -54,18 +54,32 @@ const applyCols = () => chrome.storage.local.get('settings').then(r => {
 }).catch(() => {});
 applyCols(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.settings) applyCols(); });
 
-// 再生済みの動画は、サムネを薄くする(設定「再生済みの動画のサムネを薄くする」dimPlayed。既定オン)。
-//   再生済み = この拡張機能の視聴履歴(hist)にある動画、または YouTube 側で1割以上見た動画(再生リストの一覧)。サムネを薄くして、左上に「✓ 再生済み」の印を出す
+// どこまで見たかの印(設定「再生済みの動画のサムネを薄くする」dimPlayed。既定オン)。ホームと同じように、サムネの下に赤い線(見た割合)を出す。
+//   視聴済み(8割以上見た動画) = サムネを薄くして、左上に「✓ 視聴済み」。途中まで見た動画 = 薄くせず、左上に「途中 ◯%」。少し再生しただけでは、視聴済みにしない。
+//   見た割合 = YouTube 側の見た割合(再生リストの一覧の data-pct)と、この拡張機能の視聴履歴(hist。見た時間 ÷ 長さ)の、大きい方
 {
-  let played = new Set(), dimOn = true, pt = 0, later = new Set();
+  let info = new Map(), dimOn = true, pt = 0, later = new Set();
   const loadLater = () => chrome.storage.local.get('plLaterIds').then(r => { const c = r.plLaterIds; later = new Set((c && c.ids) || []); markPlayed(); if (!c || Date.now() - (c.t || 0) > 600e3) chrome.runtime.sendMessage({ type: 'plLaterSync' }, () => void chrome.runtime.lastError); }).catch(() => {});
   const idOf = cd => { const h = cd.getAttribute('href') || (cd.querySelector('a[href]') || { getAttribute: () => '' }).getAttribute('href') || '', m = h.match(/[?&]v=([\w-]{11})/) || h.match(/\/shorts\/([\w-]{11})/); return m ? m[1] : ''; };
-  const markPlayed = () => document.querySelectorAll('.card').forEach(cd => { const on = dimOn && (played.has(idOf(cd)) || +cd.dataset.pct >= 10); if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on); if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on);
-    // 「TubeFolio2 後で見る」に登録済みの動画: 印を出す(視聴ページは、再生リストそのものの一覧なので出さない)。検索ページの 🕒 ボタンは「✓」にする
+  const secOfT = t => { const p = String(t || '').trim().split(':').map(Number); return p.length > 1 && !p.some(isNaN) ? p.reduce((a, x) => a * 60 + x, 0) : 0; };
+  const markPlayed = () => document.querySelectorAll('.card').forEach(cd => {
+    const id = idOf(cd), e = id ? info.get(id) : null, th = cd.querySelector('.th'), short = !!cd.closest('.grid.shorts');
+    let pct = +cd.dataset.pct || 0;
+    if (e) { const len = secOfT((cd.querySelector('.tm') || {}).textContent), h = TF.pctOf(e, len); pct = Math.max(pct, TF.isPlayed(e, len) ? Math.max(h, TF.PLAYED_PCT) : Math.max(h, 0)); }
+    pct = Math.round(Math.min(100, pct));
+    const on = dimOn && pct >= TF.PLAYED_PCT, part = dimOn && !on && pct >= 1 && !short;
+    if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on);
+    if (cd.classList.contains('part') !== part) cd.classList.toggle('part', part);
+    if (th) {
+      const t = part ? `途中 ${pct}%` : on && !short ? `✓ 視聴済み ${pct}%` : ''; if ((th.dataset.pt || '') !== t) { if (t) th.dataset.pt = t; else delete th.dataset.pt; }
+      let pb = th.querySelector(':scope > .pbar'); const want = dimOn && pct >= 1 && !short;
+      if (!want) { if (pb) pb.remove(); } else { if (!pb) { pb = document.createElement('span'); pb.className = 'pbar'; pb.appendChild(document.createElement('i')); th.appendChild(pb); } const w = pct + '%'; if (pb.firstChild.style.width !== w) pb.firstChild.style.width = w; }
+    }
+    // 「TubeFolio2 後で見る」に登録済みの動画: 印を出す(視聴ページは、再生リストそのものの一覧なので出さない)。検索ページの 🕒 ボタンは「✓ 登録済み」にする(ボタンは、いつも出している)
     const inl = P !== 'later' && later.has(idOf(cd)); if (cd.classList.contains('inlater') !== inl) cd.classList.toggle('inlater', inl);
-    const lb = cd.querySelector('.rlater'); if (lb && !lb.dataset.busy) { const t = inl ? '✓' : '🕒'; if (lb.textContent !== t) { lb.textContent = t; lb.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加'; } }
+    const lb = cd.querySelector('.rlater'); if (lb && !lb.dataset.busy) { const t = inl ? '✓ 登録済み' : '🕒'; if (lb.textContent !== t) { lb.textContent = t; lb.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加'; } }
   });
-  const loadPlayed = () => chrome.storage.local.get(['hist', 'settings']).then(r => { played = TF.playedSet(r.hist); dimOn = (r.settings || {}).dimPlayed !== false; markPlayed(); }).catch(() => {});
+  const loadPlayed = () => chrome.storage.local.get(['hist', 'settings']).then(r => { info = TF.playedInfo(r.hist); dimOn = (r.settings || {}).dimPlayed !== false; markPlayed(); }).catch(() => {});
   new MutationObserver(() => { clearTimeout(pt); pt = setTimeout(markPlayed, 150); }).observe(main, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((ch, a) => { if (a !== 'local') return; if (ch.hist || ch.settings) loadPlayed(); if (ch.plLaterIds) { later = new Set(((ch.plLaterIds.newValue || {}).ids) || []); markPlayed(); } });
   loadPlayed(); loadLater();
@@ -119,7 +133,7 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
   }
   function card(x) {
     const t = new Date(x.published), th = `https://i.ytimg.com/vi/${x.id}/${x.kind === 's' ? 'oardefault' : 'mqdefault'}.jpg`;
-    return `<a class="card" data-ch="${esc(x.ch)}" data-reg="1" href="${url(x)}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${th}" data-vid="${x.id}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}</div>
+    return `<a class="card" data-ch="${esc(x.ch)}"${x.key ? ` data-chkey="${esc(x.key)}"` : ''} data-reg="1" href="${url(x)}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${th}" data-vid="${x.id}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}</div>
       <div class="inf">${x.avatar ? `<img class="av" loading="lazy" src="${esc(x.avatar)}">` : '<span class="av"></span>'}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.ch)}</small><small>投稿 ${hm(t)}</small></div></div></a>`;
   }
 
@@ -142,6 +156,31 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
   // 前回の結果があれば、すぐに表示する(古くても先に見せて、裏で最新に更新する)
   try { chrome.storage.local.get('feedCache_' + kind).then(r => { const fc = r['feedCache_' + kind]; if (fc && fc.items && !data) { data = fc; draw(); const st = $('#st'); if (st && !st.textContent) st.textContent = '前回の結果を表示中(更新しています)'; } }); } catch (e) { /* 無視 */ }
   load(false);
+}
+// 一覧のチャンネル名(とチャンネルのアイコン)を押したら、動画ではなく、そのチャンネルのページを開く(カード全体が動画へのリンクなので、先に受け取って止める)。
+//   行き先: カードに付けたチャンネルID / @ハンドル → 登録チャンネル(名前で照らし合わせる) → どれも分からないときは、YouTube でチャンネル名を探す
+{
+  const nrm = t => String(t || '').normalize('NFKC').trim().toLowerCase();
+  let byName = new Map(), ids = {};
+  const load = () => Promise.all([TF.get(), chrome.storage.local.get('meta')]).then(([S, m]) => { byName = new Map(); Object.values(S.channels).forEach(c => { const n = nrm(TF.clean(c.name)); if (n) byName.set(n, c.key); }); ids = Object.fromEntries(Object.entries(m.meta || {}).map(([k, v]) => [k, v && v.id])); }).catch(() => {});
+  load(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.channels) load(); });
+  const urlOfKey = k => 'https://www.youtube.com/' + (/^UC[\w-]{22}$/.test(k) ? 'channel/' + k : k.startsWith('@') ? k : '@' + k);
+  const chUrl = cd => {
+    const name = (cd.dataset.ch || '').trim(), key = cd.dataset.chkey || byName.get(nrm(name)) || '';
+    if (/^UC[\w-]{22}$/.test(cd.dataset.chid || '')) return 'https://www.youtube.com/channel/' + cd.dataset.chid;
+    if (key) return ids[key] ? 'https://www.youtube.com/channel/' + ids[key] : urlOfKey(key);
+    return name ? 'https://www.youtube.com/results?search_query=' + encodeURIComponent(name) + '&sp=EgIQAg%3D%3D' : ''; // sp = 「チャンネル」だけを探す
+  };
+  const chEl = e => { const t = e.target.closest ? e.target.closest('.card[data-ch] .tx > small:not(.dt), .card[data-ch] .inf > .av') : null; if (!t || (t.matches('small') && t !== t.parentElement.querySelector('small'))) return null; return t; }; // 名前の行(最初の small)と、アイコンだけ
+  document.addEventListener('click', e => {
+    const t = chEl(e); if (!t || e.target.closest('button')) return;
+    const u = chUrl(t.closest('.card')); if (!u) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.ctrlKey || e.metaKey || e.shiftKey) window.open(u, '_blank'); else window.open(u, '_top');
+  }, true);
+  document.addEventListener('auxclick', e => { if (e.button !== 1) return; const t = chEl(e), u = t && chUrl(t.closest('.card')); if (u) { e.preventDefault(); e.stopPropagation(); window.open(u, '_blank'); } }, true); // 中ボタン: 別のタブで
+  const mark = () => document.querySelectorAll('.card[data-ch]').forEach(cd => { if (!(cd.dataset.ch || '').trim()) return; const sm = cd.querySelector('.tx > small:not(.dt)'), av = cd.querySelector('.inf > .av'); [sm, av].forEach(x => { if (x && !x.classList.contains('chl')) { x.classList.add('chl'); x.title = 'チャンネルのページを開く: ' + cd.dataset.ch; } }); });
+  let t = 0; new MutationObserver(() => { clearTimeout(t); t = setTimeout(mark, 200); }).observe(main, { childList: true, subtree: true }); mark();
 }
 // ページの中をクリックしたことを、YouTube側(親)へ知らせる(親で開いているメニューを閉じるため)
 document.addEventListener('mousedown', () => { try { parent.postMessage({ tfClick: 1 }, '*'); } catch (e) { /* 無視 */ } }, true);
@@ -279,7 +318,7 @@ function viewPage() {
   };
   const fmtNum = n => `${Math.floor(n / 10000)}/${Math.floor(n / 100) % 100}/${n % 100}`;
   const dateLine = (x, listId) => { const a = (plSeen[listId] || {})[x.id], parts = []; if (a) parts.push('登録 ' + fmtNum(a)); if (x.pub) { const d = new Date(x.pub); parts.push(`投稿 ${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}頃`); } return parts.length ? `<small class="dt">${esc(parts.join(' ・ '))}</small>` : ''; };
-  const vcard = (x, listId) => `<a class="card" data-pct="${Math.round(x.pct || 0)}" data-ch="${esc(x.ch)}" href="https://www.youtube.com/watch?v=${esc(x.id)}${listId && !['WL', 'LL'].includes(listId) ? '&list=' + esc(listId) : ''}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${esc(x.thumb || 'https://i.ytimg.com/vi/' + x.id + '/mqdefault.jpg')}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}${delBtn(x, listId)}</div><div class="inf">${avatarHtml(x)}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.ch)}</small>${dateLine(x, listId)}</div>${vtb(x, listId)}</div></a>`;
+  const vcard = (x, listId) => `<a class="card" data-pct="${Math.round(x.pct || 0)}" data-ch="${esc(x.ch)}"${x.chId ? ` data-chid="${esc(x.chId)}"` : ''}${x.handle ? ` data-chkey="${esc(x.handle)}"` : ''} href="https://www.youtube.com/watch?v=${esc(x.id)}${listId && !['WL', 'LL'].includes(listId) ? '&list=' + esc(listId) : ''}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${esc(x.thumb || 'https://i.ytimg.com/vi/' + x.id + '/mqdefault.jpg')}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}${delBtn(x, listId)}</div><div class="inf">${avatarHtml(x)}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.ch)}</small>${dateLine(x, listId)}</div>${vtb(x, listId)}</div></a>`;
   // ---- 再生リストの見出し: 本数・合計時間・残り時間、空き時間にぴったり収まる組み合わせの連続再生、就寝時間まで、連続再生、ランダム再生(元のTubeFolioの「後で見る」と同じ) ----
   const cache = new Map(), sums = new Map(); let freeMin = 45, sleepFrom = '23:00', sleepTo = '06:00', plSort = {}; // plSort: 再生リストごとの並び(add 追加順 / new 新しい順 / old 古い順)。設定 plSort。Drive同期の対象
   // 本数・合計時間・残り時間は、一覧の上(行の見出し / ライブラリ内の見出し)に出す

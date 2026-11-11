@@ -160,7 +160,7 @@ function histPage() {
     try {
       const j = JSON.parse(await f.text()), h = j.hist || (j.data && j.data.hist) || j;
       if (!h || !Array.isArray(h.p) || typeof h.v !== 'object') throw new Error('視聴履歴のファイルではありません');
-      const m = new Map(); [...H.p, ...h.p].forEach(x => { if (!Array.isArray(x) || !x[1]) return; const k = x[0] + '|' + x[1], o = m.get(k); if (!o || x[2] > o[2]) m.set(k, [+x[0], String(x[1]), +x[2] || 0]); });
+      const m = new Map(); [...H.p, ...h.p].forEach(x => { if (!Array.isArray(x) || !x[1]) return; const k = x[0] + '|' + x[1], o = m.get(k); if (!o || x[2] > o[2]) m.set(k, [+x[0], String(x[1]), +x[2] || 0, ...(+x[3] ? [+x[3]] : [])]); });
       await save(prune({ v: { ...h.v, ...H.v }, p: [...m.values()].sort((a, b) => a[0] - b[0]) }));
     } catch (err) { alert('読み込めませんでした: ' + (err.message || err)); }
   });
