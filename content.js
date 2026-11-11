@@ -309,7 +309,7 @@
       <div class="tf-tools">
         <label class="tf-sw"><input type="checkbox" id="tf-hw" ${S.settings.hideWatched ? 'checked' : ''}><span></span>視聴済みを隠す</label>
         <button class="tf-btn" id="tf-play" title="表示中の動画(最大50件)を連続再生">▶ 一括再生</button>
-        <button class="tf-btn" id="tf-imp" title="YouTubeの登録チャンネルを取り込む">⟳ 取り込み</button>
+        <button class="tf-btn" id="tf-imp" title="YouTubeの登録チャンネルを取り込み、登録を解除したチャンネルを消す">⟳ 取り込みと同期</button>
         <button class="tf-btn" id="tf-mgr">⚙ 管理</button>
       </div>`;
     bar.querySelectorAll('.tf-chip').forEach(b => b.onclick = () =>
@@ -329,10 +329,18 @@
     };
   }
 
+  // YouTube のページで「登録」「登録解除」を押したら、少し待ってから、TubeFolio2 の一覧を YouTube の登録に合わせ直す(登録を解除したチャンネルが残らないように)
+  { let st = 0;
+    document.addEventListener('click', e => {
+      const t = e.target && e.target.closest ? e.target.closest('ytd-subscribe-button-renderer, yt-subscribe-button-view-model, ytd-subscription-notification-toggle-button-renderer-next, yt-confirm-dialog-renderer #confirm-button, tp-yt-paper-dialog #confirm-button') : null;
+      if (!t) return;
+      clearTimeout(st); st = setTimeout(() => { try { chrome.runtime.sendMessage({ type: 'subsAuto', gap: 0, why: '登録 / 登録解除' }, r => { void chrome.runtime.lastError; if (r && r.removed) toast(`登録を解除した ${r.removed}件を、TubeFolio2 の一覧からも消しました`, 5000); }); } catch (e2) { /* 拡張機能を更新した直後など */ } }, 6000);
+    }, true);
+  }
   function bgImport() {
     toast('取り込み中…(バックグラウンド)', 60000);
     chrome.runtime.sendMessage({ type: 'importSubs' }, r => {
-      if (r && !r.error) toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録を解除した ${r.removed}件を消しました)` : r.held ? `(登録に無い ${r.held}件は、数が多いので消していません。管理画面の「YouTubeから取り込む」で確かめられます)` : ''), 8000);
+      if (r && !r.error) toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録を解除した ${r.removed}件を消しました)` : r.held ? `(登録に無い ${r.held}件は、数が多いので消していません。管理画面の「取り込みと同期」で確かめられます)` : ''), 8000);
       else { toast('バックグラウンド取り込みに失敗。ページ経由で再試行します'); setTimeout(() => { location.href = '/feed/channels?tf_import=1'; }, 1500); }
     });
   }
@@ -407,7 +415,7 @@
     }
     if (key === 'vtool') return `<div class="fh">再生リスト</div><button data-a="plnew">＋ 再生リストを新しく作る</button><button data-a="pldel">🗑 再生リストを削除</button>`;
     if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button><div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
-    if (key === 'imp') return `<div class="fh">登録チャンネル</div><button data-a="imp">⟳ YouTubeから取り込む</button>`;
+    if (key === 'imp') return `<div class="fh">登録チャンネル</div><button data-a="imp">⟳ 取り込みと同期</button>`;
     if (key === 'mgr') return `<div class="fh">グループ管理</div><button data-a="mgr">❖ 管理画面を開く</button>`;
     if (key === 'set') return `<div class="fh">表示</div><button data-a="hw" class="${S.settings.hideWatched ? 'act' : ''}">視聴済みを隠す ${S.settings.hideWatched ? '✓' : ''}</button><button data-a="hm" class="${S.settings.hideMix ? 'act' : ''}">ミックスリストを隠す ${S.settings.hideMix ? '✓' : ''}</button><button data-a="hbh" class="${S.settings.hbarHome === 'closed' ? 'act' : ''}">ホームではバーを閉じる ${S.settings.hbarHome === 'closed' ? '✓' : ''}</button><button data-a="hc" class="${S.settings.hideCreate === true ? 'act' : ''}">「作成」ボタンを隠す ${S.settings.hideCreate === true ? '✓' : ''}</button><button data-a="more" class="sep">⚙ そのほかの設定</button>`;
     if (key === 'test') return `<div class="fh">ページ</div><button data-a="pgt" data-p="new">🆕 新着動画</button><button data-a="pgt" data-p="live">📡 ライブ・配信</button><button data-a="pgt" data-p="shorts">⚡ ショート</button><div class="fh">テスト機能</div><button data-a="diag">棚の診断をコピー</button>`;

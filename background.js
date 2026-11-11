@@ -270,7 +270,7 @@ function collect(data, out) {
   return next;
 }
 let importP = null;
-// prune = true(「YouTubeから取り込む」を押したとき): 取り込みと同時に、登録を解除したチャンネルを一覧から消す(TF.syncChannels)。force = 消す数が多くても消す
+// prune = true(「取り込みと同期」を押したとき): 取り込みと同時に、登録を解除したチャンネルを一覧から消す(TF.syncChannels)。force = 消す数が多くても消す
 function importSubs(prune, force) {
   return importP || (importP = (async () => {
     const html = await (await fetch(`${ORIGIN}/feed/channels`, { credentials: 'include' })).text();
@@ -297,10 +297,27 @@ function importSubs(prune, force) {
     await bulkMetaIds(list); // チャンネルID(UC…)を保存しておく(新着一覧が、チャンネルページを開かずにRSSを取れる。登録を解除したチャンネルを見分けるのにも使う)
     if (prune && full) sync = await TF.syncChannels(list, !!force); else await TF.upsertChannels(list); // 一覧を最後まで取れたときだけ、消す
     if (sync.removed.length) { try { bgLog('取り込み', `登録を解除したチャンネルを ${sync.removed.length}件 消しました: ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ } }
+    if (prune && full) await chrome.storage.local.set({ subsSyncAt: { t: Date.now(), count: out.size, removed: sync.removed.length, held: sync.held } }); // 最後に、YouTube の登録と合わせた時刻(この端末だけの記録)
     return { count: out.size, removed: sync.removed.length, held: sync.held };
   })().finally(() => { importP = null; }));
 }
 
+// ---- 登録チャンネルの自動の同期: YouTube の今の登録に、TubeFolio2 の一覧を合わせ続ける(足す + 登録を解除したチャンネルを消す) ----
+//   きっかけ: ブラウザの起動時 / 6時間ごと(アラーム tf-subs)/ 管理画面を開いたとき / YouTube のページで「登録」「登録解除」を押したとき(content.js)。
+//   gap = 前回の同期から、これより短ければ何もしない(ミリ秒)。消す数が多すぎるときは、手動のときと同じく消さない(held)。失敗は、動作ログに残すだけ
+async function subsAuto(gap, why) {
+  const { subsSyncAt, channels } = await chrome.storage.local.get(['subsSyncAt', 'channels']);
+  if (!channels || !Object.keys(channels).length) return { skipped: true }; // まだ一度も取り込んでいない: 勝手には始めない
+  if (gap && subsSyncAt && Date.now() - (subsSyncAt.t || 0) < gap) return { skipped: true };
+  try {
+    const r = await importSubs(true, false);
+    if (r.held) bgLog('取り込み', `自動の同期(${why}): 登録に無いチャンネルが ${r.held}件ありますが、数が多いので消していません(管理画面の「取り込みと同期」で確かめられます)`, 'warn');
+    return r;
+  } catch (e) { try { bgLog('取り込み', `自動の同期(${why})に失敗: ${String(e.message || e)}`, 'warn'); } catch (e2) { /* 無視 */ } return { error: String(e.message || e) }; }
+}
+chrome.alarms.get('tf-subs').then(a => { if (!a) chrome.alarms.create('tf-subs', { periodInMinutes: 360, delayInMinutes: 3 }); }).catch(() => {});
+chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tf-subs') subsAuto(60 * 60e3, '定期'); });
+chrome.runtime.onStartup.addListener(() => { setTimeout(() => subsAuto(60 * 60e3, '起動時'), 20e3); });
 
 // ---- 新着一覧(登録チャンネル全体)。新着動画 / ライブ・配信 / ショート のページ用 ----
 // 各チャンネルのRSS(最新15件)から、N日分の動画を集める。ショートは、RSSのリンク(/shorts/)で分かる。
@@ -499,6 +516,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   }
   if (m.type === 'syncNow') { syncNow(!!m.interactive).then(send); return true; }
   if (m.type === 'driveUp' || m.type === 'driveDown') { driveForce(m.type === 'driveUp' ? 'up' : 'down').then(send); return true; }
+  if (m.type === 'subsAuto') { subsAuto(+m.gap || 0, m.why || '自動').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'importSubs') { logged('取り込み', importSubs(true, !!m.force), '登録チャンネルの取り込み').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'scan') { limit(() => scan(m.key)).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'openManager') openMgr();

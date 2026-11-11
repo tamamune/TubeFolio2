@@ -166,7 +166,7 @@
     $('#sub').textContent = `${l.length} チャンネル` + (g ? ' ・ サブフォルダ内も含む' : '');
     $('#empty').hidden = l.length > 0;
     if (!l.length) $('#empty').innerHTML = chans().length ? '該当するチャンネルがありません' :
-      'まだチャンネルがありません。<br>右上の「YouTubeから取り込む」で登録チャンネルを読み込みましょう。';
+      'まだチャンネルがありません。<br>右上の「取り込みと同期」で登録チャンネルを読み込みましょう。';
     $('#grid').innerHTML = l.map(c => `<div class="card${sel.has(c.key) ? ' sel' : ''}" draggable="true" data-k="${esc(c.key)}">
       <input type="checkbox" class="chk" ${sel.has(c.key) ? 'checked' : ''}>
       ${avHtml(c)}
@@ -440,10 +440,15 @@
   const ib = $('#ytimp');
   chrome.runtime.onMessage.addListener(m => { if (m && m.type === 'importProgress' && ib.disabled) ib.textContent = `取り込み中… ${m.n}件`; });
   // 取り込みと同時に、YouTube で登録を解除したチャンネルを、一覧から消す(フォルダからも外れる)。消す数が多すぎるときだけ、確かめる
+  // 最後に YouTube の登録と合わせた時刻を、ボタンの説明に出す。管理画面を開いたとき、前回から30分以上たっていれば、裏で合わせ直す
+  const paintSubs = v => { ib.title = 'YouTube の今の登録チャンネルを取り込み、登録を解除したチャンネルを一覧とフォルダから消します。\n(起動時・6時間ごと・YouTube で登録 / 登録解除を押したときにも、自動で合わせます)' + (v && v.t ? `\n最後の同期: ${new Date(v.t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}(${v.count}件)` : ''); };
+  chrome.storage.local.get('subsSyncAt').then(r => paintSubs(r.subsSyncAt));
+  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.subsSyncAt) paintSubs(ch.subsSyncAt.newValue); });
+  chrome.runtime.sendMessage({ type: 'subsAuto', gap: 30 * 60e3, why: '管理画面' }, r => { void chrome.runtime.lastError; if (r && r.removed) toast(`YouTube で登録を解除した ${r.removed}件を、一覧から消しました`); });
   const runImport = force => {
     ib.disabled = true; ib.textContent = '取り込み中…';
     chrome.runtime.sendMessage({ type: 'importSubs', force: !!force }, r => {
-      ib.disabled = false; ib.textContent = '⟳ YouTubeから取り込む';
+      ib.disabled = false; ib.textContent = '⟳ 取り込みと同期';
       if (r && !r.error) {
         toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録を解除した ${r.removed}件を消しました)` : ''));
         if (r.held && confirm(`YouTube の登録チャンネルに無いチャンネルが、${r.held}件あります(一覧の半分より多い数です)。\nこれらを、TubeFolio2 の一覧とフォルダから消しますか?\n\n※ 取り込みがうまくいっていないだけのこともあります。心当たりがなければ「キャンセル」を押してください。`)) runImport(true);
@@ -509,7 +514,7 @@
       const hv0 = Math.max(1, Math.min(4, +(S.settings && S.settings.hoverVideos) || 2));
       const f = document.createElement('div'); f.id = 'gfly';
       f.innerHTML = `<div class="gtabs">${[['org', '📂 整理'], ['sync', '☁ 同期'], ['etc', '🔧 その他']].map(([k, l]) => `<button class="gtab${k === (f.dataset.cur = (() => { try { return localStorage.getItem('tfMgrTab') || 'org'; } catch (e) { return 'org'; } })()) ? ' on' : ''}" data-tb="${k}">${l}</button>`).join('')}</div>
-        <div data-gt="org"><div class="fh">登録チャンネル</div><button data-g="yt">⟳ YouTubeから取り込む</button>
+        <div data-gt="org"><div class="fh">登録チャンネル</div><button data-g="yt">⟳ 取り込みと同期</button>
         <div class="fh">まとめて入れる(カードを押して選ぶ)</div><div class="fseg">${[[1, '表示'], [0, '非表示']].map(([v, l]) => `<button data-bs="${v}" class="${bulkOn() === !!v ? 'act' : ''}">${l}</button>`).join('')}</div>
         <div class="fh">振り分け補助(登録の補助)</div><button data-g="assistTgl" id="gAssist">${assistOn() ? '🪄 振り分け補助:オン' : '🪄 振り分け補助:オフ'}</button><button data-g="assist">⚙ 補助の設定(点数・キーワード)</button>
         <div class="fh">マウスオーバーで出す動画の数</div><div class="fseg">${[1, 2, 3, 4].map(n => `<button data-hv="${n}" class="${hv0 === n ? 'act' : ''}">${n}本</button>`).join('')}</div>
