@@ -596,11 +596,12 @@
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-ns" ${(S.settings.testS || {}).nest !== false ? 'checked' : ''}><span></span>ショートで表示する</label>
       </section>
       <section class="tf-grp" data-tab="play" id="tfs-pxsec"><div style="font-size:11px;color:var(--tf-sub);padding:0 4px 4px">読み込み中…</div></section>
-      <div class="tf-subtabs" data-tab="org"><button data-osub="notify">🔔 通知</button><button data-osub="rate">🎚 再生速度</button><button data-osub="focus">🎯 集中モード</button><button data-osub="random">🎲 ランダムタグ</button></div>
+      <div class="tf-subtabs" data-tab="org"><button data-osub="notify">🔔 通知</button><button data-osub="rate">🎚 再生速度</button><button data-osub="focus">🎯 集中モード</button><button data-osub="random">🎲 ランダムタグ</button><button data-osub="skip">⏭ スキップ設定</button></div>
       <section class="tf-grp" data-tab="org" data-osub="notify" id="tfs-ntsec"></section>
       <section class="tf-grp" data-tab="org" data-osub="rate" id="tfs-ratesec"></section>
       <section class="tf-grp" data-tab="org" data-osub="focus" id="tfs-focussec"></section>
       <section class="tf-grp" data-tab="org" data-osub="random" id="tfs-randsec"></section>
+      <section class="tf-grp" data-tab="org" data-osub="skip" id="tfs-skipsec"></section>
       <div class="tf-subtabs" data-tab="sync"><button data-sub="sync">☁ 同期・データ</button><button data-sub="log">📜 動作ログ</button></div>
       <section class="tf-grp" data-tab="sync" data-sub="log" id="tfs-logbox"><div class="tf-ghd">📜 動作ログ(同期・取り込み・エラーなど)</div>
         <div class="tf-logbar"><button id="tfs-lgcopy">コピー</button><button id="tfs-lgclr">消去</button><button id="tfs-lgfull">別のタブで開く</button><label><input type="checkbox" id="tfs-lgwarn"> 注意・エラーだけ</label></div>
@@ -854,44 +855,45 @@
         else if (a === 'endtemp') fsave({ tempUntil: 0, tempAllow: [] });
         else if (a === 'relock') fsave({ unlockUntil: 0 });
       });
-      // ---- 🎲 ランダムタグ(保存先: playedTags。溜まり方は playedtags.js、並べ方・選び方は元のTubeFolioと同じ) ----
+      // ---- 🎲 ランダムタグ(保存先: playedTags)。画面と操作は tagmgr.js の tfTagEditor(大きい画面 ⤢ と同じもの) ----
       const rsec2 = $('#tfs-randsec', p);
-      const drawRand = async () => {
-        const { playedTags = {} } = await chrome.storage.local.get('playedTags');
-        const rows = Object.entries(playedTags).filter(([, e]) => !e.x).sort((a, b) => (b[1].own ? 1 : 0) - (a[1].own ? 1 : 0) || (b[1].keep ? 1 : 0) - (a[1].keep ? 1 : 0) || (b[1].n || 0) - (a[1].n || 0) || (b[1].at || 0) - (a[1].at || 0));
-        const ngs = Object.entries(playedTags).filter(([, e]) => e.ng).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
-        const keeps = rows.filter(([, e]) => e.keep && !e.own); // 📌 消さないタグ(自分で追加したタグは、もともと消えない)
-        const chip = ([k, e]) => `<span class="tf-rn ${e.own ? 'own' : ''} ${e.keep ? 'keep' : ''}" data-wk="${esc(e.t)}">${esc(e.t)}${e.own ? '' : `<small>${e.n || 0}</small>`}${e.own ? '' : `<button data-rn="keep" data-k="${esc(k)}" title="${e.keep ? '消さないタグをやめる' : '消さないタグにする(タグが溜まりすぎたときの自動削除や「すべて削除」で消えない)'}">${e.keep ? '📌' : '📍'}</button>`}<button data-rn="ng" data-k="${esc(k)}" title="削除して、次回から追加しない">🚫</button><button data-rn="del" data-k="${esc(k)}" title="削除(また見た動画に付いていたら増えます)">✕</button></span>`;
-        const ngChip = ([k, e]) => `<span class="tf-rn ng">${esc(e.t)}<button data-rn="back" data-k="${esc(k)}" title="除外をやめる">↩</button></span>`;
-        const keepChip = ([k, e]) => `<span class="tf-rn keep">${esc(e.t)}<small>${e.n || 0}</small><button data-rn="keep" data-k="${esc(k)}" title="消さないタグをやめる">↩</button></span>`;
-        rsec2.innerHTML = `<div class="tf-card"><div class="tf-ch">🎲 ランダムタグ</div>
-          <p class="tf-note">「おすすめ」の検索で「🎲 ランダムタグ」を押すと、ここからランダムに選んで、キーワードに入れて探します(回数の多いタグほど選ばれやすい)。ボタンの横の「1つ / 2つ / 3つ」で、選ぶ数を変えられます(2つ以上は「a | b | c」で、どれかを含む動画をまとめて探します)。動画を30秒以上見ると、その動画のタグが自動で増えます。</p>
-          <div class="tf-ntsub">タグを追加</div><div class="tf-rnadd"><input class="tf-ntkw" id="tfs-rn-in" placeholder="タグ(カンマ区切りで複数)"><button class="tf-xbtn" data-rn="add">追加</button></div>
-          <div class="tf-ntsub">今のタグ(${rows.length} 個)</div><div class="tf-rnl">${rows.map(chip).join('') || '<p class="tf-note">まだありません</p>'}</div>
-          ${rows.length ? '<div class="tf-ntbtns"><button data-rn="clear">自動で溜まったタグをすべて削除</button></div>' : ''}
-          <div class="tf-ntsub">📌 消さないタグ(${keeps.length} 個)</div><p class="tf-note">タグが溜まりすぎたときの自動削除(古いものから)や「すべて削除」で、消えないタグです。上のタグの「📍」を押すと、ここに入ります(自分で追加したタグは、もともと消えません)。</p>
-          <div class="tf-rnl">${keeps.map(keepChip).join('') || '<p class="tf-note">まだありません</p>'}</div>
-          <div class="tf-ntsub">追加しないタグ(${ngs.length} 個)</div><p class="tf-note">ここに入れたタグは、動画を見ても自動で増えません(ランダムにも使いません)。上のタグの「🚫」で移せます。</p>
-          <div class="tf-rnadd"><input class="tf-ntkw" id="tfs-rn-ng" placeholder="追加しないタグ(カンマ区切りで複数)"><button class="tf-xbtn" data-rn="ngadd">登録</button></div>
-          <div class="tf-rnl">${ngs.map(ngChip).join('') || '<p class="tf-note">まだありません</p>'}</div></div>`;
+      rsec2.innerHTML = '<div class="tf-card"><div class="tf-ch">🎲 ランダムタグ</div><div class="tf-te-host"></div></div>';
+      const randEd = window.tfTagEditor ? window.tfTagEditor.mount(rsec2.querySelector('.tf-te-host'), { openBig: true }) : null;
+      const drawRand = () => { if (randEd) randEd.draw(); };
+      // ---- ⏭ スキップ設定(チャンネル別。保存先: chSet = { チャンネルのキー: { name, s: 冒頭を飛ばす秒, e: 最後の何秒で次へ, mid: サムネを途中の画面に } }。Drive同期の対象)
+      //   設定するのは再生画面の操作バーの ⚙(つまみ)。ここでは一覧と削除。同じ名前のチャンネル(キー違い)は1行にまとめる
+      const ssec = $('#tfs-skipsec', p);
+      const secTxt = n => n >= 60 ? `${Math.floor(n / 60)}分${String(n % 60).padStart(2, '0')}秒` : `${n}秒`;
+      const drawSkip = async () => {
+        const { chSet = {} } = await chrome.storage.local.get('chSet');
+        const m = new Map(); for (const [k, c] of Object.entries(chSet)) { const n = (c && c.name) || k, e = m.get(n) || { n, c, keys: [] }; e.keys.push(k); m.set(n, e); }
+        const list = [...m.values()].sort((a, b) => a.n.localeCompare(b.n, 'ja'));
+        const q0 = (($('#tfs-skq', ssec) || {}).value || '').trim().toLowerCase();
+        const row = ({ n, c, keys }) => {
+          const tags = [c.s > 0 ? `<span class="tf-sk-t" title="動画の冒頭を飛ばす">⏩ 冒頭 ${secTxt(c.s)}スキップ</span>` : '', c.e > 0 ? `<span class="tf-sk-t" title="最後のこの秒数で、次の動画へ">⏭ 最後 ${secTxt(c.e)}で次へ</span>` : '', c.mid ? '<span class="tf-sk-t" title="一覧のサムネを、動画の途中の画面にする">🖼 サムネ:途中の画面</span>' : ''].filter(Boolean).join('');
+          return `<div class="tf-sk" data-q="${esc(n.toLowerCase())}"><div class="tf-sk-n" title="${esc(n)}">${esc(n)}</div><div class="tf-sk-ts">${tags || '<span class="tf-sk-none">設定なし</span>'}</div><button class="tf-sk-x" data-skdel="${esc(keys.join('\n'))}" title="このチャンネルの設定を消す">✕</button></div>`;
+        };
+        ssec.innerHTML = `<div class="tf-card"><div class="tf-ch">⏭ スキップ設定(チャンネル別)</div>
+          <p class="tf-note">再生画面の操作バーの ⚙(つまみ)から、チャンネルごとに「冒頭〇秒をスキップ」「最後〇秒で次へ」「サムネを動画の途中の画面にする」を設定できます。ここでは登録した内容の確認と削除ができます。</p>
+          <div class="tf-ntsub">登録済み(${list.length} チャンネル)</div>
+          ${list.length > 8 ? `<input class="tf-ntkw" id="tfs-skq" type="search" placeholder="チャンネル名で絞り込み" value="${esc(q0)}">` : ''}
+          <div class="tf-skl">${list.map(row).join('') || '<p class="tf-note">まだありません。</p>'}</div></div>`;
+        const qi = $('#tfs-skq', ssec); if (qi && q0) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+        skFilter();
       };
-      const rsave = async fn => { const { playedTags: cur = {} } = await chrome.storage.local.get('playedTags'); fn(cur); await chrome.storage.local.set({ playedTags: cur, tagEditAt: Date.now() }); drawRand(); };
-      const words = id => ($(id, rsec2).value || '').split(/[,、，\n]/).map(x => x.trim()).filter(Boolean);
-      rsec2.addEventListener('click', e => {
-        const b = e.target.closest && e.target.closest('[data-rn]'); if (!b) return;
-        const a = b.dataset.rn, k = b.dataset.k;
-        if (a === 'add') { const w = words('#tfs-rn-in'); if (w.length) rsave(cur => w.forEach(t => { const kk = t.toLowerCase(); cur[kk] = { t, n: Math.max(3, (cur[kk] || {}).n || 0), at: Date.now(), own: true }; })); }
-        else if (a === 'ngadd') { const w = words('#tfs-rn-ng'); if (w.length) rsave(cur => w.forEach(t => { cur[t.toLowerCase()] = { t, n: 0, at: Date.now(), x: true, ng: true }; })); }
-        else if (a === 'del') rsave(cur => { if (cur[k]) cur[k] = { ...cur[k], x: true, keep: false, at: Date.now() }; });
-        else if (a === 'keep') rsave(cur => { if (cur[k]) cur[k] = { ...cur[k], keep: !cur[k].keep }; });
-        else if (a === 'ng') rsave(cur => { if (cur[k]) cur[k] = { t: cur[k].t, n: cur[k].n || 0, at: Date.now(), x: true, ng: true }; });
-        else if (a === 'back') rsave(cur => { if (cur[k]) cur[k] = { t: cur[k].t, n: 0, at: Date.now(), x: true }; });
-        else if (a === 'clear') { if (confirm('自動で溜まったタグをすべて削除しますか？(自分で追加したタグと、📌 消さないタグは残ります)')) rsave(cur => { for (const [kk, v] of Object.entries(cur)) if (!v.own && !v.ng && !v.keep) cur[kk] = { ...v, x: true, at: Date.now() }; }); }
+      const skFilter = () => { const q = (($('#tfs-skq', ssec) || {}).value || '').trim().toLowerCase(); ssec.querySelectorAll('.tf-sk').forEach(r => { r.hidden = !!q && !r.dataset.q.includes(q); }); };
+      ssec.addEventListener('input', e => { if (e.target.id === 'tfs-skq') skFilter(); });
+      ssec.addEventListener('keydown', e => e.stopPropagation()); // YouTube のキー操作に渡さない
+      ssec.addEventListener('click', e => {
+        const del = e.target.closest && e.target.closest('[data-skdel]'); if (!del) return;
+        const keys = del.dataset.skdel.split('\n'), name = del.closest('.tf-sk').querySelector('.tf-sk-n').textContent;
+        if (!confirm(`「${name}」のスキップ設定を消しますか？`)) return;
+        chrome.storage.local.get('chSet').then(r => { const o = { ...(r.chSet || {}) }; keys.forEach(k => delete o[k]); return chrome.storage.local.set({ chSet: o, prefsAt: Date.now() }); });
       });
-      rsec2.addEventListener('keydown', e => { if (e.key !== 'Enter') return; const id = e.target.id; if (id === 'tfs-rn-in') rsec2.querySelector('[data-rn="add"]').click(); else if (id === 'tfs-rn-ng') rsec2.querySelector('[data-rn="ngadd"]').click(); });
-      const showO = s => { p.dataset.osub = s; p.querySelectorAll('.tf-subtabs[data-tab="org"] button').forEach(b => b.classList.toggle('on', b.dataset.osub === s)); try { localStorage.setItem('tfSetOSub', s); } catch (e) { /* なし */ } if (s === 'notify') drawNt(); else if (s === 'rate') drawRate(); else if (s === 'focus') drawFocus(); else drawRand(); };
+      { const onSk = (ch, area) => { if (!p.isConnected) return chrome.storage.onChanged.removeListener(onSk); if (area === 'local' && ch.chSet && p.dataset.osub === 'skip') drawSkip(); }; chrome.storage.onChanged.addListener(onSk); } // 再生画面で設定を変えたら、開いている一覧も更新
+      const showO = s => { p.dataset.osub = s; p.querySelectorAll('.tf-subtabs[data-tab="org"] button').forEach(b => b.classList.toggle('on', b.dataset.osub === s)); try { localStorage.setItem('tfSetOSub', s); } catch (e) { /* なし */ } if (s === 'notify') drawNt(); else if (s === 'rate') drawRate(); else if (s === 'focus') drawFocus(); else if (s === 'skip') drawSkip(); else drawRand(); };
       p.querySelectorAll('.tf-subtabs[data-tab="org"] button').forEach(b => { b.onclick = () => showO(b.dataset.osub); });
-      { let s0 = 'notify'; try { s0 = localStorage.getItem('tfSetOSub') || 'notify'; } catch (e) { /* なし */ } showO(['rate', 'focus', 'random'].includes(s0) ? s0 : 'notify'); }
+      { let s0 = 'notify'; try { s0 = localStorage.getItem('tfSetOSub') || 'notify'; } catch (e) { /* なし */ } showO(['rate', 'focus', 'random', 'skip'].includes(s0) ? s0 : 'notify'); }
     }
     { // 動作ログ: 設定の中で、最新の記録を直接見られる(開いている間は、新しい記録が入ると自動で更新)
       const box = $('#tfs-logbox', p), list = $('#tfs-lgl', p), warnOnly = $('#tfs-lgwarn', p); let all = [];

@@ -8,6 +8,11 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .empty { margin: 16px 0 0; padding: 48px 0; text-align: center; color: var(--sub); border: 1px dashed var(--line); border-radius: 12px; }
 .head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
 .head .sub, #st { color: var(--sub); font-size: 13px; }
+.head h1 { white-space: nowrap; }
+@media (max-width: 600px) { /* スマホ: 見出しの行を折り返し、左右の余白を詰める */
+  main { padding-left: 12px; padding-right: 12px; }
+  .head { flex-wrap: wrap; gap: 4px 10px; }
+}
 .sp { flex: 1; }
 .btn, .seg button { border: 0; border-radius: 18px; background: var(--chip); color: var(--fg); font: 500 14px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; }
 .btn { height: 34px; padding: 0 16px; align-self: center; }
@@ -170,5 +175,22 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 [data-tglock] { position: relative; }
 [data-tglock] > * { filter: blur(14px) grayscale(.8); opacity: .35; pointer-events: none; user-select: none; }
 [data-tglock]::after { content: "🔒 集中モード中"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 15px Roboto, Arial, "Noto Sans JP", sans-serif; color: var(--fg, #fff); text-shadow: 0 1px 6px rgba(0,0,0,.6); pointer-events: none; }
-.rrn { margin-left: 6px; align-self: center; } /* 🎲 ランダムタグをいくつ選ぶか(1〜3つ) */
-.rgo.rrand { margin-left: 6px; padding: 0 14px; background: var(--chip, rgba(128,128,128,.18)); color: var(--fg); border: 1px solid var(--line, rgba(128,128,128,.3)); }
+/* キーワード欄と ✕ クリア(キーワードを消して、フォルダを「すべて」に戻す) */
+.rform { flex-wrap: wrap; } /* 狭いときは 🎲 のまとまりを次の行へ */
+#vf { align-items: center; } #vf #vkn { flex: none; color: var(--sub); font-size: 13px; } /* 視聴のキーワード欄と、見つかった本数 */
+#vf #vkn:empty { display: none; }
+#pls .pl[hidden] { display: none; }
+.rqw { position: relative; flex: 1 1 240px; min-width: 0; display: flex; }
+.rqw input { flex: 1; padding-right: 44px; }
+.rqw input::-webkit-search-cancel-button { display: none; } /* ブラウザ自前の ✕ は出さない(下の ✕ と二重になるため) */
+.rclear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: var(--chip); color: var(--sub); font: 500 13px/28px Roboto, Arial, sans-serif; cursor: pointer; }
+.rclear:hover { background: var(--chip2); color: var(--fg); }
+.rclear[hidden] { display: none; }
+/* 🎲 ランダムタグ + 選ぶ数(1〜5)を、ひとつの丸いまとまりに */
+.rrg { display: inline-flex; align-items: center; flex: none; height: 38px; border: 1px solid var(--line); border-radius: 19px; background: var(--chip); overflow: hidden; }
+.rrg .rrand { height: 100%; padding: 0 12px 0 14px; border: 0; background: none; color: var(--fg); font: 500 14px/1 Roboto, Arial, "Yu Gothic UI", sans-serif; cursor: pointer; white-space: nowrap; }
+.rrg .rrand:hover { background: var(--chip2); }
+.rrn { display: inline-flex; align-items: center; gap: 2px; height: 100%; padding: 0 5px 0 6px; border-left: 1px solid var(--line); }
+.rrn button { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--sub); font: 500 13px/26px Roboto, Arial, sans-serif; cursor: pointer; }
+.rrn button:hover { background: var(--chip2); color: var(--fg); }
+.rrn button.on { background: var(--fg); color: var(--bg); }

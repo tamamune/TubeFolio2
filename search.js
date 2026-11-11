@@ -14,7 +14,7 @@ function recPage() {
   const seg = (arr, cur, a) => `<span class="rseg">${arr.map(([k, t]) => `<button data-${a}="${k}" class="${k === cur ? 'on' : ''}">${t}</button>`).join('')}</span>`;
   main.innerHTML = `<div class="head"><h1>検索</h1><span class="sp"></span><span id="st"></span><button id="rclr" class="rclr" title="検索で取得したデータ(新着の一覧・ショートの投稿日・結果)を空にします。表示の速さを調べるときに使います">🗑 検索データを空にする</button></div>
     <div class="rrow"><span class="rl">対象</span><span id="rs">${seg(SCOPES, scope, 's')}</span><span class="rl">種類</span><span id="rk">${seg(KINDS, kind, 'k')}</span></div>
-    <div id="rfold" class="rfold"></div><form id="rf" class="rform"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button class="rgo" type="submit">検索</button><button class="rgo rrand" type="button" id="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button><span class="rseg rrn" id="rrn" title="ランダムタグをいくつ選ぶか。2つ以上は「a | b | c」(どれかを含む)でまとめて探す"></span></form>
+    <div id="rfold" class="rfold"></div><form id="rf" class="rform"><span class="rqw"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button type="button" id="rclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span class="rrg"><button type="button" id="rrand" class="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button><span class="rrn" id="rrn" title="選ぶタグの数。2つ以上は「a | b | c」(どれかを含む)でまとめて探す"></span></span></form>
     <div id="rres"></div><div class="rmore"><button id="rmore" class="rgo" hidden>もっと見る</button></div><div id="rsent" style="height:1px"></div>`;
   const $ = s => main.querySelector(s), box = $('#rres'), st = $('#st');
   // サムネが無い(404 / YouTubeの灰色の代用画像=小さい)ときは、別の画像に順に差し替える。拡張機能のページはインラインの onerror が使えないので、まとめて監視する
@@ -72,7 +72,7 @@ function recPage() {
   };
   let foldName = '';
   const folderOk = x => !foldNames || foldNames.has(TF.clean(x.ch || ''));
-  const foldNote = () => { const n = document.getElementById('rfold'); if (!n) return; n.innerHTML = fold === 'all' ? '' : `📁 ${E(foldName)} のチャンネルだけを表示中(登録チャンネル) ・ <a href="#" id="rfx">解除</a>`; };
+  const foldNote = () => { const n = document.getElementById('rfold'); if (!n) return; n.innerHTML = fold === 'all' ? '' : `📁 ${E(foldName)} のチャンネルだけを表示中(登録チャンネル) ・ <a href="#" id="rfx">解除</a>`; const c = document.getElementById('rclear'), i = document.getElementById('rq'); if (c && i) c.hidden = !(i.value.trim() || fold !== 'all'); }; // ✕ クリアの表示も合わせる
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#rfx')) { e.preventDefault(); TF.mutate(s => { s.settings.plFolder = 'all'; }); } });
   chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.settings && ((ch.settings.newValue || {}).plFolder || 'all') !== fold) loadFold().then(() => { foldNote(); if (scope === 'reg' && regItems.length) { drawReg(); st.textContent = visibleCount() + '件(直近' + DAYS + '日)'; if (!visibleCount()) note('このフォルダのチャンネルに、新着がありません'); } }); });
   const visibleCount = () => regItems.filter(folderOk).length;
@@ -133,10 +133,10 @@ function recPage() {
   });
   $('#rf').addEventListener('submit', e => { e.preventDefault(); run(false); });
   // 🎲 ランダムタグ: 溜まったタグ(playedTags)から、回数の多いものほど選ばれやすく選んで、キーワードに入れて探す
-  //   いくつ選ぶか(1〜3)は px.randN(Drive同期)。2つ以上は、別々のタグを選んで「a | b | c」(どれかを含む)でまとめて探す
+  //   いくつ選ぶか(1〜5)は px.randN(Drive同期)。2つ以上は、別々のタグを選んで「a | b | c」(どれかを含む)でまとめて探す
   let randN = 1;
-  const drawRandN = () => { $('#rrn').innerHTML = [1, 2, 3].map(n => `<button type="button" data-rn="${n}" class="${n === randN ? 'on' : ''}">${n}つ</button>`).join(''); };
-  chrome.storage.local.get('px').then(r => { randN = Math.min(3, Math.max(1, +((r.px || {}).randN) || 1)); drawRandN(); });
+  const drawRandN = () => { $('#rrn').innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" data-rn="${n}" class="${n === randN ? 'on' : ''}" title="${n}つ選ぶ">${n}</button>`).join(''); };
+  chrome.storage.local.get('px').then(r => { randN = Math.min(5, Math.max(1, +((r.px || {}).randN) || 1)); drawRandN(); });
   drawRandN();
   $('#rrn').addEventListener('click', async e => {
     const b = e.target.closest('[data-rn]'); if (!b) return;
@@ -154,7 +154,22 @@ function recPage() {
       for (; i < list.length - 1; i++) { r -= w[i]; if (r <= 0) break; }
       picks.push(list.splice(i, 1)[0].t);
     }
-    $('#rq').value = picks.join(' | '); run(false);
+    $('#rq').value = picks.join(' | '); updClear(); run(false);
+  });
+  // ✕ クリア: キーワードを消して、フォルダの絞り込みを「すべて」に戻して、探し直す。消すものがあるときだけ出す
+  const updClear = () => { const c = $('#rclear'); if (c) c.hidden = !($('#rq').value.trim() || fold !== 'all'); };
+  $('#rq').addEventListener('input', updClear);
+  $('#rclear').addEventListener('click', async () => {
+    $('#rq').value = ''; lset('tfRecQ', '');
+    if (fold !== 'all') { await TF.mutate(s => { s.settings.plFolder = 'all'; }); fold = 'all'; foldNames = null; foldNote(); }
+    updClear(); $('#rq').focus(); run(false);
+  });
+  updClear();
+  // 急上昇ワードを押したとき(YouTube側の trends.js から): クリアしてから(キーワード・フォルダ)、キーワードに入れて探す
+  window.addEventListener('message', async e => {
+    if (e.source !== window.parent || !e.data || typeof e.data.tfTerm !== 'string') return;
+    if (fold !== 'all') { await TF.mutate(s => { s.settings.plFolder = 'all'; }); fold = 'all'; foldNames = null; foldNote(); }
+    $('#rq').value = e.data.tfTerm; updClear(); run(false);
   });
   $('#rmore').addEventListener('click', () => run(true));
   $('#rs').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (!b) return; scope = b.dataset.s; lset('tfRecScope', scope); $('#rs').innerHTML = seg(SCOPES, scope, 's'); run(false); });
@@ -197,6 +212,6 @@ function recPage() {
 
   Promise.all([loadReg(), loadFold(), chrome.storage.local.get('recOpen')]).then(([, , ro]) => {
     const o = ro && ro.recOpen; // ホームでフォルダを押して開いたとき: 登録チャンネル・動画に切り替えて、キーワードは空にする
-    if (o) { scope = o.scope || 'reg'; kind = o.kind || 'v'; q = ''; lset('tfRecScope', scope); lset('tfRecKind', kind); lset('tfRecQ', ''); const rq = $('#rq'); if (rq) rq.value = ''; $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); chrome.storage.local.remove('recOpen'); }
+    if (o) { scope = o.scope || 'reg'; kind = o.kind || 'v'; q = ''; lset('tfRecScope', scope); lset('tfRecKind', kind); lset('tfRecQ', ''); const rq = $('#rq'); if (rq) rq.value = ''; updClear(); $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); chrome.storage.local.remove('recOpen'); }
     foldNote(); if (o || scope === 'reg' || q) run(false); else note('キーワードを入れて、検索してください'); });
 }

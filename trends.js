@@ -111,16 +111,23 @@
   news.addEventListener('mouseenter', () => clearTimeout(hideT));
   news.addEventListener('mouseleave', () => { news.style.display = 'none'; });
 
-  // ---- ワードを YouTube の検索欄に入れる ----
+  // ---- ワードを押したとき ----
+  //   TubeFolio2 の「視聴」を開いているとき = 視聴のキーワード欄に入れて探す(page.js)
+  //   TubeFolio2 の「検索」を開いているとき = クリアしてから、検索のキーワード欄に入れて探す(search.js)
+  //   それ以外(ホームなど) = YouTube の上の検索欄に入れる(設定で「入れて検索」も)
   function useTerm(term) {
+    const html = document.documentElement, pgk = html.getAttribute('data-tf-pgk'), fr = document.querySelector('#tf-view iframe');
+    if (fr && html.hasAttribute('data-tf-pg') && (pgk === 'later' || pgk === 'rec')) {
+      try { fr.contentWindow.postMessage({ tfTerm: term }, '*'); return; } catch { /* YouTube の検索欄へ */ }
+    }
     const go = !!cfg.trendGo;
-    const inp = document.querySelector('ytd-searchbox input[name="search_query"], input[name="search_query"], input#search');
+    const inp = document.querySelector('yt-searchbox input[name="search_query"], ytd-searchbox input[name="search_query"], input[name="search_query"], input#search');
     if (!inp) { if (go) location.href = '/results?search_query=' + encodeURIComponent(term); return; }
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, term);
     inp.dispatchEvent(new Event('input', { bubbles: true }));
     inp.focus();
     if (go) {
-      const btn = document.querySelector('ytd-searchbox #search-icon-legacy, #search-icon-legacy, ytd-searchbox button.ytSearchboxComponentSearchButton, button[aria-label="検索"]');
+      const btn = document.querySelector('button.ytSearchboxComponentSearchButton, ytd-searchbox #search-icon-legacy, #search-icon-legacy, button[aria-label="検索"]');
       if (btn) btn.click(); else location.href = '/results?search_query=' + encodeURIComponent(term);
     }
   }

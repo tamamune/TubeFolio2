@@ -527,6 +527,9 @@ html[data-tf-boot] #tf-hbar, html[data-tf-boot] #tf-gsb-root, html[data-tf-boot]
 /* ツールバーの置き方(試験): 配置ボタンで切り替え */
 #tf-hbar .tfh-pos { background: transparent !important; border: 1px dashed var(--tf-line, rgba(128,128,128,.5)) !important; font-size: 12px; opacity: .75; }
 #tf-hbar.tf-hfloat { position: fixed; z-index: 2100; width: auto; overflow: visible; }
+/* YouTube の検索欄の候補(ヘッダー #masthead-container の中。z-index 2020)が、上のバーや急上昇のパネルの下に隠れないよう、
+   検索欄を使っている間だけ、ヘッダーを前に出す(検索欄は今は yt-searchbox。古い ytd-searchbox も残す) */
+html:has(yt-searchbox:focus-within, ytd-searchbox:focus-within) #masthead-container { z-index: 2400 !important; }
 #tf-hbar.tf-hfloat .tfh-right { display: none; }
 #tf-hbar .tfh-min { display: none; }
 /* 下バー: 画面の下に固定。その分、ページの下に余白をとるので内容に重ならない。指で押しやすい大きさ */
@@ -756,28 +759,64 @@ html:not([dark]) .tf-bmq { background: rgba(255,255,255,.92); color: #0f0f0f; bo
 .tf-bmq input:focus { border-color: #3ea6ff; }
 .tf-bmq .k { margin-top: 6px; font-size: 12px; opacity: .65; }
 
-/* ---------- 再生した動画のタグの管理(TubeFolio2 設定から開く)。ダーク/ライト両対応 ---------- */
-#tf-tgm { --tg-bg: rgba(255,255,255,.9); --tg-fg: #0f0f0f; --tg-sub: #606060; --tg-hv: rgba(0,0,0,.08); --tg-ln: rgba(0,0,0,.16); --tg-ac: #065fd4; position: fixed; z-index: 2147483000; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(640px, 92vw); max-height: 84vh; display: flex; flex-direction: column; border-radius: 16px; background: var(--tg-bg); color: var(--tg-fg); border: 1px solid var(--tg-ln); box-shadow: 0 12px 48px rgba(0,0,0,.45); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6); font: 400 14px/1.5 Roboto, "Yu Gothic UI", sans-serif; }
+/* ---------- 🎲 ランダムタグを大きい画面で編集(設定の「整理・通知 → ランダムタグ」の ⤢ から開く)。ダーク/ライト両対応 ---------- */
+#tf-tgm { --tg-bg: rgba(255,255,255,.9); --tg-fg: #0f0f0f; --tg-sub: #606060; --tg-hv: rgba(0,0,0,.08); --tg-ln: rgba(0,0,0,.16); --tg-ac: #065fd4; position: fixed; z-index: 2147483000; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(880px, 94vw); max-height: 86vh; display: flex; flex-direction: column; border-radius: 16px; background: var(--tg-bg); color: var(--tg-fg); border: 1px solid var(--tg-ln); box-shadow: 0 12px 48px rgba(0,0,0,.45); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6); font: 400 14px/1.5 Roboto, "Yu Gothic UI", sans-serif; }
 html[dark] #tf-tgm { --tg-bg: rgba(32,32,36,.9); --tg-fg: #f1f1f1; --tg-sub: #aaa; --tg-hv: rgba(255,255,255,.12); --tg-ln: rgba(255,255,255,.2); --tg-ac: #3ea6ff; }
 #tf-tgm .h { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--tg-ln); }
 #tf-tgm .h button { border: 0; background: none; color: var(--tg-sub); cursor: pointer; font-size: 16px; }
-#tf-tgm .b { overflow: auto; padding: 12px 16px 16px; display: grid; gap: 8px; }
-#tf-tgm .n { margin: 0; color: var(--tg-sub); font-size: 12px; }
-#tf-tgm .s { font-weight: 600; margin-top: 6px; }
-#tf-tgm .r { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-#tf-tgm input[type=text], #tf-tgm input:not([type]), #tf-tgm input[type=search] { flex: 1; min-width: 0; padding: 6px 12px; border: 1px solid var(--tg-ln); border-radius: 18px; background: var(--tg-hv); color: inherit; font: inherit; }
-#tf-tgm .o { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
-#tf-tgm .r > button { border: 1px solid var(--tg-ln); border-radius: 16px; padding: 5px 14px; background: var(--tg-hv); color: inherit; font: inherit; cursor: pointer; }
-#tf-tgm .r > button.pri { background: var(--tg-ac); border-color: var(--tg-ac); color: #fff; }
-#tf-tgm .l { display: flex; flex-wrap: wrap; gap: 6px; }
-#tf-tgm .c { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 12px; border-radius: 16px; background: var(--tg-hv); border: 1px solid transparent; }
-#tf-tgm .c.pin { border-color: var(--tg-ac); background: color-mix(in srgb, var(--tg-ac) 16%, transparent); }
-#tf-tgm .c.ng { opacity: .75; text-decoration: line-through; }
-#tf-tgm .c b { font-weight: 500; }
-#tf-tgm .c small { color: var(--tg-sub); }
-#tf-tgm .c button { border: 0; background: none; color: var(--tg-sub); cursor: pointer; padding: 2px 4px; border-radius: 10px; font-size: 13px; }
-#tf-tgm .c button:hover { background: var(--tg-hv); color: var(--tg-fg); }
-#tf-tgm .c.pin button[data-a="pin"] { color: #f5b301; }
+#tf-tgm .b { overflow: auto; padding: 12px 18px 18px; }
+/* 🎲 ランダムタグの編集(tagmgr.js の tfTagEditor)。設定の「整理・通知 → ランダムタグ」と大きい画面(#tf-tgm)で同じもの。
+   色は --te-* で持つ。ふつう = --tf-*(ダーク/ライト)、ガラス調の設定 = 暗い背景+白い文字、大きい画面 = --tg-*(ダーク/ライト) */
+.tf-te { --te-fg: var(--tf-fg); --te-sub: var(--tf-sub); --te-line: var(--tf-line); --te-chip: var(--tf-chip); --te-chip2: rgba(0,0,0,.1); --te-acc: var(--tf-acc); --te-acc-fg: #fff; --te-keep: var(--tf-keep); --te-keep-bg: var(--tf-keep-bg); color: var(--te-fg); }
+html[dark] .tf-te { --te-chip2: rgba(255,255,255,.2); }
+#tf-set.tf-glass .tf-te { --te-fg: #fff; --te-sub: rgba(255,255,255,.7); --te-line: rgba(255,255,255,.22); --te-chip: rgba(255,255,255,.12); --te-chip2: rgba(255,255,255,.24); --te-keep: #ffb300; --te-keep-bg: rgba(255,179,0,.2); }
+#tf-tgm .tf-te { --te-fg: var(--tg-fg); --te-sub: var(--tg-sub); --te-line: var(--tg-ln); --te-chip: var(--tg-hv); --te-acc: var(--tg-ac); }
+html[dark] #tf-tgm .tf-te { --te-acc-fg: #0f0f0f; }
+.tf-te-top { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+.tf-te-note { margin: 2px 0 8px; font-size: 12px; line-height: 1.55; color: var(--te-sub); }
+.tf-te-sub { margin: 12px 0 4px; font-size: 13px; font-weight: 700; }
+.tf-te-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0; }
+.tf-te-in { flex: 1; min-width: 0; box-sizing: border-box; padding: 7px 10px; border: 1px solid var(--te-line); border-radius: 8px; background: var(--te-chip); color: var(--te-fg); font: 13px Roboto, "Yu Gothic UI", sans-serif; outline: none; }
+.tf-te-in::placeholder { color: var(--te-sub); }
+.tf-te-in:focus { border-color: var(--te-sub); }
+.tf-te-btn { padding: 6px 12px; border: 1px solid var(--te-line); border-radius: 9px; background: var(--te-chip); color: var(--te-fg); font: 600 12.5px Roboto, "Yu Gothic UI", sans-serif; cursor: pointer; }
+.tf-te-btn:hover { background: var(--te-chip2); }
+.tf-te-btn.pri { background: var(--te-acc); border-color: var(--te-acc); color: var(--te-acc-fg); }
+.tf-te-l { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.tf-te-c { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border: 1px solid var(--te-line); border-radius: 14px; background: var(--te-chip); color: var(--te-fg); font-size: 12.5px; }
+.tf-te-c[hidden] { display: none; }
+.tf-te-c b { font-weight: 500; }
+.tf-te-c small { color: var(--te-sub); }
+.tf-te-c.own { border-color: var(--te-acc); }
+.tf-te-c.keep { border-color: var(--te-keep); background: var(--te-keep-bg); }
+.tf-te-c.ng { opacity: .75; }
+.tf-te-c button { border: 0; background: transparent; color: var(--te-sub); cursor: pointer; padding: 1px 4px; border-radius: 8px; font-size: 12px; }
+.tf-te-c button:hover { background: var(--te-chip2); color: var(--te-fg); }
+#tf-tgm .tf-te-c { padding: 4px 6px 4px 12px; font-size: 13.5px; }
+.tf-te-c > b { cursor: help; }
+.tf-te-c > b:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+.tf-te-new { font-style: normal; font-size: 11px; margin-right: -1px; }
+.tf-te-subrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 4px; }
+.tf-te-subrow .tf-te-sub { margin: 0; }
+.tf-te-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 12px; background: var(--te-chip); border: 1px solid var(--te-line); }
+.tf-te-seg button { border: 0; border-radius: 10px; padding: 3px 10px; background: none; color: var(--te-sub); font: 500 12px Roboto, "Yu Gothic UI", sans-serif; cursor: pointer; }
+.tf-te-seg button:hover { color: var(--te-fg); }
+.tf-te-seg button.on { background: var(--te-fg); color: var(--te-bg, #111); }
+#tf-set.tf-glass .tf-te { --te-bg: #1c1917; } #tf-tgm .tf-te { --te-bg: var(--tg-bg); } .tf-te { --te-bg: var(--tf-bg); }
+/* タグの意味(Wikipedia)の浮かぶ説明。ページの上に出すので、ダーク(html[dark])/ライトの --tf-* で色を持つ */
+#tf-tagwiki { position: fixed; z-index: 2147483003; width: min(380px, calc(100vw - 16px)); padding: 10px 12px; border-radius: 12px; background: var(--tf-bg); color: var(--tf-fg); border: 1px solid var(--tf-line); box-shadow: var(--tf-shadow); font: 13px/1.55 Roboto, "Yu Gothic UI", sans-serif; }
+#tf-tagwiki .tw-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin-bottom: 6px; }
+#tf-tagwiki .tw-h b { font-size: 14px; }
+#tf-tagwiki .tw-tr { color: var(--tf-sub); font-size: 12.5px; }
+#tf-tagwiki .tw-b { display: flex; gap: 10px; align-items: flex-start; }
+#tf-tagwiki .tw-b img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; flex: none; background: var(--tf-chip); }
+#tf-tagwiki .tw-t { font-weight: 700; margin-bottom: 2px; }
+#tf-tagwiki .tw-x { margin: 0; color: var(--tf-fg); opacity: .9; }
+#tf-tagwiki .tw-m { margin: 0; color: var(--tf-sub); }
+#tf-tagwiki .tw-f { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--tf-line); font-size: 11.5px; color: var(--tf-sub); }
+#tf-tagwiki .tw-f a { color: var(--tf-acc); text-decoration: none; white-space: nowrap; }
+#tf-tagwiki .tw-f a:hover { text-decoration: underline; }
+#tf-tgm .tf-te-note { font-size: 12.5px; }
 
 /* ---------- 小窓(ピクチャインピクチャーを開けないときの、ページ右下の小さな窓) ---------- */
 #tf-mini { position: fixed; right: 20px; bottom: 20px; z-index: 2147482000; width: 400px; max-width: 60vw; border-radius: 12px; overflow: hidden; background: #000; box-shadow: 0 8px 30px rgba(0,0,0,.55); cursor: pointer; animation: tf-mini-in .25s ease; }
@@ -837,7 +876,7 @@ html[dark] #tf-set select { color-scheme: dark; }
 
 /* 設定「ログ・同期」のサブタブ(同期・データ / 動作ログ) */
 #tf-set .tf-subtabs { display: none; gap: 6px; margin: 2px 0 8px; }
-#tf-set[data-cur="sync"] .tf-subtabs { display: flex; }
+#tf-set[data-cur="sync"] .tf-subtabs[data-tab="sync"] { display: flex; } /* 「整理・通知」のサブタブは出さない */
 #tf-set .tf-subtabs button { flex: 1; padding: 7px 10px; border: 0; border-radius: 14px; background: var(--tf-chip); color: var(--tf-fg); font: 500 13px Roboto, "Yu Gothic UI", sans-serif; cursor: pointer; }
 #tf-set .tf-subtabs button.on { background: var(--tf-fg); color: var(--tf-bg); }
 #tf-set[data-sub="log"] .tf-grp[data-sub="sync"], #tf-set[data-sub="log"] .tf-dev[data-sub="sync"], #tf-set:not([data-sub="log"]) .tf-grp[data-sub="log"] { display: none !important; }
@@ -904,9 +943,25 @@ html:not([dark]) .tg-toast { background: #fff; color: #0f0f0f; }
 .tg-chip.tg-cat:not(.tg-active) { opacity: .5; }
 
 /* 設定「整理・通知」のサブタブと、通知・再生速度の行 */
-#tf-set[data-cur="org"] .tf-subtabs[data-tab="org"] { display: flex; flex-wrap: wrap; }
-#tf-set .tf-subtabs[data-tab="org"] button { flex: 1 1 auto; }
-#tf-set:not([data-osub="notify"]) .tf-grp[data-osub="notify"], #tf-set:not([data-osub="rate"]) .tf-grp[data-osub="rate"], #tf-set:not([data-osub="focus"]) .tf-grp[data-osub="focus"], #tf-set:not([data-osub="random"]) .tf-grp[data-osub="random"] { display: none !important; }
+/* 5つのボタンを 3つ + 2つ にそろえる(6列のグリッド: 上の3つは2列ずつ、下の2つは3列ずつ) */
+#tf-set[data-cur="org"] .tf-subtabs[data-tab="org"] { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+#tf-set .tf-subtabs[data-tab="org"] button { grid-column: span 2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 7px 6px; }
+#tf-set .tf-subtabs[data-tab="org"] button:nth-child(n+4) { grid-column: span 3; }
+#tf-set:not([data-osub="notify"]) .tf-grp[data-osub="notify"], #tf-set:not([data-osub="rate"]) .tf-grp[data-osub="rate"], #tf-set:not([data-osub="focus"]) .tf-grp[data-osub="focus"], #tf-set:not([data-osub="random"]) .tf-grp[data-osub="random"], #tf-set:not([data-osub="skip"]) .tf-grp[data-osub="skip"] { display: none !important; }
+/* ⏭ スキップ設定(チャンネル別)の一覧: 1チャンネル = 1枚。名前は左寄せ、設定は小さなチップ、✕ は右 */
+#tf-set .tf-skl { display: grid; gap: 6px; margin: 6px 0; }
+#tf-set .tf-sk { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 9px 10px 9px 12px; border: 1px solid var(--tf-line); border-radius: 12px; background: var(--tf-chip); }
+#tf-set .tf-sk[hidden] { display: none; }
+#tf-set .tf-sk-n { grid-column: 1; font-size: 13.5px; font-weight: 600; line-height: 1.35; text-align: left; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+#tf-set .tf-sk-ts { grid-column: 1; display: flex; flex-wrap: wrap; gap: 5px; }
+#tf-set .tf-sk-t { padding: 2px 8px; border-radius: 10px; background: var(--tf-chip); border: 1px solid var(--tf-line); font-size: 12px; line-height: 1.5; white-space: nowrap; }
+#tf-set .tf-sk-none { font-size: 12px; color: var(--tf-sub); }
+#tf-set .tf-sk-x { grid-column: 2; grid-row: 1 / span 2; width: 30px; height: 30px; padding: 0; border: 1px solid var(--tf-line); border-radius: 50%; background: transparent; color: var(--tf-sub); cursor: pointer; font-size: 13px; }
+#tf-set .tf-sk-x:hover { background: rgba(229,57,53,.18); border-color: rgba(229,57,53,.6); color: var(--tf-fg); }
+#tf-set.tf-glass .tf-sk { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.16); }
+#tf-set.tf-glass .tf-sk-t { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
+#tf-set.tf-glass .tf-sk-none, #tf-set.tf-glass .tf-sk-x { color: rgba(255,255,255,.7); border-color: rgba(255,255,255,.24); }
+#tf-set.tf-glass .tf-sk-x:hover { color: #fff; }
 #tf-set .tf-subtabs[data-tab="org"] button.on { background: var(--tf-fg); color: var(--tf-bg); }
 #tf-set .tf-ntrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 5px 0; padding-left: calc(var(--d, 0) * 16px); }
 #tf-set .tf-ntrow .tf-ntname { flex: 1 1 110px; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; }
@@ -957,13 +1012,5 @@ html:not([dark]) .tg-ul-box { background: #fff; color: #0f0f0f; }
 #tf-set .tf-fcf { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid var(--tf-line); border-radius: 16px; background: var(--tf-chip); color: var(--tf-fg); font-size: 12.5px; cursor: pointer; }
 #tf-set .tf-fcf i { width: 9px; height: 9px; border-radius: 3px; }
 #tf-set .tf-fcf.on { background: var(--tf-fg); color: var(--tf-bg); border-color: var(--tf-fg); }
-#tf-set .tf-rnadd { display: flex; gap: 8px; align-items: center; margin: 4px 0; } #tf-set .tf-rnadd .tf-ntkw { flex: 1; width: auto; }
-#tf-set .tf-rnl { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
-#tf-set .tf-rn { display: inline-flex; align-items: center; gap: 5px; padding: 4px 4px 4px 10px; border: 1px solid var(--tf-line); border-radius: 14px; background: var(--tf-chip); color: var(--tf-fg); font-size: 12.5px; }
-#tf-set .tf-rn small { color: var(--tf-sub); } #tf-set .tf-rn.own { border-color: var(--tf-acc); } #tf-set .tf-rn.ng { opacity: .75; }
-#tf-set .tf-rn button { border: 0; background: transparent; color: var(--tf-sub); cursor: pointer; padding: 1px 4px; font-size: 12px; } #tf-set .tf-rn button:hover { color: var(--tf-fg); }
 #tf-set.tf-glass .tf-fcdays label, #tf-set.tf-glass .tf-fcf, #tf-set.tf-glass .tf-rn { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.22); color: #fff; }
-/* 📌 消さないタグ(ランダムタグ)。ガラス調の設定は、ダーク/ライトどちらでも暗い背景+白い文字なので、ダーク用の色にする */
-#tf-set .tf-rn.keep { border-color: var(--tf-keep); background: var(--tf-keep-bg); }
-#tf-set.tf-glass .tf-rn.keep { border-color: #ffb300; background: rgba(255,179,0,.2); }
 #tf-set.tf-glass .tf-fcdays label.on, #tf-set.tf-glass .tf-fcf.on { background: #fff; color: #222; }

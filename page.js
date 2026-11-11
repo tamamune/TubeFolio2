@@ -136,7 +136,9 @@ document.addEventListener('click', e => {
 // ---------- 視聴: 再生リスト。「ライブラリに保存」した再生リスト(ミックスリストなど)は「ライブラリ」ひとつにまとめ、中はサムネのカードで並べる。
 // 自分の再生リスト(後で見る・高く評価した動画を含む)は、細い行で1つずつ。行・カードは、ドラッグで順番を変えられる(順番は設定 plOrder に保存 = Drive同期の対象)。 ----------
 function viewPage() {
-  main.innerHTML = `<div class="head"><h1>${esc(TITLE)}</h1><span class="sub">再生リスト(ドラッグで順番を変えられます)</span><span id="plf" class="sub"></span><span class="sp"></span><span id="st"></span></div><div id="pls"><p class="empty">読み込み中…</p></div>`;
+  main.innerHTML = `<div class="head"><h1>${esc(TITLE)}</h1><span class="sub">再生リスト(ドラッグで順番を変えられます)</span><span id="plf" class="sub"></span><span class="sp"></span><span id="st"></span></div>
+    <form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form>
+    <div id="pls"><p class="empty">読み込み中…</p></div>`;
   const loaded = new Set();
   // ---- 登録チャンネルの目印: サムネに色の線(フォルダ登録=フォルダの色 / 登録のみ=青 / 未登録=赤)。チャンネルは、表示名で照らし合わせる ----
   const nrm = t => String(t || '').normalize('NFKC').trim().toLowerCase();
@@ -160,8 +162,22 @@ function viewPage() {
     if (plFolder === 'none') return !filed;
     const sub = TF.subtree(curS.groups, plFolder); return !!c && c.groups.some(id => sub.has(id));
   };
+  // ---- キーワードで探す: 「検索」を押すと、すべての再生リストを開いて(読み込んで)、タイトル・チャンネルが合う動画だけを出す ----
+  //   スペース区切り = すべて含む、「|」区切り = どれかを含む(検索ページと同じ)。合う動画が無い再生リストは隠す。✕ で元に戻す
+  let kwOrs = []; const kwOpened = new Set();
+  const kwOk = cd => { if (!kwOrs.length) return true; const s = ((cd.getAttribute('title') || '') + ' ' + (cd.dataset.ch || '')).toLowerCase(); return kwOrs.some(w => w.every(k => s.includes(k))); };
   const applyFolder = () => {
-    document.querySelectorAll('#pls .card[data-ch]').forEach(cd => { cd.style.display = folderOk(cd.dataset.ch) ? '' : 'none'; });
+    document.querySelectorAll('#pls .card[data-ch]').forEach(cd => { cd.style.display = folderOk(cd.dataset.ch) && kwOk(cd) ? '' : 'none'; });
+    { // キーワードで探している間: 合う動画が無い再生リストを隠し、見つかった本数を出す
+      let n = 0;
+      document.querySelectorAll('#pls .pl').forEach(s => {
+        const cards = [...s.querySelectorAll('.card[data-ch]')], hit = cards.filter(cd => cd.style.display !== 'none').length; n += hit;
+        const loading = !!s.querySelector('.plb .none') && !cards.length && /読み込み中/.test(s.querySelector('.plb .none').textContent);
+        s.hidden = !!kwOrs.length && !hit && !loading;
+      });
+      const kn = $('#vkn'); if (kn) kn.textContent = kwOrs.length ? `${n}本 見つかりました` : '';
+      const vc = $('#vclear'), vi = $('#vq'); if (vc && vi) vc.hidden = !(vi.value.trim() || plFolder !== 'all'); // ✕ はクリアするものがあるときだけ
+    }
     const note = $('#plf'); if (!note) return;
     const g = curS && curS.groups.find(x => x.id === plFolder);
     note.innerHTML = plFolder === 'all' || !curS ? '' : `📁 ${plFolder === 'none' ? '未分類' : esc(g ? g.name : '')} のチャンネルだけを表示中 ・ <a href="#" id="plfx">解除</a>`;
@@ -173,6 +189,33 @@ function viewPage() {
     if (ch.groups || ch.channels) TF.get().then(S => { curS = S; grpMap = Object.fromEntries(S.groups.map(g => [g.id, g])); chIdx = new Map(); Object.values(S.channels).forEach(c => { const n = nrm(TF.clean(c.name)); if (n) chIdx.set(n, c); }); markAll(); applyFolder(); });
   });
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#plfx')) { e.preventDefault(); chrome.storage.local.get('settings').then(r => { const s = r.settings || {}; s.plFolder = 'all'; return chrome.storage.local.set({ settings: s }); }); } });
+  const updVClear = () => { const c = $('#vclear'); if (c) c.hidden = !($('#vq').value.trim() || plFolder !== 'all'); };
+  const openForKw = () => { // 閉じている再生リストを開いて読み込む(キーワードで探すため)。あとで ✕ で閉じ直す
+    document.querySelectorAll('#pls .pl:not(.lib)').forEach(s => {
+      const b = s.querySelector(':scope > .plb'); if (!b || !b.hidden) return;
+      b.hidden = false; s.classList.add('open'); kwOpened.add(s.dataset.id); load(s.dataset.id, b, (s.querySelector(':scope > .plh b') || {}).textContent || '');
+    });
+  };
+  const runKw = () => {
+    const q = $('#vq').value.trim().toLowerCase();
+    kwOrs = q.split('|').map(s => s.split(/\s+/).filter(Boolean)).filter(w => w.length);
+    if (kwOrs.length) openForKw(); else closeKw();
+    applyFolder(); updVClear();
+  };
+  const closeKw = () => { // 検索で開いた再生リストを閉じ直す
+    kwOpened.forEach(id => { const s = document.querySelector(`#pls .pl[data-id="${CSS.escape(id)}"]`); if (!s) return; const b = s.querySelector(':scope > .plb'); if (b) b.hidden = true; s.classList.remove('open'); });
+    kwOpened.clear(); document.querySelectorAll('#pls .pl').forEach(s => { s.hidden = false; });
+  };
+  $('#vf').addEventListener('submit', e => { e.preventDefault(); runKw(); });
+  $('#vq').addEventListener('input', () => { updVClear(); if (!$('#vq').value.trim() && kwOrs.length) runKw(); }); // 消したら元に戻す
+  $('#vq').addEventListener('keydown', e => { if (e.key === 'Enter' && e.isComposing) e.preventDefault(); }); // 日本語の変換の確定では探さない
+  $('#vclear').addEventListener('click', () => {
+    $('#vq').value = ''; kwOrs = []; closeKw();
+    if (plFolder !== 'all') { plFolder = 'all'; chrome.storage.local.get('settings').then(r => { const s = r.settings || {}; s.plFolder = 'all'; return chrome.storage.local.set({ settings: s }); }); }
+    applyFolder(); updVClear(); $('#vq').focus();
+  });
+  // 急上昇ワードを押したとき(YouTube側の trends.js から): キーワードに入れて探す
+  window.addEventListener('message', e => { if (e.source !== window.parent || !e.data || typeof e.data.tfTerm !== 'string') return; $('#vq').value = e.data.tfTerm; runKw(); });
   TF.get().then(S => { grpMap = Object.fromEntries(S.groups.map(g => [g.id, g])); chIdx = new Map(); Object.values(S.channels).forEach(c => { const n = nrm(TF.clean(c.name)); if (n) chIdx.set(n, c); }); markAll(); curS = S; applyFolder(); }).catch(() => {});
   { let mt = 0; new MutationObserver(() => { clearTimeout(mt); mt = setTimeout(() => { markAll(); applyFolder(); }, 80); }).observe($('#pls'), { childList: true, subtree: true }); }
   let destLists = [];
@@ -319,6 +362,7 @@ function viewPage() {
     }));
     // 「最初から開く」に設定された再生リストは、開いた状態で始める
     box.querySelectorAll('.pl:not(.lib)').forEach(s => { const x = mine.find(m => m.id === s.dataset.id); if (x && defOpen(x.id, x.title)) { const b = s.querySelector(':scope > .plb'); b.hidden = false; s.classList.add('open'); load(x.id, b, x.title || ''); } });
+    if (kwOrs.length) { openForKw(); applyFolder(); } // 読み込む前にキーワードで探していたとき
   });
   $('#pls').addEventListener('change', e => { if (e.target.matches && e.target.matches('.fmin')) { freeMin = +e.target.value || 30; saveSet('freeMin', freeMin); } });
   // ---- 動画ごとのツール: 別の再生リストへ「移動」「コピー」。押す/マウスを乗せると、再生リスト一覧を隣に出す ----
