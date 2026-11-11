@@ -198,8 +198,34 @@ chrome.storage.local.get(['groups', 'settings']).then(async raw => {
   await TF.mutate(s => { s.settings.iconAuto = true; });
 }).catch(() => {});
 const ORIGIN = 'https://www.youtube.com';
+// ---- 背景から YouTube への通信が止められたとき(スマホのブラウザなど・Failed to fetch)は、YouTube のタブ経由にする ----
+//   開いている YouTube のタブ(yt-api.js の 'tf-pfetch')が、ページから同じ通信をして結果を返す。
+//   一度止められたら、背景が動いている間は最初からタブ経由にする
+const nativeFetch = self.fetch.bind(self);
+const isYtUrl = u => { try { return /(^|\.)youtube\.com$/.test(new URL(u).hostname); } catch (e) { return false; } };
+let ytViaTab = false;
+async function tabFetch(url, init = {}) {
+  const headers = {}; if (init.headers) new Headers(init.headers).forEach((v, k) => { headers[k] = v; });
+  const r = await askTab({ type: 'tf-pfetch', url, method: init.method || 'GET', headers, body: typeof init.body === 'string' ? init.body : undefined });
+  if (!r || typeof r.status !== 'number') throw new TypeError('Failed to fetch(YouTube のタブ経由でも通信できません: ' + ((r && r.error) || '応答なし') + ')');
+  const noBody = [101, 204, 205, 304].includes(r.status) || r.status < 200;
+  return new Response(noBody ? null : r.body, { status: r.status < 200 ? 200 : r.status, statusText: r.statusText || '', headers: { 'Content-Type': r.type || 'text/plain' } });
+}
+self.fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : input && input.url;
+  if (!isYtUrl(url)) return nativeFetch(input, init);
+  if (ytViaTab) return tabFetch(url, init);
+  try { return await nativeFetch(input, init); }
+  catch (e) {
+    if (!(e instanceof TypeError) || (init && init.signal && init.signal.aborted)) throw e;
+    ytViaTab = true;
+    try { bgLog('通信', `YouTube への直接の通信が止められました(${e.message})。YouTube のタブ経由に切り替えます`, 'warn'); } catch (e2) { /* なし */ }
+    return tabFetch(url, init);
+  }
+};
 async function authHeaders() {
-  const c = await chrome.cookies.get({ url: ORIGIN, name: 'SAPISID' }) || await chrome.cookies.get({ url: ORIGIN, name: '__Secure-3PAPISID' });
+  let c = null; // クッキーを読めないブラウザでは、印を付けない(タブ経由のときは、タブ側で付ける)
+  try { c = await chrome.cookies.get({ url: ORIGIN, name: 'SAPISID' }) || await chrome.cookies.get({ url: ORIGIN, name: '__Secure-3PAPISID' }); } catch (e) { return {}; }
   if (!c) return {};
   const ts = Math.floor(Date.now() / 1000);
   const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(`${ts} ${c.value} ${ORIGIN}`));

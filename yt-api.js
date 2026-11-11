@@ -62,6 +62,28 @@ const YTAPI = (() => {
     return parts.join(' ');
   }
 
+  // ---------- 背景(background.js)の代わりに YouTube へ通信する ----------
+  //   スマホのブラウザなどでは、拡張機能の背景から youtube.com への通信が止められる(Failed to fetch)。
+  //   そのときは背景が 'tf-pfetch' で頼んでくるので、このページ(youtube.com)から同じ通信をして、結果を返す。
+  //   ログインの印(Authorization)が付いていなければ、このページのクッキーから作って付ける
+  if (/(^|\.)youtube\.com$/.test(location.hostname)) {
+    chrome.runtime.onMessage.addListener((m, sender, send) => {
+      if (!m || m.type !== 'tf-pfetch') return;
+      (async () => {
+        try {
+          const u = new URL(m.url); if (!/(^|\.)youtube\.com$/.test(u.hostname)) throw new Error('youtube.com 以外には使えません');
+          const url = location.origin + u.pathname + u.search; // このページと同じ場所(www / m)へ
+          const headers = { ...(m.headers || {}) };
+          for (const k of Object.keys(headers)) if (/^(origin|x-origin|cookie)$/i.test(k)) delete headers[k];
+          if (!Object.keys(headers).some(k => /^authorization$/i.test(k))) { const a = await authHeader(); if (a) { headers.Authorization = a; headers['X-Goog-AuthUser'] = headers['X-Goog-AuthUser'] || '0'; } }
+          const r = await fetch(url, { method: m.method || 'GET', headers, body: m.body, credentials: 'include' });
+          send({ status: r.status, statusText: r.statusText, type: r.headers.get('content-type') || '', body: await r.text() });
+        } catch (e) { send({ ok: false, error: String((e && e.message) || e) }); }
+      })();
+      return true;
+    });
+  }
+
   //   anon：ログインしていない状態で取得する（視聴履歴に影響されない検索結果・関連動画にするため）
   async function innertube(endpoint, body, cfg, signal, anon = false) {
     const headers = {
