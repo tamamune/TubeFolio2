@@ -19,8 +19,12 @@
     try {
       // タグ: 再生中の動画の情報(ページ側) → 取れなければ YouTube に問い合わせる
       const m = await pageMeta();
-      let kw = m && m.v === id ? m.kw : null, title = '';
-      if (!kw) { const o = await YTAPI.videoOwner(id); kw = (o && o.kw) || []; title = (o && o.t) || ''; }
+      // 読む順: ①ページ側のプレイヤーの情報 → ②YouTube に問い合わせ → ③動画ページの中身。①が「タグなし」でも、②③で確かめる
+      //   (以前は、①が空(プレイヤーがタグを持っていない・スマホのブラウザなど)だと、そこで「タグがありません」として、登録されなかった)
+      let kw = m && m.v === id && m.kw && m.kw.length ? m.kw : null, title = '', src = kw ? 'ページ' : '';
+      if (!kw) { try { const o = await YTAPI.videoOwner(id); if (o && o.kw && o.kw.length) { kw = o.kw; src = '問い合わせ'; } title = (o && o.t) || ''; } catch (e) { /* ③へ */ } }
+      if (!kw) { try { const h = await (await fetch('/watch?v=' + encodeURIComponent(id), { credentials: 'include' })).text(), mm = h.match(/"keywords":(\[(?:"(?:[^"\\]|\\.)*",?)*\])/); if (mm) { const a = JSON.parse(mm[1]); if (a.length) { kw = a; src = '動画ページ'; } } } catch (e) { /* なし */ } }
+      if (!kw) { if (!m || m.v !== id) throw new Error('動画の情報がまだ読めません'); kw = []; }
       if (!title) title = (document.querySelector('ytd-watch-metadata h1, #title h1')?.textContent || '').trim() || id;
       const chNames = new Set(Object.values(((globalThis.TGPage && TGPage.state()) || {}).channels || {}).map(c => (c.name || '').toLowerCase()));
       const seen = new Set(), added = [], skipped = [];
@@ -36,7 +40,7 @@
         if (isNew) e.first = Date.now();        // 初めて(または消したあと再び)入った時刻。🆕 の目印と「新しい順」に使う
         e.n++; e.at = Date.now(); playedTags[k] = e; added.push(t);
       }
-      log(added.length ? `「${title}」から ${added.length}個: ${added.join('、')}` : `「${title}」はタグがありません${skipped.length ? `(長すぎる・チャンネル名などで除外 ${skipped.length}個)` : '(投稿者がタグを設定していない動画)'}`);
+      log(added.length ? `「${title}」から ${added.length}個(${src}): ${added.join('、')}` : `「${title}」はタグがありません${skipped.length ? `(長すぎる・チャンネル名などで除外 ${skipped.length}個)` : '(投稿者がタグを設定していない動画)'}`);
       const keys = Object.keys(playedTags);
       // 多すぎたら古いものから捨てる（自分で追加したもの・📌 消さないタグ・追加しないタグは残す）
       const auto = keys.filter(k => !playedTags[k].own && !playedTags[k].keep && !playedTags[k].ng);

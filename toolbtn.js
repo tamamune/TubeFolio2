@@ -47,7 +47,9 @@
       closeMenu();
       origOf(p, def[1])?.click(); // 元のボタンを押す（それぞれの画面が開く）
     });
-    p.appendChild(m);
+    // プレイヤーが小さい(スマホなど)ときは、メニューがプレイヤーからはみ出して切れるので、画面に固定して真ん中に出す(全画面のときは、プレイヤーの中)
+    const pr = p.getBoundingClientRect(), small = (pr.width < 440 || pr.height < 300) && !document.fullscreenElement;
+    if (small) { m.classList.add('tg-tb-fix'); document.body.appendChild(m); } else p.appendChild(m);
     document.querySelector('.tg-tb-btn')?.classList.add('open');
   }
 
@@ -72,6 +74,28 @@
     // 変更中・オンのものがあれば、ボタンに印
     b.classList.toggle('on', ITEMS.some(([, sel, , , ]) => { const o = origOf(p, sel); return o && o.classList.contains('on') && sel !== '.tg-px-chbtn'; }));
   }
-  document.addEventListener('mousedown', e => { if (!e.target.closest?.('.tg-tb-menu, .tg-tb-btn')) closeMenu(); }, true);
+  document.addEventListener('pointerdown', e => { if (!e.target.closest?.('.tg-tb-menu, .tg-tb-btn')) closeMenu(); }, true);
+
+  // ---- タッチ操作(スマホのブラウザ): プレイヤーの中に足したボタンが「押せない」のを直す ----
+  //   YouTube のプレイヤーは、指で触れたときの動き(touchstart / touchend)を自分で処理して、ブラウザが作る「クリック」を止めてしまう。
+  //   そのため、拡張機能が足したボタン(クリックで動く)は、指で押しても何も起きなかった。
+  //   → 拡張機能のボタン(クラス名が tg- / tf- で始まるもの)に指で触れたときは、プレイヤーに渡さず、指を離したところで、こちらでクリックを起こす。
+  //   マウスの操作には関係しない(タッチのときだけ)。スライダー・入力欄・選択は、ブラウザの動きのまま
+  const OURS = '[class^="tg-"], [class*=" tg-"], [class^="tf-"], [class*=" tf-"], [id^="tg-"], [id^="tf-"]';
+  const tapTarget = t => {
+    if (!t || !t.closest) return null;
+    if (t.closest('input, select, textarea, [contenteditable="true"]')) return null;
+    const b = t.closest('button, [role="button"], a, label, summary'); if (!b || !b.closest(OURS)) return null;
+    return b.closest('#movie_player, .tg-tb-menu') ? b : null;
+  };
+  let tap = null;
+  document.addEventListener('touchstart', e => { const b = tapTarget(e.target), t = e.changedTouches[0]; tap = b && e.touches.length === 1 ? { b, x: t.clientX, y: t.clientY, at: Date.now() } : null; if (tap) e.stopPropagation(); }, { capture: true, passive: true });
+  document.addEventListener('touchmove', e => { if (!tap) return; const t = e.changedTouches[0]; if (Math.abs(t.clientX - tap.x) + Math.abs(t.clientY - tap.y) > 14) tap = null; else e.stopPropagation(); }, { capture: true, passive: true });
+  document.addEventListener('touchcancel', () => { tap = null; }, true);
+  document.addEventListener('touchend', e => {
+    const c = tap; tap = null; if (!c || !c.b.isConnected || Date.now() - c.at > 800) return;
+    e.stopPropagation(); if (e.cancelable) e.preventDefault(); // ブラウザが作るクリック(二重になる)は止めて、こちらで1回だけ起こす
+    c.b.click();
+  }, { capture: true, passive: false });
   setInterval(tick, 500);
 })();

@@ -1,11 +1,13 @@
 // 拡張機能のページ(page.html / manager.html / log.html)の、見た目の設定(localStorage に入れている分)を、Drive同期の対象にする。
-//   対象: テーマ(tfTheme)、一覧の日付の折りたたみ(tfPageFold_…)、検索ページの前回の選び方(tfRecScope / tfRecKind / tfRecQ)
+//   対象: テーマ(tfTheme)、一覧の日付の折りたたみ・並び(tfPageFold_… / tfPageSort_…)、検索ページの前回の選び方(tfRecScope / tfRecKind / tfRecQ)、
+//         視聴履歴のページのタブ・期間(tfHistTab / tfHistDays)、管理画面の開いたフォルダ・タブ(tfOpen / tfMgrTab / tfStats)、設定の開いていたタブ(tfSetTab / tfSetSub / tfSetOSub)
+//   YouTube のページ(content script)でも読み込む(設定のタブの分)。
 //   仕組み: localStorage への書き込みを見て、storage の ui にも保存する(ui は SYNC_KEYS に入っていて、Driveで共有される)。
 //   起動時と、ほかのPCの変更を受け取ったときは、ui の値を localStorage に反映する(読む側のコードは、これまでどおり localStorage を読むだけ)。
 //   反映したあと、'tfUiApplied' のイベントを出す(テーマなど、すぐ見た目を変える必要があるものが、受け取って使う)。
 (() => {
   if (window.__tfUiSync) return; window.__tfUiSync = true;
-  const OK = k => /^(tfTheme|tfPageFold_.+|tfRecScope|tfRecKind|tfRecQ)$/.test(String(k));
+  const OK = k => /^(tfTheme|tfPageFold_.+|tfPageSort_.+|tfRecScope|tfRecKind|tfRecQ|tfHistTab|tfHistDays|tfOpen|tfMgrTab|tfStats|tfSetTab|tfSetSub|tfSetOSub)$/.test(String(k));
   let ls, set0, rm0;
   try { ls = window.localStorage; set0 = Storage.prototype.setItem; rm0 = Storage.prototype.removeItem; } catch (e) { return; }
   let ui = {}, ready = false, t = 0;

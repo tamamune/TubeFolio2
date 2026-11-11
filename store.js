@@ -114,7 +114,21 @@ const TF = (() => {
   };
   const groupKw = g => { const src = g.kw && g.kw.length ? g.kw : defaultKw(g.name); return { inc: src.filter(x => !/^[-－ー]/.test(x.trim())).map(x => x.trim()).filter(Boolean), exc: src.filter(x => /^[-－ー]/.test(x.trim())).map(x => x.trim().slice(1)).filter(Boolean) }; };
 
+  // Google Drive で共有するデータ(storage のキー)。ここ1か所で決める(sync.js の SYNC_KEYS・JSONの書き出し/読み込みが使う)。
+  //   新しく保存するデータを足したら、ここに加える。同期しないもの(取り直せるキャッシュ・この端末だけの記録)は CLAUDE.md に理由を書く
+  const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags', 'trendHours',
+    'fOpen', 'hideMembers', 'setGrp', 'cmtNames', 'hist', 'plSeen'];
+
+  // 視聴履歴(hist)から、「再生済み」の動画IDの集まりを作る。見た時間の合計が、30秒以上 かつ 長さの3割以上(ショートは5秒以上)
+  const playedSet = hist => {
+    const sum = new Map(), out = new Set(), v = (hist && hist.v) || {};
+    ((hist && hist.p) || []).forEach(x => sum.set(x[1], (sum.get(x[1]) || 0) + (x[2] || 0)));
+    sum.forEach((sec, id) => { const m = v[id] || []; if (m[4] ? sec >= 5 : sec >= Math.max(30, (m[3] || 0) * 0.3)) out.add(id); });
+    return out;
+  };
+
   return {
+    SYNC_KEYS, playedSet,
     KW_DICT, kwList, defaultKw, groupKw,
     PALETTE, ICONS, ANIME, get, mutate, uid, keyFromHref, subtree, flat, clean, suggestIcon,
     // 既定アイコン(⭐)のままのフォルダに、名前に合うアイコンを設定する。変更件数を返す

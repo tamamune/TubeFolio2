@@ -45,9 +45,31 @@ const watchTh = th => { if (!th._tfRo) { th._tfRo = true; thRO.observe(th); } };
   load();
 }
 
+// 列の個数: 上のバーの「▦ 列数」の設定に合わせる(動画の一覧は「動画の列数」、ショートの一覧は「ショート棚の列数」。標準のときは、画面の幅に合わせて自動)。
+// どのページ(新着・ライブ・ショート・視聴・検索・ブックマーク)でも効く。以前は、新着・ライブ・ショートのページだけだった
+const applyCols = () => chrome.storage.local.get('settings').then(r => {
+  const g = (r.settings || {}).thumb || {}, st = document.documentElement.style;
+  const put = (name, n) => { if (n) st.setProperty(name, `repeat(${n}, minmax(0, 1fr))`); else st.removeProperty(name); };
+  put('--pg-cols', g.cols ? (g.colsN || 5) : 0); put('--pg-scols', g.scols ? (g.sN || 6) : 0);
+}).catch(() => {});
+applyCols(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.settings) applyCols(); });
+
+// 再生済みの動画は、サムネを薄くする(設定「再生済みの動画のサムネを薄くする」dimPlayed。既定オン)。
+//   再生済み = この拡張機能の視聴履歴(hist)にある動画、または YouTube 側で9割以上見た動画(再生リストの一覧)
+{
+  let played = new Set(), dimOn = true, pt = 0;
+  const idOf = cd => { const h = cd.getAttribute('href') || (cd.querySelector('a[href]') || { getAttribute: () => '' }).getAttribute('href') || '', m = h.match(/[?&]v=([\w-]{11})/) || h.match(/\/shorts\/([\w-]{11})/); return m ? m[1] : ''; };
+  const markPlayed = () => document.querySelectorAll('.card').forEach(cd => { const on = dimOn && (played.has(idOf(cd)) || +cd.dataset.pct >= 90); if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on); });
+  const loadPlayed = () => chrome.storage.local.get(['hist', 'settings']).then(r => { played = TF.playedSet(r.hist); dimOn = (r.settings || {}).dimPlayed !== false; markPlayed(); }).catch(() => {});
+  new MutationObserver(() => { clearTimeout(pt); pt = setTimeout(markPlayed, 150); }).observe(main, { childList: true, subtree: true });
+  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && (ch.hist || ch.settings)) loadPlayed(); });
+  loadPlayed();
+}
+
 if (P === 'later') { viewPage(); // 視聴: 再生リスト
 } else if (P === 'rec') { recPage(); // 検索
 } else if (P === 'bm') { bmPage(); // ブックマーク
+} else if (P === 'hist') { histPage(); // 視聴履歴(histpage.js)
 } else if (!KIND[P]) { // まだ中身のないページ
   main.innerHTML = `<h1>${esc(TITLE)}</h1><p class="empty">このページは、まだ中身がありません。</p>`;
 } else {
@@ -111,12 +133,6 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
       data = r; draw(); status();
     });
   }
-  // 列の個数: 上のバーの「▦ 列数」の設定に合わせる(動画・ライブ配信は「動画の列数」、ショートは「ショート棚の列数」。標準のときは、画面の幅に合わせて自動)
-  const applyCols = () => chrome.storage.local.get('settings').then(r => {
-    const g = (r.settings || {}).thumb || {}, n = kind === 's' ? (g.scols ? (g.sN || 6) : 0) : (g.cols ? (g.colsN || 5) : 0);
-    if (n) document.documentElement.style.setProperty('--pg-cols', `repeat(${n}, minmax(0, 1fr))`); else document.documentElement.style.removeProperty('--pg-cols');
-  }).catch(() => {});
-  applyCols(); chrome.storage.onChanged.addListener(ch => { if (ch.settings) applyCols(); });
   draw();
   // 前回の結果があれば、すぐに表示する(古くても先に見せて、裏で最新に更新する)
   try { chrome.storage.local.get('feedCache_' + kind).then(r => { const fc = r['feedCache_' + kind]; if (fc && fc.items && !data) { data = fc; draw(); const st = $('#st'); if (st && !st.textContent) st.textContent = '前回の結果を表示中(更新しています)'; } }); } catch (e) { /* 無視 */ }
@@ -246,7 +262,19 @@ function viewPage() {
   const fillAvatars = root => { [...root.querySelectorAll('span.av[data-chid]')].forEach(e => { const id = e.dataset.chid; if (avMap.has(id)) { const im = document.createElement('img'); im.className = 'av'; im.loading = 'lazy'; im.src = avMap.get(id); e.replaceWith(im); } else avQ.add(id); }); pumpAv(); };
   // サムネの左下の「×」: この再生リストから削除(自分の再生リストだけ。高く評価した動画は除く)
   const delBtn = (x, listId) => (listId && listId !== 'LL' && ownIds.has(listId)) ? `<button type="button" class="vdel" data-vid="${esc(x.id)}" data-set="${esc(x.setId || '')}" data-list="${esc(listId)}" title="この再生リストから削除">×</button>` : '';
-  const vcard = (x, listId) => `<a class="card" data-ch="${esc(x.ch)}" href="https://www.youtube.com/watch?v=${esc(x.id)}${listId && !['WL', 'LL'].includes(listId) ? '&list=' + esc(listId) : ''}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${esc(x.thumb || 'https://i.ytimg.com/vi/' + x.id + '/mqdefault.jpg')}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}${delBtn(x, listId)}</div><div class="inf">${avatarHtml(x)}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.ch)}</small></div>${vtb(x, listId)}</div></a>`;
+  // ---- 登録日(再生リストに入れた日): YouTube は教えてくれないので、この拡張機能が「初めてそのリストで見つけた日」を覚える(plSeen。Drive同期の対象)。
+  //   初めて開いたリストに元からあった動画は、日が分からないので出さない(0)。それ以後に増えた動画と、TubeFolio2 のボタンで追加した動画に、日が付く
+  let plSeen = {}; const ymdNum = d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  const noteSeen = (listId, items) => {
+    if (!listId || !items) return; const cur = plSeen[listId], today = ymdNum(new Date()), next = {}; let ch = !cur;
+    items.forEach(x => { if (cur && x.id in cur) next[x.id] = cur[x.id]; else { next[x.id] = cur ? today : 0; ch = true; } });
+    if (cur && Object.keys(cur).length !== Object.keys(next).length) ch = true; // リストから消えた動画の分は捨てる
+    if (!ch) return; plSeen = { ...plSeen, [listId]: next };
+    chrome.storage.local.get('plSeen').then(r => chrome.storage.local.set({ plSeen: { ...(r.plSeen || {}), [listId]: next } })).catch(() => {});
+  };
+  const fmtNum = n => `${Math.floor(n / 10000)}/${Math.floor(n / 100) % 100}/${n % 100}`;
+  const dateLine = (x, listId) => { const a = (plSeen[listId] || {})[x.id], parts = []; if (a) parts.push('登録 ' + fmtNum(a)); if (x.pub) { const d = new Date(x.pub); parts.push(`投稿 ${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}頃`); } return parts.length ? `<small class="dt">${esc(parts.join(' ・ '))}</small>` : ''; };
+  const vcard = (x, listId) => `<a class="card" data-pct="${Math.round(x.pct || 0)}" data-ch="${esc(x.ch)}" href="https://www.youtube.com/watch?v=${esc(x.id)}${listId && !['WL', 'LL'].includes(listId) ? '&list=' + esc(listId) : ''}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${esc(x.thumb || 'https://i.ytimg.com/vi/' + x.id + '/mqdefault.jpg')}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}${delBtn(x, listId)}</div><div class="inf">${avatarHtml(x)}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.ch)}</small>${dateLine(x, listId)}</div>${vtb(x, listId)}</div></a>`;
   // ---- 再生リストの見出し: 本数・合計時間・残り時間、空き時間にぴったり収まる組み合わせの連続再生、就寝時間まで、連続再生、ランダム再生(元のTubeFolioの「後で見る」と同じ) ----
   const cache = new Map(), sums = new Map(); let freeMin = 45, sleepFrom = '23:00', sleepTo = '06:00', plSort = {}; // plSort: 再生リストごとの並び(add 追加順 / new 新しい順 / old 古い順)。設定 plSort。Drive同期の対象
   // 本数・合計時間・残り時間は、一覧の上(行の見出し / ライブラリ内の見出し)に出す
@@ -306,7 +334,7 @@ function viewPage() {
     if (loaded.has(id)) return; loaded.add(id); into.innerHTML = '<p class="none">読み込み中…</p>';
     fetchPl(id, modeOf(id)).then(r => {
       if (!r || r.error) { into.innerHTML = `<p class="none">取得できませんでした${r && r.error ? `(${esc(r.error)})` : ''}</p>`; loaded.delete(id); return; }
-      into.innerHTML = vids(r.items, id, title, r.ordered); showSum(into, id); fillAvatars(into);
+      noteSeen(id, r.items); into.innerHTML = vids(r.items, id, title, r.ordered); showSum(into, id); fillAvatars(into);
     });
   };
   // 「後で見る」ボタン(サムネの🕒)で動画を追加したら、開いている再生リストの一覧・本数・合計時間を、取り直す。
@@ -334,8 +362,10 @@ function viewPage() {
     });
     container.addEventListener('dragend', () => { if (!drag) return; drag.classList.remove('dragging'); drag = null; onSave([...container.children].filter(c => c.matches(itemSel)).map(c => c.dataset.id)); });
   }
-  Promise.all([new Promise(res => chrome.runtime.sendMessage({ type: 'plLists' }, res)), chrome.storage.local.get('settings')]).then(([r, st]) => {
-    const box = $('#pls'), ord = (st.settings || {}).plOrder || {}, plOpen = (st.settings || {}).plOpen || {}; // plOpen: 再生リストごとの「最初から開く(true)/閉じる(false)」。未設定の既定は、「TubeFolio2 後で見る」だけ開く freeMin = (st.settings || {}).freeMin || 30; sleepFrom = (st.settings || {}).sleepFrom || '23:00'; sleepTo = (st.settings || {}).sleepTo || '06:00'; plSort = (st.settings || {}).plSort || {};
+  Promise.all([new Promise(res => chrome.runtime.sendMessage({ type: 'plLists' }, res)), chrome.storage.local.get(['settings', 'plSeen'])]).then(([r, st]) => {
+    plSeen = st.plSeen || {};
+    const box = $('#pls'), ord = (st.settings || {}).plOrder || {}, plOpen = (st.settings || {}).plOpen || {}; // plOpen: 再生リストごとの「最初から開く(true)/閉じる(false)」。未設定の既定は、「TubeFolio2 後で見る」だけ開く
+    freeMin = (st.settings || {}).freeMin || 30; sleepFrom = (st.settings || {}).sleepFrom || '23:00'; sleepTo = (st.settings || {}).sleepTo || '06:00'; plSort = (st.settings || {}).plSort || {};
     if (!r || r.error) { box.innerHTML = `<p class="empty">再生リストを取得できませんでした${r && r.error ? `(${esc(r.error)})` : ''}。YouTubeにログインしているか、確認してください。</p>`; return; }
     const byOrd = (arr, key) => { const o = ord[key] || []; return arr.map((x, i) => [x, i]).sort((a, b) => { const ia = o.indexOf(a[0].id), ib = o.indexOf(b[0].id); return (ia < 0 ? 1e6 + a[1] : ia) - (ib < 0 ? 1e6 + b[1] : ib); }).map(x => x[0]); };
     const all = r.lists || [];
@@ -348,15 +378,15 @@ function viewPage() {
     const card = x => `<div class="plc" draggable="true" data-id="${esc(x.id)}">${x.thumb ? `<img class="plt" loading="lazy" draggable="false" src="${esc(x.thumb)}">` : '<span class="plt ph">📚</span>'}<b>${esc(x.title || '(無題)')}</b><small>${esc([x.owner, x.count].filter(Boolean).join(' ・ '))}</small></div>`;
     const defOpen = (id, title) => plOpen[id] !== undefined ? !!plOpen[id] : (id !== 'library' && /TubeFolio2\s*後で見る/.test(title || ''));
     const pin = (id, title) => `<button class="pin ${defOpen(id, title) ? 'on' : ''}" data-pin="${esc(id)}" title="このページを開いたとき、最初から開くか閉じるかを切り替えます">${defOpen(id, title) ? '▣ 最初から開く' : '□ 最初は閉じる'}</button>`;
-    const libRow = `<section class="pl lib ${defOpen('library') ? 'open' : ''}" draggable="true" data-id="library"><div class="plh"><span class="fd">▾</span><b>ライブラリ</b><small>保存した再生リスト ${saved.length}件</small>${pin('library')}</div><div class="plb" ${defOpen('library') ? '' : 'hidden'}>${saved.length ? `<div class="libgrid">${saved.map(card).join('')}</div><div class="libvid" hidden></div>` : '<p class="none">ライブラリに保存した再生リストは、ありません。</p>'}</div></section>`
-    const rowOf = x => `<section class="pl" draggable="true" data-id="${esc(x.id)}"><div class="plh"><span class="fd">▾</span><b>${esc(x.title || '(無題)')}</b>${sumCache[x.id] ? `<small class="sm">${esc(sumCache[x.id])}</small>` : ''}${pin(x.id, x.title)}</div><div class="plb" hidden></div></section>`;
+    const libRow = `<section class="pl lib ${defOpen('library') ? 'open' : ''}" draggable="true" data-id="library"><div class="plh"><span class="fd">▾</span><b>ライブラリ</b><small>保存した再生リスト ${saved.length}件</small>${pin('library')}<span class="mv" title="順番を上・下へ動かす(ドラッグでも動かせます)"><button type="button" data-mv="-1">▲</button><button type="button" data-mv="1">▼</button></span></div><div class="plb" ${defOpen('library') ? '' : 'hidden'}>${saved.length ? `<div class="libgrid">${saved.map(card).join('')}</div><div class="libvid" hidden></div>` : '<p class="none">ライブラリに保存した再生リストは、ありません。</p>'}</div></section>`
+    const rowOf = x => `<section class="pl" draggable="true" data-id="${esc(x.id)}"><div class="plh"><span class="fd">▾</span><b>${esc(x.title || '(無題)')}</b>${sumCache[x.id] ? `<small class="sm">${esc(sumCache[x.id])}</small>` : ''}${pin(x.id, x.title)}<span class="mv" title="順番を上・下へ動かす(ドラッグでも動かせます)"><button type="button" data-mv="-1">▲</button><button type="button" data-mv="1">▼</button></span></div><div class="plb" hidden></div></section>`;
     box.innerHTML = byOrd([{ id: 'library' }, ...mine], 'mine').map(x => x.id === 'library' ? libRow : rowOf(x)).join(''); // ライブラリも、ほかの再生リストと同じように、上下に動かせる
     $('#st').textContent = `再生リスト ${mine.length}件 ・ ライブラリ ${saved.length}件`;
     sortable(box, '.pl', false, saveOrder('mine'));
     const lg = box.querySelector('.libgrid'); if (lg) sortable(lg, '.plc', true, saveOrder('lib'));
     // 閉じている再生リストにも、本数・合計時間を出す(ページを開いたとき、裏で各リストの動画を取得する)
     mine.forEach(x => fetchPl(x.id, modeOf(x.id)).then(r => {
-      if (!r || r.error) return; sums.set(x.id, sumOf(r.items || []));
+      if (!r || r.error) return; noteSeen(x.id, r.items || []); sums.set(x.id, sumOf(r.items || []));
       const h = box.querySelector(`.pl[data-id="${CSS.escape(x.id)}"] > .plh`); if (!h) return;
       putSum(h, x.id, sums.get(x.id));
     }));
@@ -426,6 +456,13 @@ function viewPage() {
         if (card) card.remove();
         const arr = cache.get(listId); if (arr) { const i = arr.findIndex(y => y.id === vid); if (i >= 0) arr.splice(i, 1); sums.set(listId, sumOf(arr)); const sec = document.querySelector(`#pls .pl[data-id="${CSS.escape(listId)}"]`); if (sec) showSum(sec.querySelector(':scope > .plb') || sec, listId); }
       });
+      return;
+    }
+    const mvb = e.target.closest('.mv button[data-mv]'); // ▲▼: 再生リストの順番を1つ動かす(スマホなど、ドラッグできないとき用)。順番は設定 plOrder に保存(Drive同期の対象)
+    if (mvb) {
+      e.preventDefault(); e.stopPropagation();
+      const sec = mvb.closest('.pl'), box = $('#pls'), sib = +mvb.dataset.mv < 0 ? sec.previousElementSibling : sec.nextElementSibling;
+      if (sec && sib && sib.matches('.pl')) { box.insertBefore(sec, +mvb.dataset.mv < 0 ? sib : sib.nextSibling); saveOrder('mine')([...box.children].filter(c => c.matches('.pl')).map(c => c.dataset.id)); }
       return;
     }
     const sb = e.target.closest('.sortseg button[data-sort]');

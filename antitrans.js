@@ -102,7 +102,8 @@
     if (!shown) return; // まだ描かれていない
     descFor = v;
     const m = await main('meta');
-    if (!m || m.v !== v || v !== curVid() || !on) return;
+    if (!m || m.v !== v) { if (descFor === v) descFor = null; return; } // プレイヤーの情報がまだ(前の動画のまま・読み込み中)のときは、次の回にやり直す(以前は、ここで諦めて、出たり出なかったりしていた)
+    if (v !== curVid() || !on) return;
     const d = String(m.desc || '').trim();
     if (norm(d).length < 8 || shown.includes(norm(d).slice(0, 30))) return; // 同じなら何もしない
     document.querySelectorAll('.tg-origdesc').forEach(e => e.remove());
@@ -129,7 +130,7 @@
 
   setInterval(() => {
     if (!on || document.hidden) return;
-    scanList();
-    scanWatch();
+    try { scanList(); } catch (e) { /* 一覧で失敗しても、再生画面の分は続ける */ }
+    try { scanWatch(); } catch (e) { /* 次の回に */ }
   }, 1000);
 })();

@@ -485,7 +485,7 @@ html[data-tf-view] #tf-hbar:not(.tf-hfix):not(.tf-hfloat) { display: none; }
 
 /* 空のページ: ツールバーの下だけを置き換える。開いているボタンを目立たせる */
 html[data-tf-pgk="new"] #tf-hbar [data-p="new"], html[data-tf-pgk="live"] #tf-hbar [data-p="live"], html[data-tf-pgk="shorts"] #tf-hbar [data-p="shorts"],
-html[data-tf-pgk="rec"] #tf-hbar [data-p="rec"], html[data-tf-pgk="later"] #tf-hbar [data-p="later"], html[data-tf-pgk="bm"] #tf-hbar [data-p="bm"] { background: var(--yt-spec-text-primary, #f1f1f1) !important; color: var(--yt-spec-text-primary-inverse, #0f0f0f) !important; }
+html[data-tf-pgk="rec"] #tf-hbar [data-p="rec"], html[data-tf-pgk="later"] #tf-hbar [data-p="later"], html[data-tf-pgk="bm"] #tf-hbar [data-p="bm"], html[data-tf-pgk="hist"] #tf-hbar [data-p="hist"] { background: var(--yt-spec-text-primary, #f1f1f1) !important; color: var(--yt-spec-text-primary-inverse, #0f0f0f) !important; }
 /* チップの行を閉じているときは、入れ物の余白と高さをツールバーの分だけにして、下の動画との間の空きをなくす */
 html[data-tf-hbar][data-tf-nochips] ytd-browse[page-subtype="home"] #chips-wrapper { height: 34px !important; min-height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; margin: 0 !important; border: 0 !important; }
 html[data-tf-hbar][data-tf-nochips] ytd-browse[page-subtype="home"] ytd-feed-filter-chip-bar-renderer { height: 34px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; }
@@ -551,7 +551,7 @@ html[data-tf-hbot] ytd-page-manager { margin-bottom: var(--tf-hbot-h, 52px); }
 #tf-hbar.tf-hfloat[data-mode="bottom"] button { height: 32px; background: transparent !important; color: #f4efe9; }
 #tf-hbar.tf-hfloat[data-mode="bottom"] button:hover { background: rgba(255,255,255,.16) !important; }
 html[data-tf-pgk="new"] #tf-hbar.tf-hfloat [data-p="new"], html[data-tf-pgk="live"] #tf-hbar.tf-hfloat [data-p="live"], html[data-tf-pgk="shorts"] #tf-hbar.tf-hfloat [data-p="shorts"],
-html[data-tf-pgk="rec"] #tf-hbar.tf-hfloat [data-p="rec"], html[data-tf-pgk="later"] #tf-hbar.tf-hfloat [data-p="later"], html[data-tf-pgk="bm"] #tf-hbar.tf-hfloat [data-p="bm"] { background: rgba(255,255,255,.88) !important; color: #222 !important; }
+html[data-tf-pgk="rec"] #tf-hbar.tf-hfloat [data-p="rec"], html[data-tf-pgk="later"] #tf-hbar.tf-hfloat [data-p="later"], html[data-tf-pgk="bm"] #tf-hbar.tf-hfloat [data-p="bm"], html[data-tf-pgk="hist"] #tf-hbar.tf-hfloat [data-p="hist"] { background: rgba(255,255,255,.88) !important; color: #222 !important; }
 /* たたんだとき: 小さなガラスのつまみ */
 #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min { left: calc(var(--tf-hbot-l, 0px) + (100vw - var(--tf-hbot-l, 0px)) / 2); right: auto; transform: translateX(-50%); width: 64px; height: 22px; padding: 0; bottom: 6px; border-radius: 11px; justify-content: center; overflow: hidden; }
 #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min .tfh-min { height: 22px; width: 64px; margin: 0; border-radius: 11px; line-height: 22px; }
@@ -635,7 +635,7 @@ html:not([dark]) #tf-hbar.tf-hfloat[data-mode="bottom"] { color: #1f1f1f; backgr
 html:not([dark]) #tf-hbar.tf-hfloat[data-mode="bottom"] button { color: #1f1f1f; }
 html:not([dark]) #tf-hbar.tf-hfloat[data-mode="bottom"] button:hover { background: rgba(0,0,0,.08) !important; }
 html:not([dark]) #tf-hbar.tf-hfloat .tfh-grp { border-left-color: rgba(0,0,0,.15); }
-html:not([dark])[data-tf-pgk="new"] #tf-hbar.tf-hfloat [data-p="new"], html:not([dark])[data-tf-pgk="live"] #tf-hbar.tf-hfloat [data-p="live"], html:not([dark])[data-tf-pgk="shorts"] #tf-hbar.tf-hfloat [data-p="shorts"], html:not([dark])[data-tf-pgk="rec"] #tf-hbar.tf-hfloat [data-p="rec"], html:not([dark])[data-tf-pgk="later"] #tf-hbar.tf-hfloat [data-p="later"], html:not([dark])[data-tf-pgk="bm"] #tf-hbar.tf-hfloat [data-p="bm"] { background: #1f1f1f !important; color: #fff !important; }
+html:not([dark])[data-tf-pgk="new"] #tf-hbar.tf-hfloat [data-p="new"], html:not([dark])[data-tf-pgk="live"] #tf-hbar.tf-hfloat [data-p="live"], html:not([dark])[data-tf-pgk="shorts"] #tf-hbar.tf-hfloat [data-p="shorts"], html:not([dark])[data-tf-pgk="rec"] #tf-hbar.tf-hfloat [data-p="rec"], html:not([dark])[data-tf-pgk="later"] #tf-hbar.tf-hfloat [data-p="later"], html:not([dark])[data-tf-pgk="bm"] #tf-hbar.tf-hfloat [data-p="bm"], html:not([dark])[data-tf-pgk="hist"] #tf-hbar.tf-hfloat [data-p="hist"] { background: #1f1f1f !important; color: #fff !important; }
 html:not([dark]) #tf-gsb-fly.tf-barfly { color: #1f1f1f; background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.86)), rgba(255,255,255,.9); border-color: rgba(0,0,0,.14); box-shadow: 0 16px 48px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.9); }
 html:not([dark]) #tf-gsb-fly.tf-barfly button:hover { background: rgba(0,0,0,.08); }
 html:not([dark]) #tf-gsb-fly.tf-barfly button.act { background: rgba(0,0,0,.12); box-shadow: inset 0 0 0 1px rgba(0,0,0,.3); }
@@ -1014,3 +1014,56 @@ html:not([dark]) .tg-ul-box { background: #fff; color: #0f0f0f; }
 #tf-set .tf-fcf.on { background: var(--tf-fg); color: var(--tf-bg); border-color: var(--tf-fg); }
 #tf-set.tf-glass .tf-fcdays label, #tf-set.tf-glass .tf-fcf, #tf-set.tf-glass .tf-rn { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.22); color: #fff; }
 #tf-set.tf-glass .tf-fcdays label.on, #tf-set.tf-glass .tf-fcf.on { background: #fff; color: #222; }
+
+/* 再生済みの動画: サムネを薄く(乗せたら元の濃さ。プレビュー再生の邪魔をしない)。ライト/ダークとも同じ(薄さだけ変える) */
+.tf-played :is(ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail) img { opacity: .4; transition: opacity .15s; }
+.tf-played:hover :is(ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail) img { opacity: 1; }
+
+/* ---------- 登録メニュー(watchadd.js): 再生画面の右下の ⚙ / チャンネルのページの「📁 フォルダ」 / メニュー ---------- */
+:root { --wm-bg: rgba(255,255,255,.96); --wm-fg: #0f0f0f; --wm-sub: #606060; --wm-hv: rgba(0,0,0,.07); --wm-ln: rgba(0,0,0,.14); --wm-on: rgba(6,95,212,.12); --wm-acc: #065fd4; --wm-fab: #ffffff; --wm-in: #fff; }
+html[dark] { --wm-bg: rgba(40,40,44,.96); --wm-fg: #f1f1f1; --wm-sub: #aaa; --wm-hv: rgba(255,255,255,.12); --wm-ln: rgba(255,255,255,.2); --wm-on: rgba(62,166,255,.2); --wm-acc: #3ea6ff; --wm-fab: #282828; --wm-in: #181818; }
+#tf-wadd { position: fixed; right: 24px; bottom: 76px; z-index: 3000; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px 0 12px; border: 1px solid var(--wm-ln); border-radius: 20px; background: var(--wm-fab); color: var(--wm-fg); font: 500 14px/1 Roboto, Arial, "Noto Sans JP", sans-serif; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+#tf-wadd:hover { border-color: var(--wm-acc); color: var(--wm-acc); }
+html:has(#movie_player.ytp-fullscreen) #tf-wadd, html:fullscreen #tf-wadd { display: none; }
+@media (max-width: 640px) { #tf-wadd { right: 10px; bottom: 64px; padding: 0 10px; } #tf-wadd span { display: none; } }
+#tf-chfold { flex: none; align-self: center; height: 36px; margin-left: 8px; padding: 0 16px; border: 0; border-radius: 18px; background: var(--yt-spec-badge-chip-background, var(--wm-hv)); color: var(--yt-spec-text-primary, var(--wm-fg)); font: 500 14px/36px Roboto, Arial, "Noto Sans JP", sans-serif; white-space: nowrap; cursor: pointer; }
+#tf-chfold:hover { background: var(--yt-spec-10-percent-layer, var(--wm-ln)); }
+#tf-chfold.on { box-shadow: inset 0 0 0 1px var(--wm-acc); }
+#tf-wmenu { position: fixed; z-index: 2147483000; width: min(300px, calc(100vw - 16px)); max-height: min(460px, calc(100vh - 16px)); display: flex; flex-direction: column; box-sizing: border-box; padding: 6px; border-radius: 12px; background: var(--wm-bg); color: var(--wm-fg); border: 1px solid var(--wm-ln); box-shadow: 0 8px 28px rgba(0,0,0,.35); font: 400 14px/20px Roboto, Arial, "Noto Sans JP", sans-serif; }
+#tf-wmenu .h { display: flex; align-items: center; gap: 4px; padding: 2px 2px 6px 8px; border-bottom: 1px solid var(--wm-ln); margin-bottom: 4px; }
+#tf-wmenu .h b { flex: 1; font-weight: 700; }
+#tf-wmenu .h button { width: 30px; height: 30px; border: 0; border-radius: 50%; background: none; color: inherit; font-size: 15px; cursor: pointer; }
+#tf-wmenu .h button:hover, #tf-wmenu .it:hover:not(:disabled) { background: var(--wm-hv); }
+#tf-wmenu .h button[data-a="back"] { order: -1; margin-left: -6px; }
+#tf-wmenu .sub { margin: 2px 8px 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tf-wmenu .msg { margin: 4px 8px 6px; color: var(--wm-sub); font-size: 12px; line-height: 17px; }
+#tf-wmenu .l { overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+#tf-wmenu .it { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; box-sizing: border-box; padding: 6px 10px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+#tf-wmenu .it:disabled { opacity: .6; cursor: default; }
+#tf-wmenu .it.on { background: var(--wm-on); }
+#tf-wmenu .it .ck { flex: none; width: 18px; height: 18px; box-sizing: border-box; border: 1.5px solid var(--wm-sub); border-radius: 4px; font: 700 13px/15px sans-serif; text-align: center; font-style: normal; }
+#tf-wmenu .it.on .ck { border-color: var(--wm-acc); background: var(--wm-acc); color: var(--wm-in); }
+#tf-wmenu .it .ic { flex: none; width: 22px; text-align: center; }
+#tf-wmenu .it .ic img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; vertical-align: middle; }
+#tf-wmenu .it .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tf-wmenu .it .go { font-style: normal; color: var(--wm-sub); }
+#tf-wmenu .f { display: flex; gap: 6px; padding: 6px 2px 2px; border-top: 1px solid var(--wm-ln); margin-top: 4px; }
+#tf-wmenu .f input { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--wm-ln); border-radius: 8px; background: var(--wm-in); color: var(--wm-fg); font: inherit; }
+#tf-wmenu .f button { flex: none; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--wm-hv); color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+#tf-wtoast { position: fixed; left: 50%; bottom: 90px; transform: translate(-50%, 20px); z-index: 2147483001; max-width: 90vw; padding: 10px 16px; border-radius: 10px; background: var(--wm-fg); color: var(--wm-in); font: 400 14px/20px Roboto, Arial, "Noto Sans JP", sans-serif; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+#tf-wtoast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- 上のガラスバーの幅と、横スワイプ ----------
+   バーは、ブラウザの幅いっぱいには広げず、中身(ボタン)の幅ぴったりにする(どの画面の幅でも、いつも同じ大きさ)。
+   置く場所は、メイン画面(左メニューの右側)の真ん中。メイン画面より長くなるときは、はみ出した分を、横にスワイプ(スクロール)して見る。
+   そのため、狭い画面でボタンを絵だけに縮めるのは、やめた(名前が読めるままにして、スワイプで送る) */
+#tf-hbar.tf-hfloat[data-mode="bottom"]:not(.tf-min) { left: calc(var(--tf-hbot-l, 0px) + var(--tf-hbot-w, 100vw) / 2); right: auto; transform: translateX(-50%); width: max-content; max-width: calc(var(--tf-hbot-w, 100vw) - 16px);
+  justify-content: flex-start; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+#tf-hbar.tf-hfloat[data-mode="bottom"]::-webkit-scrollbar { display: none; }
+#tf-hbar.tf-hfloat[data-mode="bottom"]:not(.tf-min) > * { flex: none; }
+#tf-hbar.tf-hfloat[data-mode="bottom"].tf-min { left: calc(var(--tf-hbot-l, 0px) + var(--tf-hbot-w, 100vw) / 2); }
+@media (max-width: 640px) {
+  #tf-hbar.tf-hfloat[data-mode="bottom"] button:not(.tfh-min):not(.tfh-pos) { font-size: 13px !important; padding: 0 12px; width: auto; }
+  #tf-hbar.tf-hfloat[data-mode="bottom"] button:not(.tfh-min):not(.tfh-pos)::before { content: none; }
+  #tf-hbar.tf-hfloat[data-mode="bottom"] button.tfh-t { font-size: 16px !important; width: 38px; min-width: 38px; padding: 0; }
+}

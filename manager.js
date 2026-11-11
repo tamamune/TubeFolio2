@@ -105,9 +105,11 @@
   }
 
   // ---- 一覧 ----
+  // 「未分類」で、フォルダに入れた直後のチャンネルは、この画面にいる間は残す(続けて、別のフォルダにも入れられるように)。ほかの画面へ移ったら、消える
+  const justFiled = new Set(); let justView = '';
   function visible() {
     const q = $('#q').value.trim().toLowerCase();
-    let l = chans().filter(c => view === 'all' ? true : view === 'none' ? !filed(c).length : inTree(c, view));
+    let l = chans().filter(c => view === 'all' ? true : view === 'none' ? (!filed(c).length || justFiled.has(c.key)) : inTree(c, view));
     if (q) l = l.filter(c => (nameOf(c) + ' ' + c.key).toLowerCase().includes(q));
     if (actFilter) l = l.filter(c => act[c.key] && bucketOf(act[c.key][actFilter.f]) === actFilter.b);
     return l.sort((a, b) => b.addedAt - a.addedAt);
@@ -138,7 +140,7 @@
   function drawChannel() {
     const key = view.slice(3), c = S.channels[key];
     if (!c) { view = 'all'; return draw(); }
-    $('#grid').hidden = $('#bulk').hidden = $('#empty').hidden = true;
+    $('#grid').hidden = $('#bulk').hidden = $('#empty').hidden = true; $('#howto').hidden = true; closePick();
     document.querySelector('header').hidden = true; // 検索・並び替え等はチャンネル表示では使わない
     const box = $('#chview'); box.hidden = false;
     const paint = vs => {
@@ -156,7 +158,8 @@
 
   function drawGrid() {
     if (view.startsWith('ch:')) return drawChannel();
-    $('#chview').hidden = true; $('#grid').hidden = false; document.querySelector('header').hidden = false;
+    if (justView !== view) { justView = view; justFiled.clear(); }
+    $('#chview').hidden = true; $('#howto').hidden = false; $('#grid').hidden = false; document.querySelector('header').hidden = false;
     const l = visible();
     const g = grp(view);
     $('#ttl').textContent = view === 'all' ? 'すべてのチャンネル' : view === 'none' ? '未分類' : (TF.iconText(g.icon) + ' ' + g.name);
@@ -170,7 +173,7 @@
       <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank" draggable="false">${esc(nameOf(c))}</a>
         <small>${esc(c.key)}</small>
         <div class="acts">${act[c.key] ? TYPES.map(([f, lb]) => `<span style="--c:${BK.find(b => b[0] === bucketOf(act[c.key][f]))[3]}">${lb.slice(0, 2)} ${agoText(act[c.key][f])}</span>`).join('') : ''}</div>
-        <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}</span>`; }).join('')}</div>
+        <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}<button type="button" class="tx" data-rmg="${x.id}" title="「${esc(x.name)}」から外す">×</button></span>`; }).join('')}<button type="button" class="tag plus fbtn" title="入れるフォルダを選ぶ(いくつでも選べます)">📁 フォルダ${filed(c).length ? 'を変える' : 'に入れる'}</button></div>
         ${assistOn() && !filed(c).length ? `<div class="sugg" data-k="${esc(c.key)}">${suggHtml(c)}</div>` : ''}</div></div>`).join('');
     observeAvatars($('#grid')); paintAssist(); observeSugg();
     drawBulk(); drawStats();
@@ -178,16 +181,68 @@
   function drawBulk() {
     $('#bulk').hidden = !sel.size;
     $('#bcnt').textContent = `${sel.size}件選択中`;
-    $('#bgroups').innerHTML = TF.flat(S.groups).map(({ g, depth }) => `<button data-g="${g.id}" style="--c:${g.color}">${depth ? '↳ ' : ''}${TF.iconHtml(g.icon)} ${esc(g.name)} に追加</button>`).join('') +
-      (grp(view) ? `<button data-rm="${view}" style="--c:#ef4444">このフォルダから外す</button>` : '');
+    $('#bgroups').innerHTML = `<button data-pick="1" class="pk">📁 フォルダを選ぶ(まとめて入れる / 外す)</button>` + (grp(view) ? `<button data-rm="${view}" style="--c:#ef4444">このフォルダから外す</button>` : '');
   }
-  const draw = () => { drawNav(); drawGrid(); };
+
+  // ---- フォルダを選ぶ画面(チャンネルの登録) ----
+  //   手順: ① チャンネルの「📁 フォルダ」を押す(まとめて入れるときは、カードを選んでから「📁 フォルダを選ぶ」)
+  //         ② 入れたいフォルダにチェックを付ける(いくつでも。押すたびに、その場で保存)  ③ 閉じる
+  //   1つのチャンネルを、いくつものフォルダに入れるのが、この画面だけで済む(以前は、ドラッグするたびに一覧から消えたり、ボタンの長い列から探したりしていた)。
+  //   チェックの見た目: ✓ = 選んだチャンネルが全部入っている / − = 一部だけ入っている / 空 = 入っていない
+  let pick = null; // { keys: [チャンネルのキー], q: 絞り込み }
+  const closePick = () => { pick = null; const p = $('#fpick'); if (p) p.remove(); };
+  function openPick(keys, anchor) {
+    closePick(); if (!keys.length) return;
+    pick = { keys, q: '' };
+    const p = document.createElement('div'); p.id = 'fpick';
+    p.innerHTML = `<div class="fp-h"><b></b><button type="button" data-fp="x" title="閉じる">✕</button></div>
+      <p class="fp-note">入れたいフォルダを押して、チェックを付けます(いくつでも)。もう一度押すと外れます。</p>
+      <input class="fp-q" type="search" placeholder="フォルダを絞り込み" autocomplete="off">
+      <div class="fp-l"></div>
+      <div class="fp-f"><input class="fp-new" placeholder="新しいフォルダの名前" maxlength="30"><button type="button" data-fp="new">＋ 作って入れる</button></div>
+      <div class="fp-b"><button type="button" class="pri" data-fp="x">閉じる</button></div>`;
+    document.body.appendChild(p);
+    const r = anchor ? anchor.getBoundingClientRect() : null, w = p.offsetWidth, h = Math.min(p.offsetHeight, innerHeight - 16);
+    p.style.left = Math.max(8, Math.min(innerWidth - w - 8, r ? r.left : (innerWidth - w) / 2)) + 'px';
+    p.style.top = Math.max(8, Math.min(innerHeight - h - 8, r ? r.bottom + 6 : (innerHeight - h) / 2)) + 'px';
+    drawPick();
+  }
+  function drawPick() {
+    const p = $('#fpick'); if (!p || !pick) return;
+    pick.keys = pick.keys.filter(k => S.channels[k]); if (!pick.keys.length) return closePick();
+    const cs = pick.keys.map(k => S.channels[k]), q = pick.q.toLowerCase();
+    p.querySelector('.fp-h b').textContent = cs.length === 1 ? `「${nameOf(cs[0])}」を入れるフォルダ` : `${cs.length}件のチャンネルを入れるフォルダ`;
+    const l = p.querySelector('.fp-l'), top = l.scrollTop;
+    l.innerHTML = TF.flat(S.groups).filter(({ g }) => !q || g.name.toLowerCase().includes(q)).map(({ g, depth }) => {
+      const n = cs.filter(c => c.groups.includes(g.id)).length, st = n === cs.length ? 'on' : n ? 'mix' : '';
+      return `<button type="button" class="fp-it ${st}" data-g="${g.id}" style="--c:${g.color};padding-left:${10 + (q ? 0 : depth) * 18}px"><i class="fp-ck">${st === 'on' ? '✓' : st === 'mix' ? '−' : ''}</i><span class="ic">${TF.iconHtml(g.icon)}</span><span class="nm">${esc(g.name)}</span>${st === 'mix' ? `<small>${n}/${cs.length}</small>` : ''}</button>`;
+    }).join('') || '<p class="fp-note">合うフォルダがありません。</p>';
+    l.scrollTop = top;
+  }
+  document.addEventListener('click', e => {
+    const p = $('#fpick'); if (!p || !pick || !p.contains(e.target)) return;
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.fp === 'x') return closePick();
+    if (b.dataset.fp === 'new') {
+      const i = p.querySelector('.fp-new'), name = i.value.trim(); if (!name) return i.focus();
+      const id = TF.uid(), keys = pick.keys.slice(); i.value = '';
+      return void TF.mutate(st => { st.groups.push({ id, name, icon: TF.suggestIcon(name) || '📁', color: TF.PALETTE[st.groups.length % TF.PALETTE.length] }); keys.forEach(k => { const c = st.channels[k]; if (c && !c.groups.includes(id)) c.groups.push(id); }); }).then(() => { keys.forEach(k => justFiled.add(k)); toast(`「${name}」を作って、入れました`); });
+    }
+    const gid = b.dataset.g; if (!gid) return;
+    const keys = pick.keys.slice(), all = keys.every(k => S.channels[k] && S.channels[k].groups.includes(gid));
+    TF.mutate(st => keys.forEach(k => { const c = st.channels[k]; if (!c) return; if (all) c.groups = c.groups.filter(x => x !== gid); else if (!c.groups.includes(gid)) c.groups.push(gid); }))
+      .then(() => { keys.forEach(k => justFiled.add(k)); toast(`${keys.length > 1 ? keys.length + '件を' : ''}「${grp(gid) ? grp(gid).name : ''}」${all ? 'から外しました' : 'に入れました'}`); });
+  });
+  document.addEventListener('input', e => { if (pick && e.target.classList && e.target.classList.contains('fp-q')) { pick.q = e.target.value.trim(); drawPick(); } });
+  document.addEventListener('keydown', e => { if (!pick) return; if (e.key === 'Escape') return closePick(); if (e.key === 'Enter' && !e.isComposing && e.target.classList && e.target.classList.contains('fp-new')) { e.preventDefault(); $('#fpick [data-fp="new"]').click(); } });
+  document.addEventListener('mousedown', e => { const p = $('#fpick'); if (p && !p.contains(e.target) && !e.target.closest('.fbtn, [data-pick]')) closePick(); }, true);
+  const draw = () => { drawNav(); drawGrid(); drawPick(); };
 
   const addTo = (keys, gid, from) => TF.mutate(s => keys.forEach(k => {
     const c = s.channels[k]; if (!c) return;
     if (from && from !== gid) c.groups = c.groups.filter(x => x !== from);
     if (!c.groups.includes(gid)) c.groups.push(gid);
-  })).then(() => toast(`${keys.length}件を「${grp(gid).name}」${from ? 'へ移動' : 'に追加'}しました`));
+  })).then(() => keys.forEach(k => justFiled.add(k))).then(() => toast(`${keys.length}件を「${grp(gid).name}」${from ? 'へ移動' : 'に追加'}しました`));
   const removeFrom = (keys, gid) => TF.mutate(s => keys.forEach(k => { const c = s.channels[k]; if (c) c.groups = c.groups.filter(x => x !== gid); }))
     .then(() => { sel.clear(); toast('フォルダから外しました'); });
 
@@ -256,7 +311,10 @@
   $('#grid').addEventListener('click', e => {
     if (e.target.closest('a')) return;
     const card = e.target.closest('.card'); if (!card) return;
-    const k = card.dataset.k; sel.has(k) ? sel.delete(k) : sel.add(k); drawGrid();
+    const k = card.dataset.k;
+    const fb = e.target.closest('.fbtn'); if (fb) return openPick([k], fb); // 📁 フォルダ: このチャンネルを入れるフォルダを選ぶ
+    const tx = e.target.closest('.tx[data-rmg]'); if (tx) { const gid = tx.dataset.rmg; justFiled.add(k); return void TF.mutate(st => { const c = st.channels[k]; if (c) c.groups = c.groups.filter(x => x !== gid); }).then(() => toast('フォルダから外しました')); } // タグの ×
+    sel.has(k) ? sel.delete(k) : sel.add(k); drawGrid();
   });
   $('#grid').addEventListener('dragstart', e => {
     const card = e.target.closest('.card'); if (!card) return;
@@ -265,6 +323,7 @@
   });
   $('#bgroups').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.pick) return openPick([...sel], b);
     b.dataset.rm ? removeFrom([...sel], b.dataset.rm) : addTo([...sel], b.dataset.g);
   });
   $('#bclr').onclick = () => { sel.clear(); drawGrid(); };
@@ -416,7 +475,7 @@
     $('#statsTgl').onclick = toggleStats;
     const st = t => { const e = $('#gfly-st'); if (e) e.textContent = t; };
     const drv = (type, ask, done) => { if (ask && !confirm(ask)) return; st('通信中…'); chrome.runtime.sendMessage({ type, interactive: true }, r => { const t = r && r.ok ? '☁ ' + done : '⚠ ' + ((r && r.error) || '失敗'); st(t); toast(t); }); };
-    const KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags'];
+    const KEYS = TF.SYNC_KEYS;
     const closeFly = () => { const f = $('#gfly'); if (f) f.remove(); };
     const act = async g => {
       if (g === 'reload') { closeFly(); toast('拡張機能を再読み込みします…'); setTimeout(() => chrome.runtime.reload(), 400); }

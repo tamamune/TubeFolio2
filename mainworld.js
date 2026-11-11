@@ -55,7 +55,10 @@
     },
     // 正確な投稿日時・再生数・タグ（投稿者が設定した検索キーワード）
     meta() {
-      const pr = player()?.getPlayerResponse?.() || {};
+      let pr = player()?.getPlayerResponse?.() || {};
+      // プレイヤーがまだ情報を持っていないとき(読み込み直後・スマホのブラウザなど)は、ページに埋め込まれた情報(今の動画のものに限る)を使う
+      const cur = new URLSearchParams(location.search).get('v'), ini = window.ytInitialPlayerResponse;
+      if ((!pr.videoDetails || !pr.videoDetails.videoId || (pr.videoDetails.videoId === cur && !pr.videoDetails.keywords && ini?.videoDetails?.keywords)) && ini?.videoDetails?.videoId === cur) pr = ini;
       const vd = pr.videoDetails || {}, mf = pr.microformat?.playerMicroformatRenderer || {};
       return { v: vd.videoId || '', kw: vd.keywords || [], desc: vd.shortDescription || '', views: +vd.viewCount || 0, publish: mf.publishDate || mf.uploadDate || '', liveStart: mf.liveBroadcastDetails?.startTimestamp || '', live: !!vd.isLive, category: mf.category || '' };
     },

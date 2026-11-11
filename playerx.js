@@ -876,27 +876,31 @@ const TGPlayerX = (() => {
   }
 
   // ---------- まとめて見回る ----------
+  const tickErrSeen = new Set();
+  const tickErr = (name, e) => { const k = name + ':' + String((e && e.message) || e); if (tickErrSeen.has(k)) return; tickErrSeen.add(k); try { TG.log('再生画面', `「${name}」でエラー(ほかの機能は続けます): ${String((e && e.message) || e)}`, 'warn'); } catch (e2) { /* なし */ } }; // 同じエラーは1回だけ動作ログに残す
   let lastT = Date.now();
   function tick() {
     const now = Date.now(), dt = Math.min(5, (now - lastT) / 1000);
     lastT = now;
     if (!curVid()) { setMini(false); clearSide(); return; }
-    applyRate().catch(() => {});
-    ensureSeek();
-    applyBars();
-    ensureChBtn();
-    ensureTools();
-    applySkip();
-    applyFilter();
-    abMark();
-    autoSub();
-    adFast();
-    applySaver();
-    showMeta();
-    if (!adShowing()) showNth();
-    ensureEcho();
-    checkMini();
-    checkRemind(dt);
+    // 1つの機能が失敗しても(スマホのブラウザなどで、部品の形が違うとき)、後ろの機能(タグ・元の概要欄など)が止まらないように、1つずつ守って呼ぶ
+    const run = (name, fn) => { try { const r = fn(); if (r && r.catch) r.catch(e => tickErr(name, e)); } catch (e) { tickErr(name, e); } };
+    run('再生速度', () => applyRate());
+    run('戻る・進む', ensureSeek);
+    run('バー', applyBars);
+    run('チャンネル設定', ensureChBtn);
+    run('ツール', ensureTools);
+    run('スキップ', applySkip);
+    run('フィルター', applyFilter);
+    run('A-B', abMark);
+    run('字幕', autoSub);
+    run('広告', adFast);
+    run('省データ', () => applySaver());
+    run('タグ', () => showMeta());
+    run('ズレた関連', () => { if (!adShowing()) return showNth(); });
+    run('エコー', ensureEcho);
+    run('ミニ', checkMini);
+    run('休憩', () => checkRemind(dt));
   }
   setInterval(tick, 1000);
   document.addEventListener('yt-navigate-finish', () => { if (!curVid()) clearSide(); rateFor = null; document.querySelector('.tg-px-chpop')?.remove(); setTimeout(tick, 300); });

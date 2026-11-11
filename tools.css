@@ -288,3 +288,7 @@ html.tg-tbm .tg-c-btn.tg-c-inbar, html.tg-tbm .tg-px-tool, html.tg-tbm .tg-px-su
 #tg-tools .tg-origdesc > summary { display: none; }
 #tg-tools .tg-origdesc > div { white-space: pre-wrap; max-height: 260px; overflow: auto; font-size: 12px; line-height: 1.6; }
 .tg-tb-grid .tg-tb-it { height: 70px; box-sizing: border-box; justify-content: center; padding: 6px 4px; }
+
+/* プレイヤーが小さいとき(スマホ): ツールのメニューを、画面に固定して真ん中に(プレイヤーの中だと、はみ出して切れる) */
+.tg-tb-menu.tg-tb-fix { position: fixed; left: 50%; right: auto; top: 50%; bottom: auto; transform: translate(-50%, -50%); max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+@media (pointer: coarse) { .tg-tb-btn { min-width: 40px; } }

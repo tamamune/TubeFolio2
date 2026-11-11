@@ -682,6 +682,10 @@ async function plAdd(videoId, listId0) {
   if (!r.ok) throw new Error('追加 ' + r.status + (r.status === 401 || r.status === 403 ? '(ログインが必要です)' : ''));
   const j = await r.json(); if (j.status && j.status !== 'STATUS_SUCCEEDED') throw new Error(j.status);
   { const { plTargetName } = await chrome.storage.local.get('plTargetName'); bgLog('再生リスト', `追加先: ${listId0 ? listId0 : listId}(${plTargetName || '名前不明'})・動画 ${videoId}`); }
+  { // 登録日(plSeen。Drive同期の対象): TubeFolio2 のボタンで追加した日を覚える。そのリストをまだ一度も開いていないときは、覚えない(開いたときに、元からある動画と区別できなくなるため)
+    const d = new Date(), today = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    chrome.storage.local.get('plSeen').then(r => { const ps = r.plSeen || {}; if (!ps[listId] || ps[listId][videoId]) return; return chrome.storage.local.set({ plSeen: { ...ps, [listId]: { ...ps[listId], [videoId]: today } } }); }).catch(() => {});
+  }
   chrome.storage.local.set({ plAddedAt: Date.now() }).catch(() => {}); // 「視聴」ページが、開いている一覧を取り直す合図(この端末だけ・同期しない)
   return { ok: true };
 }
