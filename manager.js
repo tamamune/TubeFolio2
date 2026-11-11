@@ -628,6 +628,15 @@
     d.addEventListener('close', () => d.remove()); d.showModal();
   }
 
+  // 再生済みの動画(視聴履歴 hist にある動画)は、サムネを薄くして「✓」の印を出す(チャンネルの動画一覧・乗せたときの最新動画)。設定 dimPlayed(既定オン)
+  {
+    let played = new Set(), on = true, t = 0;
+    const mark = () => document.querySelectorAll('a.vcard, #hv a[href*="watch?v="], #hv a[href*="/shorts/"]').forEach(a => { const m = (a.getAttribute('href') || '').match(/[?&]v=([\w-]{11})/) || (a.getAttribute('href') || '').match(/\/shorts\/([\w-]{11})/), p = on && !!m && played.has(m[1]); if (a.classList.contains('played') !== p) a.classList.toggle('played', p); });
+    const load = () => chrome.storage.local.get(['hist', 'settings']).then(r => { played = TF.playedSet(r.hist); on = (r.settings || {}).dimPlayed !== false; mark(); }).catch(() => {});
+    new MutationObserver(() => { clearTimeout(t); t = setTimeout(mark, 150); }).observe(document.body, { childList: true, subtree: true });
+    chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && (ch.hist || ch.settings)) load(); });
+    load();
+  }
   (async function init() {
     S = await TF.get();
     const st = await chrome.storage.local.get(['meta', 'activity']); meta = st.meta || {}; act = st.activity || {};

@@ -119,11 +119,11 @@ const TF = (() => {
   const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags', 'trendHours',
     'fOpen', 'hideMembers', 'setGrp', 'cmtNames', 'hist', 'plSeen'];
 
-  // 視聴履歴(hist)から、「再生済み」の動画IDの集まりを作る。見た時間の合計が、30秒以上 かつ 長さの3割以上(ショートは5秒以上)
+  // 視聴履歴(hist)から、「再生済み」の動画IDの集まりを作る。見た時間の合計が、30秒以上(短い動画は、長さの半分以上。ショートは5秒以上)
   const playedSet = hist => {
     const sum = new Map(), out = new Set(), v = (hist && hist.v) || {};
     ((hist && hist.p) || []).forEach(x => sum.set(x[1], (sum.get(x[1]) || 0) + (x[2] || 0)));
-    sum.forEach((sec, id) => { const m = v[id] || []; if (m[4] ? sec >= 5 : sec >= Math.max(30, (m[3] || 0) * 0.3)) out.add(id); });
+    sum.forEach((sec, id) => { const m = v[id] || []; if (m[4] ? sec >= 5 : (sec >= 30 || (m[3] > 0 && sec >= m[3] * 0.5))) out.add(id); });
     return out;
   };
 

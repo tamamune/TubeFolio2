@@ -518,3 +518,10 @@ dialog#dlg { width: min(760px, 96vw); max-height: 94vh; overflow-y: auto; }
 #fpick .fp-f button, #fpick .fp-b button { height: 34px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--chip); color: var(--fg); font: inherit; cursor: pointer; white-space: nowrap; }
 #fpick .fp-b { display: flex; justify-content: flex-end; margin-top: 8px; }
 #fpick .fp-b button.pri { background: var(--fg); color: var(--bg); border-radius: 17px; padding: 0 18px; }
+
+/* 再生済みの動画: サムネを薄くして「✓ 再生済み」の印(写真の上なので、ライト/ダークとも、濃い地に白い文字) */
+:root { --pl-bg: rgba(0,0,0,.82); --pl-fg: #fff; }
+a.played { position: relative; }
+a.played img { opacity: .32; filter: grayscale(.6); transition: opacity .15s, filter .15s; } a.played:hover img { opacity: 1; filter: none; }
+a.played::before { content: "✓ 再生済み"; position: absolute; top: 6px; left: 6px; z-index: 2; padding: 2px 7px; border-radius: 6px; background: var(--pl-bg); color: var(--pl-fg); font: 700 11px/17px sans-serif; white-space: nowrap; pointer-events: none; }
+a.played b { color: var(--sub); }

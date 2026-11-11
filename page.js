@@ -55,11 +55,11 @@ const applyCols = () => chrome.storage.local.get('settings').then(r => {
 applyCols(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.settings) applyCols(); });
 
 // 再生済みの動画は、サムネを薄くする(設定「再生済みの動画のサムネを薄くする」dimPlayed。既定オン)。
-//   再生済み = この拡張機能の視聴履歴(hist)にある動画、または YouTube 側で9割以上見た動画(再生リストの一覧)
+//   再生済み = この拡張機能の視聴履歴(hist)にある動画、または YouTube 側で1割以上見た動画(再生リストの一覧)。サムネを薄くして、左上に「✓ 再生済み」の印を出す
 {
   let played = new Set(), dimOn = true, pt = 0;
   const idOf = cd => { const h = cd.getAttribute('href') || (cd.querySelector('a[href]') || { getAttribute: () => '' }).getAttribute('href') || '', m = h.match(/[?&]v=([\w-]{11})/) || h.match(/\/shorts\/([\w-]{11})/); return m ? m[1] : ''; };
-  const markPlayed = () => document.querySelectorAll('.card').forEach(cd => { const on = dimOn && (played.has(idOf(cd)) || +cd.dataset.pct >= 90); if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on); });
+  const markPlayed = () => document.querySelectorAll('.card').forEach(cd => { const on = dimOn && (played.has(idOf(cd)) || +cd.dataset.pct >= 10); if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on); });
   const loadPlayed = () => chrome.storage.local.get(['hist', 'settings']).then(r => { played = TF.playedSet(r.hist); dimOn = (r.settings || {}).dimPlayed !== false; markPlayed(); }).catch(() => {});
   new MutationObserver(() => { clearTimeout(pt); pt = setTimeout(markPlayed, 150); }).observe(main, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && (ch.hist || ch.settings)) loadPlayed(); });

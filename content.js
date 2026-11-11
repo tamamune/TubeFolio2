@@ -198,8 +198,22 @@
   }
 
   let playedIds = new Set();
-  const loadPlayed = () => chrome.storage.local.get('hist').then(r => { playedIds = TF.playedSet(r.hist); }).catch(() => {});
+  const loadPlayed = () => chrome.storage.local.get('hist').then(r => { playedIds = TF.playedSet(r.hist); markPlayed(); }).catch(() => {});
   loadPlayed(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.hist) loadPlayed(); });
+  // 再生済みの動画: サムネを薄くして、左上に「✓ 再生済み」の印を出す(設定 dimPlayed。既定オン)。
+  //   再生済み = この拡張機能の視聴履歴(hist)にある動画、または YouTube の赤い進み具合(見た割合)が1割以上の動画。
+  //   どのページでも付ける(ホーム・登録チャンネル・検索・チャンネル・再生画面の関連動画・ショートの棚・急上昇動画のパネル)。印を付けるだけなので軽い
+  function markPlayed() {
+    if (!S || document.hidden) return;
+    const on = S.settings.dimPlayed !== false;
+    document.querySelectorAll(CARD + ', ' + SHORTS_SEL + ', a.tv-i').forEach(card => {
+      if (card.matches('yt-lockup-view-model') && card.closest(OUTER)) return;
+      if (!card.matches(SHORTS_SEL) && card.querySelector(SHORTS_SEL)) return; // ショートの棚は、中のショート1つずつに付ける
+      const id = card.dataset.v || videoId(card), dim = on && !!id && (playedIds.has(id) || watchedPct(card) >= 10);
+      if (card.classList.contains('tf-played') !== dim) card.classList.toggle('tf-played', dim);
+    });
+  }
+  setInterval(markPlayed, 1500);
   function processCards() {
     document.querySelectorAll(CARD).forEach(card => {
       if (card.matches('yt-lockup-view-model') && card.closest(OUTER)) return;
@@ -231,10 +245,6 @@
         if (ag === 'none') hide = gs.length > 0;
         else if (ag !== 'all') { const sub = TF.subtree(S.groups, ag); hide = !gs.some(id => sub.has(id)); }
         if (!hide && S.settings.hideWatched && watchedPct(card) >= 80) hide = true;
-      }
-      { // 再生済みの動画は、サムネを薄くする(設定 dimPlayed。既定オン)。再生済み = YouTube の赤い進み具合が5割以上、または この拡張機能の視聴履歴にある
-        const dim = S.settings.dimPlayed !== false && (watchedPct(card) >= 50 || playedIds.has(videoId(card)));
-        if (card.classList.contains('tf-played') !== dim) card.classList.toggle('tf-played', dim);
       }
       if (S.settings.hideMix && card.querySelector('a[href*="list=RD"]')) hide = true; // ミックスリスト(自動で作られる再生リスト)を隠す
       card.classList.toggle('tf-hide', hide);
@@ -597,7 +607,7 @@
       <div class="tf-tabs">${[['play', '🎬', '再生・動画'], ['org', '📂', '整理・通知'], ['sync', '☁', 'ログ・同期']].map(([k, i, l]) => `<button class="tf-tab" data-t="${k}"><i>${i}</i><span>${l}</span></button>`).join('')}</div>
       <section class="tf-grp" data-tab="org"><div class="tf-ghd">🖥 表示</div>
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-hm" ${S.settings.hideMix ? 'checked' : ''}><span></span>ミックスリストを隠す</label>
-      <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-dim" ${S.settings.dimPlayed !== false ? 'checked' : ''}><span></span>再生済みの動画のサムネを薄くする</label>
+      <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-dim" ${S.settings.dimPlayed !== false ? 'checked' : ''}><span></span>再生済みの動画のサムネを薄くして、「✓ 再生済み」の印を出す</label>
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-hc" ${S.settings.hideCreate === true ? 'checked' : ''}><span></span>「作成」ボタンを隠す</label>
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-pam" ${S.settings.plAddMenu !== false ? 'checked' : ''}><span></span>動画の「⋮」メニューに「再生リストへ追加」を出す(「再生リストに保存」は隠す)</label>
       <label class="tf-sw tf-srow"><input type="checkbox" id="tfs-hbh" ${S.settings.hbarHome === 'closed' ? 'checked' : ''}><span></span>ホームを開いたとき、上のバーを閉じておく</label>
