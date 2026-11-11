@@ -41,7 +41,7 @@ function recPage() {
     const th = x.thumb || `https://i.ytimg.com/vi/${x.id}/${x.kind === 's' ? 'oardefault' : 'mqdefault'}.jpg`;
     const meta = [x.views, x.when].filter(Boolean).join(' ・ ');
     return `<a class="card rc" data-ch="${E(x.ch)}" data-chid="${E(x.chId)}" href="${href(x)}" target="_top" data-v="${E(x.id)}" title="${E(x.title)}"><div class="th"><img loading="lazy" src="${E(th)}" data-vid="${E(x.id)}">${x.live ? '<span class="rlive">● ライブ</span>' : ''}${x.len ? `<span class="tm">${E(x.len)}</span>` : ''}<button class="rlater" title="再生リスト「TubeFolio2 後で見る」に追加">🕒</button></div>
-      <div class="inf">${x.avatar ? `<img class="av" loading="lazy" src="${E(x.avatar)}">` : '<span class="av"></span>'}<div class="tx"><b>${E(x.title)}</b><small>${E(x.ch)}${isReg(x) ? ' <i class="rreg">登録</i>' : ''}</small>${meta ? `<small>${E(meta)}</small>` : ''}</div><button class="vdots rdots" title="メニュー">⋮</button></div></a>`;
+      <div class="inf">${x.avatar ? `<img class="av" loading="lazy" src="${E(x.avatar)}">` : '<span class="av"></span>'}<div class="tx"><b>${E(x.title)}</b><small>${E(x.ch)}</small>${meta ? `<small>${E(meta)}</small>` : ''}</div><button class="vdots rdots" title="メニュー">⋮</button></div></a>`;
   };
   const addCards = items => {
     if (!items.length) return;

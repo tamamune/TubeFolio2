@@ -205,10 +205,10 @@
       <div class="fp-f"><input class="fp-new" placeholder="新しいフォルダの名前" maxlength="30"><button type="button" data-fp="new">＋ 作って入れる</button></div>
       <div class="fp-b"><button type="button" class="pri" data-fp="x">閉じる</button></div>`;
     document.body.appendChild(p);
+    drawPick(); // 先にフォルダの一覧を入れる(入れる前に高さを測ると、一覧のぶん下にはみ出して、下側のボタンが画面の外に出る)
     const r = anchor ? anchor.getBoundingClientRect() : null, w = p.offsetWidth, h = Math.min(p.offsetHeight, innerHeight - 16);
     p.style.left = Math.max(8, Math.min(innerWidth - w - 8, r ? r.left : (innerWidth - w) / 2)) + 'px';
     p.style.top = Math.max(8, Math.min(innerHeight - h - 8, r ? r.bottom + 6 : (innerHeight - h) / 2)) + 'px';
-    drawPick();
   }
   function drawPick() {
     const p = $('#fpick'); if (!p || !pick) return;
