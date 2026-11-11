@@ -1073,3 +1073,12 @@ html:has(#movie_player.ytp-fullscreen) #tf-wadd, html:fullscreen #tf-wadd { disp
   #tf-hbar.tf-hfloat[data-mode="bottom"] button:not(.tfh-min):not(.tfh-pos)::before { content: none; }
   #tf-hbar.tf-hfloat[data-mode="bottom"] button.tfh-t { font-size: 16px !important; width: 38px; min-width: 38px; padding: 0; }
 }
+
+/* 「TubeFolio2 後で見る」に登録済みの動画: サムネの左下に「✓ 後で見る 登録済み」の印(緑)。乗せたときの丸いボタンも、登録済みは「✓」(緑)
+   印は写真の上に出るので、ライト/ダークとも、同じ色(変数で持つ) */
+:root { --tf-il-bg: #1a8f4c; --tf-il-fg: #fff; }
+.tf-inlater :is(ytd-thumbnail, yt-thumbnail-view-model) { position: relative; }
+.tf-inlater :is(ytd-thumbnail, yt-thumbnail-view-model)::before { content: "✓ 後で見る 登録済み"; position: absolute; left: 6px; bottom: 6px; z-index: 3; padding: 2px 7px; border-radius: 6px; background: var(--tf-il-bg); color: var(--tf-il-fg); font: 700 12px/18px Roboto, Arial, "Noto Sans JP", sans-serif; white-space: nowrap; pointer-events: none; }
+.tf-inlater ytd-thumbnail yt-thumbnail-view-model::before { content: none; }
+.tf-inlater:is(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-reel-item-renderer) :is(ytd-thumbnail, yt-thumbnail-view-model)::before, ytd-compact-video-renderer.tf-inlater ytd-thumbnail::before { content: "✓ 登録済み"; }
+#tf-later.done { background: var(--tf-il-bg); border-color: var(--tf-il-fg); color: var(--tf-il-fg); font-weight: 700; }

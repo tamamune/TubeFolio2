@@ -57,13 +57,18 @@ applyCols(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local'
 // 再生済みの動画は、サムネを薄くする(設定「再生済みの動画のサムネを薄くする」dimPlayed。既定オン)。
 //   再生済み = この拡張機能の視聴履歴(hist)にある動画、または YouTube 側で1割以上見た動画(再生リストの一覧)。サムネを薄くして、左上に「✓ 再生済み」の印を出す
 {
-  let played = new Set(), dimOn = true, pt = 0;
+  let played = new Set(), dimOn = true, pt = 0, later = new Set();
+  const loadLater = () => chrome.storage.local.get('plLaterIds').then(r => { const c = r.plLaterIds; later = new Set((c && c.ids) || []); markPlayed(); if (!c || Date.now() - (c.t || 0) > 600e3) chrome.runtime.sendMessage({ type: 'plLaterSync' }, () => void chrome.runtime.lastError); }).catch(() => {});
   const idOf = cd => { const h = cd.getAttribute('href') || (cd.querySelector('a[href]') || { getAttribute: () => '' }).getAttribute('href') || '', m = h.match(/[?&]v=([\w-]{11})/) || h.match(/\/shorts\/([\w-]{11})/); return m ? m[1] : ''; };
-  const markPlayed = () => document.querySelectorAll('.card').forEach(cd => { const on = dimOn && (played.has(idOf(cd)) || +cd.dataset.pct >= 10); if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on); });
+  const markPlayed = () => document.querySelectorAll('.card').forEach(cd => { const on = dimOn && (played.has(idOf(cd)) || +cd.dataset.pct >= 10); if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on); if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on);
+    // 「TubeFolio2 後で見る」に登録済みの動画: 印を出す(視聴ページは、再生リストそのものの一覧なので出さない)。検索ページの 🕒 ボタンは「✓」にする
+    const inl = P !== 'later' && later.has(idOf(cd)); if (cd.classList.contains('inlater') !== inl) cd.classList.toggle('inlater', inl);
+    const lb = cd.querySelector('.rlater'); if (lb && !lb.dataset.busy) { const t = inl ? '✓' : '🕒'; if (lb.textContent !== t) { lb.textContent = t; lb.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加'; } }
+  });
   const loadPlayed = () => chrome.storage.local.get(['hist', 'settings']).then(r => { played = TF.playedSet(r.hist); dimOn = (r.settings || {}).dimPlayed !== false; markPlayed(); }).catch(() => {});
   new MutationObserver(() => { clearTimeout(pt); pt = setTimeout(markPlayed, 150); }).observe(main, { childList: true, subtree: true });
-  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && (ch.hist || ch.settings)) loadPlayed(); });
-  loadPlayed();
+  chrome.storage.onChanged.addListener((ch, a) => { if (a !== 'local') return; if (ch.hist || ch.settings) loadPlayed(); if (ch.plLaterIds) { later = new Set(((ch.plLaterIds.newValue || {}).ids) || []); markPlayed(); } });
+  loadPlayed(); loadLater();
 }
 
 if (P === 'later') { viewPage(); // 視聴: 再生リスト

@@ -197,6 +197,10 @@
     });
   }
 
+  // 「TubeFolio2 後で見る」に入っている動画(背景が持つ控え plLaterIds)。一覧のサムネに「登録済み」の印を出す。10分より古ければ、取り直してもらう
+  let laterIds = new Set(), laterList = '';
+  const loadLater = () => chrome.storage.local.get('plLaterIds').then(r => { const c = r.plLaterIds; laterIds = new Set((c && c.ids) || []); laterList = (c && c.id) || ''; markPlayed(); if (!c || Date.now() - (c.t || 0) > 600e3) { try { chrome.runtime.sendMessage({ type: 'plLaterSync' }, () => void chrome.runtime.lastError); } catch (e) { /* 無視 */ } } }).catch(() => {});
+  setTimeout(loadLater, 1500); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.plLaterIds) { const c = ch.plLaterIds.newValue; laterIds = new Set((c && c.ids) || []); laterList = (c && c.id) || ''; markPlayed(); if (typeof paintLb === 'function') paintLb(); } });
   let playedIds = new Set();
   const loadPlayed = () => chrome.storage.local.get('hist').then(r => { playedIds = TF.playedSet(r.hist); markPlayed(); }).catch(() => {});
   loadPlayed(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.hist) loadPlayed(); });
@@ -211,6 +215,7 @@
       if (!card.matches(SHORTS_SEL) && card.querySelector(SHORTS_SEL)) return; // ショートの棚は、中のショート1つずつに付ける
       const id = card.dataset.v || videoId(card), dim = on && !!id && (playedIds.has(id) || watchedPct(card) >= 10);
       if (card.classList.contains('tf-played') !== dim) card.classList.toggle('tf-played', dim);
+      const inl = !!id && laterIds.has(id); if (card.classList.contains('tf-inlater') !== inl) card.classList.toggle('tf-inlater', inl); // 「TubeFolio2 後で見る」に登録済み
     });
   }
   setInterval(markPlayed, 1500);
@@ -1004,6 +1009,12 @@
     lb.addEventListener('click', e => {
       e.preventDefault(); e.stopPropagation();
       const v = lbCard && videoId(lbCard); if (!v) return toast('動画を特定できませんでした');
+      if (laterIds.has(v)) { // 登録済み: 押すと、再生リストから外す
+        if (!laterList) return toast('再生リストを確認中です。少し待ってから、もう一度押してください');
+        lb.disabled = true; lb.textContent = '…';
+        try { chrome.runtime.sendMessage({ type: 'plRemove', listId: laterList, videoId: v }, r => { void chrome.runtime.lastError; lb.disabled = false; if (r && r.ok) { laterIds.delete(v); toast('「TubeFolio2 後で見る」から外しました'); chrome.storage.local.set({ plAddedAt: Date.now() }).catch(() => {}); } else toast('外せませんでした: ' + ((r && r.error) || '不明なエラー'), 6000); paintLb(); markPlayed(); }); } catch (err) { lb.disabled = false; paintLb(); }
+        return;
+      }
       lb.disabled = true; lb.textContent = '…';
       const fail = msg => { lb.disabled = false; lb.textContent = LBI; toast(msg, 6000); };
       const stale = '拡張機能が更新されました。YouTubeのページを更新(F5)してから、もう一度押してください'; // 再読み込みの直後は、開いているタブが古いままで、何も起きない
@@ -1011,12 +1022,18 @@
       try {
         chrome.runtime.sendMessage({ type: 'plAdd', videoId: v }, r => {
           const le = chrome.runtime.lastError; lb.disabled = false;
-          if (r && r.ok) { lb.textContent = '✓'; lb.classList.add('done'); toast('「TubeFolio2 後で見る」に追加しました'); }
+          if (r && r.ok) { laterIds.add(v); paintLb(); markPlayed(); toast('「TubeFolio2 後で見る」に追加しました'); }
           else { lb.textContent = LBI; toast(le ? '拡張機能に接続できません。YouTubeのページを更新(F5)してください' : '追加できませんでした: ' + ((r && r.error) || '不明なエラー'), 6000); }
         });
       } catch (err) { fail(stale); }
     });
     document.body.appendChild(lb); return lb;
+  }
+  // ボタンの見た目: 登録済みの動画は「✓」(緑)、まだの動画は「🕒」
+  function paintLb() {
+    if (!lb || lb.disabled) return; const v = lbCard && videoId(lbCard), inl = !!v && laterIds.has(v);
+    lb.textContent = inl ? '✓' : LBI; lb.classList.toggle('done', inl);
+    lb.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加';
   }
   // ホバーでカードが拡大・移動するので、表示中は位置を取り直す
   function placeLb() {
@@ -1036,7 +1053,7 @@
     if (!videoId(card)) return hideLb();
     lbCard = card;
     const t = card.querySelector('ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail') || card, r = t.getBoundingClientRect(), b = laterBtn();
-    b.classList.remove('done'); b.textContent = LBI; b.style.display = 'flex'; placeLb();
+    b.style.display = 'flex'; paintLb(); placeLb();
   }, true);
   window.addEventListener('scroll', hideLb, { passive: true });
 

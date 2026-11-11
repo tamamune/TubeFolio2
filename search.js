@@ -195,7 +195,14 @@ function recPage() {
     if (!lb && !dt) return;
     e.preventDefault(); e.stopPropagation();
     const card = e.target.closest('.rc'), vid = card && card.dataset.v; if (!vid) return;
-    if (lb) { lb.textContent = '…'; await add(vid, null); lb.textContent = '✓'; setTimeout(() => { lb.textContent = '🕒'; }, 1500); return; }
+    if (lb) { // 🕒: 「TubeFolio2 後で見る」へ登録。登録済み(✓)のときは、外す。印の付け替えは、page.js が、背景の控え(plLaterIds)の変更を見て行う
+      if (lb.dataset.busy) return; lb.dataset.busy = '1'; const inl = card.classList.contains('inlater'); lb.textContent = '…';
+      try {
+        if (inl) { const c = (await chrome.storage.local.get('plLaterIds')).plLaterIds, r = c && c.id ? await send({ type: 'plRemove', listId: c.id, videoId: vid }) : { error: '再生リストを確認中です' }; r && r.ok ? toast('「TubeFolio2 後で見る」から外しました') : toast('外せませんでした: ' + ((r && r.error) || '不明なエラー'), 6000); }
+        else await add(vid, null);
+      } finally { delete lb.dataset.busy; lb.textContent = card.classList.contains('inlater') ? '✓' : '🕒'; }
+      return;
+    }
     const same = document.getElementById('rmenu') && document.getElementById('rmenu')._b === dt; closeMenu(); if (same) return;
     const r = dt.getBoundingClientRect(), m = document.createElement('div'); m.id = 'rmenu'; m._b = dt;
     m.style.top = Math.max(8, Math.min(r.bottom + 2, innerHeight - 330)) + 'px'; m.style.left = Math.max(8, Math.min(r.left - 200, innerWidth - 260)) + 'px';

@@ -465,7 +465,8 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (m.type === 'plRemove') { plRemove(m).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plMove') { plMove(m).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plLists') { plLists().then(lists => send({ lists })).catch(e => send({ error: String(e.message || e) })); return true; }
-  if (m.type === 'plVideos') { Promise.all((m.ids || []).map(id => plVideos(id, m.order))).then(rs => { const seen = new Set(), items = []; rs.flatMap(r => r.items).forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); items.push(x); } }); send({ items, ordered: rs.every(r => r.ordered) }); }).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'plLaterSync') { plLaterSync().then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'plVideos') { Promise.all((m.ids || []).map(id => plVideos(id, m.order))).then(rs => { (m.ids || []).forEach((id, i) => laterPut(id, rs[i].items.map(x => x.id))); const seen = new Set(), items = []; rs.flatMap(r => r.items).forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); items.push(x); } }); send({ items, ordered: rs.every(r => r.ordered) }); }).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'feedClear') { // 新着一覧の保存結果(feedCache_*)・ショートの投稿日(spub)・メモリのキャッシュを消す。Drive同期の対象外の一時データだけ
     tcache.clear(); chrome.storage.local.remove(['feedCache_v', 'feedCache_s', 'feedCache_l', 'spub']).then(() => send({ ok: true })).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'newCounts') { // 各チャンネルの「N日以内の新着動画」件数(RSS・20分キャッシュ)
@@ -549,6 +550,15 @@ async function plTarget() {
   await chrome.storage.local.set({ plTargetName: t.title });
   return t.id;
 }
+// ---- 「TubeFolio2 後で見る」に入っている動画ID の控え(plLaterIds = { id: リストID, t: 取った時刻, ids: [動画ID] })。
+//   一覧のサムネに「登録済み」の印を出すために使う。再生リストの中身から取り直せるので、Drive同期の対象外(キャッシュ)。
+//   追加・削除・移動のたびに書き換え、リストの中身を取ったとき(視聴ページ・plLaterSync)に、丸ごと入れ替える
+let laterQ = Promise.resolve();
+const laterEdit = fn => (laterQ = laterQ.then(async () => { const r = await chrome.storage.local.get(['plLaterIds', 'plTargetId']), c = r.plLaterIds || { id: r.plTargetId || '', t: 0, ids: [] }; const next = fn(c, r.plTargetId || ''); if (next) await chrome.storage.local.set({ plLaterIds: next }); }).catch(() => {}));
+const laterAdd = (listId, vid) => laterEdit((c, tid) => (listId === (c.id || tid) && !c.ids.includes(vid) ? { ...c, id: listId, ids: [vid, ...c.ids] } : null));
+const laterDel = (listId, vid) => laterEdit((c, tid) => (listId === (c.id || tid) && c.ids.includes(vid) ? { ...c, ids: c.ids.filter(x => x !== vid) } : null));
+const laterPut = (listId, ids) => laterEdit((c, tid) => (listId === tid || listId === c.id ? { id: listId, t: Date.now(), ids } : null));
+async function plLaterSync() { const id = await plTarget(), r = await plVideos(id); await chrome.storage.local.set({ plLaterIds: { id, t: Date.now(), ids: r.items.map(x => x.id) } }); return { ok: true, id, count: r.items.length }; }
 async function plPost(path, body) {
   const c = await ytCtx(), headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
   const r = await fetch(`${ORIGIN}/youtubei/v1/${path}?key=${c.key}&prettyPrint=false`, { method: 'POST', credentials: 'include', headers,
@@ -672,6 +682,7 @@ async function plMove(m) {
   if (m.move && !m.setId) throw new Error('この動画は、元の再生リストから削除できません(ページを更新してください)');
   await plEdit(m.to, [{ action: 'ACTION_ADD_VIDEO', addedVideoId: m.videoId, dedupeOption: 'DEDUPE_OPTION_SKIP' }]);
   if (m.move) await plEdit(m.from, [{ action: 'ACTION_REMOVE_VIDEO', setVideoId: m.setId, removedVideoId: m.videoId }]);
+  laterAdd(m.to, m.videoId); if (m.move) laterDel(m.from, m.videoId);
   return { ok: true };
 }
 async function plAdd(videoId, listId0) {
@@ -682,6 +693,7 @@ async function plAdd(videoId, listId0) {
   if (!r.ok) throw new Error('追加 ' + r.status + (r.status === 401 || r.status === 403 ? '(ログインが必要です)' : ''));
   const j = await r.json(); if (j.status && j.status !== 'STATUS_SUCCEEDED') throw new Error(j.status);
   { const { plTargetName } = await chrome.storage.local.get('plTargetName'); bgLog('再生リスト', `追加先: ${listId0 ? listId0 : listId}(${plTargetName || '名前不明'})・動画 ${videoId}`); }
+  laterAdd(listId, videoId);
   { // 登録日(plSeen。Drive同期の対象): TubeFolio2 のボタンで追加した日を覚える。そのリストをまだ一度も開いていないときは、覚えない(開いたときに、元からある動画と区別できなくなるため)
     const d = new Date(), today = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
     chrome.storage.local.get('plSeen').then(r => { const ps = r.plSeen || {}; if (!ps[listId] || ps[listId][videoId]) return; return chrome.storage.local.set({ plSeen: { ...ps, [listId]: { ...ps[listId], [videoId]: today } } }); }).catch(() => {});
@@ -806,6 +818,7 @@ async function plRemove(m) {
   if (!m.listId || ['LL'].includes(m.listId)) throw new Error('このリストからは削除できません');
   if (!/^[\w-]{11}$/.test(m.videoId || '')) throw new Error('指定が不正です');
   await plEdit(m.listId, [m.setId ? { action: 'ACTION_REMOVE_VIDEO', setVideoId: m.setId, removedVideoId: m.videoId } : { action: 'ACTION_REMOVE_VIDEO_BY_VIDEO_ID', removedVideoId: m.videoId }]);
+  laterDel(m.listId, m.videoId);
   bgLog('再生リスト', `削除: ${m.listId}・動画 ${m.videoId}`);
   return { ok: true };
 }
