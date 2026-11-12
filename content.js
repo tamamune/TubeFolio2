@@ -278,8 +278,8 @@
         const gs = key && S.channels[key] ? S.channels[key].groups.filter(id => groupOf(id)) : [];
         if (ag === 'none') hide = gs.length > 0;
         else if (ag !== 'all') { const sub = TF.subtree(S.groups, ag); hide = !gs.some(id => sub.has(id)); }
-        if (!hide && S.settings.hideWatched && pctOfCard(card, videoId(card)).pct >= TF.PLAYED_PCT) hide = true; // 視聴済み(8割以上見た動画)を隠す
       }
+      if (!hide && (isSubs() || isChPage()) && S.settings.hideWatched && pctOfCard(card, videoId(card)).pct >= TF.PLAYED_PCT) hide = true; // 視聴済み(8割以上見た動画)を隠す。登録チャンネルの一覧と、個々のチャンネルのページで効く
       if (S.settings.hideMix && card.querySelector('a[href*="list=RD"]')) hide = true; // ミックスリスト(自動で作られる再生リスト)を隠す
       card.classList.toggle('tf-hide', hide);
     });
@@ -411,7 +411,7 @@
     }
     if (key === 'disp') { // 表示の切り替え(以前は「視聴済み」と「低評価率」で、ボタンが2つだった)。押すたびに、その場で切り替わる(メニューは開いたまま)
       const row = (a, on, ic, t, note) => `<button data-a="${a}" class="${on ? 'act' : ''}" title="${note}">${ic} ${t} ${on ? '✓' : ''}</button>`;
-      return `<div class="fh">表示の切り替え</div>${row('hw', !!S.settings.hideWatched, '🙈', '視聴済みを隠す', '登録チャンネルの一覧で、8割以上見た動画を隠します')}${row('dis', pxDis, '👎', '低評価率を表示', '一覧のサムネに、低評価の割合を出します')}${row('mem', hideMem, '👑', 'メンバー限定の動画を隠す', 'ホーム・検索・登録チャンネル・チャンネルのページで、メンバー限定の動画を隠します')}`;
+      return `<div class="fh">表示の切り替え</div>${row('hw', !!S.settings.hideWatched, '🙈', '視聴済みを隠す', '登録チャンネルの一覧と、個々のチャンネルのページで、8割以上見た動画を隠します')}${row('dis', pxDis, '👎', '低評価率を表示', '一覧のサムネに、低評価の割合を出します')}${row('mem', hideMem, '👑', 'メンバー限定の動画を隠す', 'ホーム・検索・登録チャンネル・チャンネルのページで、メンバー限定の動画を隠します')}`;
     }
     if (key === 'vtool') return `<div class="fh">再生リスト</div><button data-a="plnew">＋ 再生リストを新しく作る</button><button data-a="pldel">🗑 再生リストを削除</button>`;
     if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button><div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
@@ -1188,7 +1188,7 @@
     document.addEventListener('load', e => { if (e.target && e.target.tagName === 'IMG') schedule(); }, true);
     document.addEventListener('mouseout', e => { if (e.target.closest && e.target.closest(OUTER)) { clearTimeout(window._tfMo); window._tfMo = setTimeout(schedule, 450); } }, true);
     document.addEventListener('transitionend', e => { if (e.target.closest && e.target.closest(OUTER)) schedule(); }, true);
-    setInterval(() => { if (!document.hidden && (isHome() || isSubs())) processCards(); }, 1500);
+    setInterval(() => { if (!document.hidden && (isHome() || isSubs() || isChPage())) processCards(); }, 1500); // チャンネルのページ: あとから読み込まれた動画にも、「視聴済みを隠す」を効かせる
     refresh(); checkImport(); queueSync();
     // リロード時: 動画カードが出て整形が済んだら、early.js が隠していた画面を表示する(最大2.2秒待つ)
     const r = document.documentElement;
