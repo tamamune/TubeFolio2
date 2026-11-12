@@ -173,23 +173,28 @@ const TF = (() => {
       if (i >= 0) c.groups.splice(i, 1); else c.groups.push(gid);
     }),
     addGroup: (name, icon, color) => mutate(s => { s.groups.push({ id: uid(), name, icon: icon || '📁', color: color || PALETTE[s.groups.length % PALETTE.length] }); }),
-    // YouTube の登録チャンネルの一覧(list: [{ key, name, avatar, id }])に、チャンネルを合わせる: 一覧にあるものを足す。
-    //   一覧に無いチャンネル(登録を解除した / 登録せずにフォルダへ入れた)は、消さずに残して、「未登録」の印(unsub: 1)を付ける。もう一度登録したら、印は外れる。
-    //   消すのは、管理画面で、利用者が自分で行う(未登録のカードの「一覧から消す」)。
-    //   同じチャンネルかどうかは、キー(@ハンドル / UC…)と、チャンネルID(meta の id)の両方で見る(ハンドルを変えたチャンネルに、印を付けないように)。
-    //   返す値: removed = 今回、新しく「未登録」になったチャンネルの名前 / unsub = 未登録の合計 / held = 0(以前の「消す数が多いときは止める」の名残)
+    // YouTube の登録チャンネルの一覧(list: [{ key, name, avatar, id }])に、チャンネルを合わせる。決まり:
+    //   ・YouTube で登録している            → 残す(一覧に無ければ足す。「未登録」の印は外す)
+    //   ・登録していないが、フォルダに入っている → 残して、「未登録」の印(unsub: 1)を付ける
+    //   ・登録していなくて、フォルダにも入っていない → 一覧から消す
+    //   「フォルダに入っている」= 今あるフォルダに、1つでも入っている(消したフォルダのIDだけが残っているものは、入っていない扱い)。
+    //   同じチャンネルかどうかは、キー(@ハンドル / UC…)と、チャンネルID(meta の id)の両方で見る(ハンドルを変えたチャンネルを、未登録にしないように)。
+    //   返す値: removed = 今回、新しく「未登録」の印を付けたチャンネルの名前 / deleted = 今回、消したチャンネルの名前 / unsub = 残っている未登録の数 / note = 画面に出す説明
     syncChannels: async list => {
       const meta = (await chrome.storage.local.get('meta')).meta || {}, keys = new Set(list.map(c => c.key)), ids = new Set(list.map(c => c.id).filter(Boolean));
       const idOf = c => (/^UC[\w-]{22}$/.test(c.key) ? c.key : (meta[c.key] && meta[c.key].id) || c.id || '');
-      const removed = []; let unsub = 0;
+      const removed = [], deleted = []; let unsub = 0;
       await mutate(s => {
         list.forEach(c => { const o = s.channels[c.key]; s.channels[c.key] = { groups: [], addedAt: Date.now(), ...o, key: c.key, name: c.name || (o && o.name) || c.key, avatar: c.avatar || (o && o.avatar) || '' }; });
+        const gids = new Set(s.groups.map(g => g.id));
         Object.values(s.channels).forEach(c => {
           if (keys.has(c.key) || ids.has(idOf(c))) { if (c.unsub) delete c.unsub; return; }
+          if (!(c.groups || []).some(id => gids.has(id))) { deleted.push(c.name || c.key); delete s.channels[c.key]; return; }
           unsub++; if (!c.unsub) { c.unsub = 1; removed.push(c.name || c.key); }
         });
       });
-      return { removed, unsub, held: 0 };
+      const note = [deleted.length ? `登録もフォルダも無い ${deleted.length}件を消しました` : '', removed.length ? `フォルダに入っている未登録 ${removed.length}件は「未登録」の印を付けて残しました` : ''].filter(Boolean).join('・');
+      return { removed, deleted, unsub, note, held: 0 };
     },
     // Drive同期と同じ内容(TF.SYNC_KEYS のすべて)を、JSON にする
     exportJson: async () => JSON.stringify({ app: 'TubeFolio2', version: 1, exportedAt: new Date().toISOString(), data: await chrome.storage.local.get(SYNC_KEYS) }, null, 2)

@@ -286,7 +286,7 @@ function collect(data, out) {
   return next;
 }
 let importP = null;
-// prune = true(「取り込みと同期」を押したとき・自動の同期): 取り込みと同時に、YouTube の登録に無いチャンネルに「未登録」の印を付ける(TF.syncChannels。消さない)
+// prune = true(「取り込みと同期」を押したとき・自動の同期): 取り込みと同時に、YouTube の登録に無いチャンネルを整理する(TF.syncChannels: フォルダに入っていれば「未登録」の印を付けて残し、入っていなければ消す)
 function importSubs(prune, force) {
   return importP || (importP = (async () => {
     const html = await (await fetch(`${ORIGIN}/feed/channels`, { credentials: 'include' })).text();
@@ -309,16 +309,16 @@ function importSubs(prune, force) {
       chrome.runtime.sendMessage({ type: 'importProgress', n: out.size }).catch(() => {});
     }
     if (!out.size) throw new Error('no channels (ログインしていないか、YouTube側の形式が変わりました)');
-    const list = [...out.values()]; let sync = { removed: [], held: 0 };
+    const list = [...out.values()]; let sync = { removed: [], deleted: [], note: '', held: 0 };
     await bulkMetaIds(list); // チャンネルID(UC…)を保存しておく(新着一覧が、チャンネルページを開かずにRSSを取れる。登録を解除したチャンネルを見分けるのにも使う)
     if (prune && full) sync = await TF.syncChannels(list); else await TF.upsertChannels(list); // 一覧を最後まで取れたときだけ、印を付ける
-    if (sync.removed.length) { try { bgLog('取り込み', `YouTube の登録に無いチャンネル ${sync.removed.length}件に「未登録」の印を付けました(一覧には残します): ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ } }
+    try { if (sync.deleted.length) bgLog('取り込み', `登録もフォルダも無いチャンネルを ${sync.deleted.length}件 消しました: ${sync.deleted.slice(0, 30).join(' / ')}`); if (sync.removed.length) bgLog('取り込み', `フォルダに入っている未登録のチャンネル ${sync.removed.length}件に「未登録」の印を付けました(残します): ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ }
     if (prune && full) await chrome.storage.local.set({ subsSyncAt: { t: Date.now(), count: out.size, removed: sync.removed.length, held: sync.held } }); // 最後に、YouTube の登録と合わせた時刻(この端末だけの記録)
-    return { count: out.size, removed: sync.removed.length, held: sync.held };
+    return { count: out.size, removed: sync.removed.length, deleted: sync.deleted.length, note: sync.note, held: sync.held };
   })().finally(() => { importP = null; }));
 }
 
-// ---- 登録チャンネルの自動の同期: YouTube の今の登録に、TubeFolio2 の一覧を合わせ続ける(足す + 登録に無いチャンネルに「未登録」の印を付ける。消さない) ----
+// ---- 登録チャンネルの自動の同期: YouTube の今の登録に、TubeFolio2 の一覧を合わせ続ける(足す。登録に無いチャンネルは、フォルダに入っていれば「未登録」の印を付けて残し、入っていなければ消す) ----
 //   きっかけ: ブラウザの起動時 / 6時間ごと(アラーム tf-subs)/ 管理画面を開いたとき / YouTube のページで「登録」「登録解除」を押したとき(content.js)。
 //   gap = 前回の同期から、これより短ければ何もしない(ミリ秒)。失敗は、動作ログに残すだけ
 async function subsAuto(gap, why) {

@@ -171,7 +171,7 @@
     $('#grid').innerHTML = l.map(c => `<div class="card${sel.has(c.key) ? ' sel' : ''}${c.unsub ? ' unsub' : ''}" draggable="true" data-k="${esc(c.key)}">
       <input type="checkbox" class="chk" ${sel.has(c.key) ? 'checked' : ''}>
       ${avHtml(c)}
-      <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank" draggable="false">${esc(nameOf(c))}</a>${c.unsub ? '<span class="unsubtag" title="YouTube で登録していないチャンネルです(登録を解除した、または登録せずにフォルダへ入れた)。一覧とフォルダには残ります。YouTube で登録すると、この印は消えます">🚫 未登録</span>' : ''}
+      <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank" draggable="false">${esc(nameOf(c))}</a>${c.unsub ? '<span class="unsubtag" title="YouTube で登録していないチャンネルです(登録を解除した、または登録せずにフォルダへ入れた)。フォルダに入っている間は、残ります(フォルダから全部外すと、次の同期で一覧から消えます)。YouTube で登録すると、この印は消えます">🚫 未登録</span>' : ''}
         <small>${esc(c.key)}</small>
         <div class="acts">${act[c.key] ? TYPES.map(([f, lb]) => `<span style="--c:${BK.find(b => b[0] === bucketOf(act[c.key][f]))[3]}">${lb.slice(0, 2)} ${agoText(act[c.key][f])}</span>`).join('') : ''}</div>
         <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}<button type="button" class="tx" data-rmg="${x.id}" title="「${esc(x.name)}」から外す">×</button></span>`; }).join('')}<button type="button" class="tag plus fbtn" title="入れるフォルダを選ぶ(いくつでも選べます)">📁 フォルダ${filed(c).length ? 'を変える' : 'に入れる'}</button>${c.unsub ? '<button type="button" class="tag plus delch" title="このチャンネルを、TubeFolio2 の一覧とフォルダから消す">🗑 一覧から消す</button>' : ''}</div>
@@ -443,16 +443,16 @@
   chrome.runtime.onMessage.addListener(m => { if (m && m.type === 'importProgress' && ib.disabled) ib.textContent = `取り込み中… ${m.n}件`; });
   // 取り込みと同時に、YouTube で登録を解除したチャンネルを、一覧から消す(フォルダからも外れる)。消す数が多すぎるときだけ、確かめる
   // 最後に YouTube の登録と合わせた時刻を、ボタンの説明に出す。管理画面を開いたとき、前回から30分以上たっていれば、裏で合わせ直す
-  const paintSubs = v => { ib.title = 'YouTube の今の登録チャンネルを取り込みます。YouTube で登録していないチャンネルは、消さずに残して「🚫 未登録」の印を付けます。\n(起動時・6時間ごと・YouTube で登録 / 登録解除を押したときにも、自動で合わせます)' + (v && v.t ? `\n最後の同期: ${new Date(v.t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}(${v.count}件)` : ''); };
+  const paintSubs = v => { ib.title = 'YouTube の今の登録チャンネルを取り込みます。YouTube で登録していないチャンネルは、フォルダに入っていれば「🚫 未登録」の印を付けて残し、フォルダに入っていなければ一覧から消します。\n(起動時・6時間ごと・YouTube で登録 / 登録解除を押したときにも、自動で合わせます)' + (v && v.t ? `\n最後の同期: ${new Date(v.t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}(${v.count}件)` : ''); };
   chrome.storage.local.get('subsSyncAt').then(r => paintSubs(r.subsSyncAt));
   chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.subsSyncAt) paintSubs(ch.subsSyncAt.newValue); });
-  chrome.runtime.sendMessage({ type: 'subsAuto', gap: 30 * 60e3, why: '管理画面' }, r => { void chrome.runtime.lastError; if (r && r.removed) toast(`YouTube の登録に無い ${r.removed}件に「未登録」の印を付けました`); });
+  chrome.runtime.sendMessage({ type: 'subsAuto', gap: 30 * 60e3, why: '管理画面' }, r => { void chrome.runtime.lastError; if (r && r.note) toast(r.note); });
   const runImport = force => {
     ib.disabled = true; ib.textContent = '取り込み中…';
     chrome.runtime.sendMessage({ type: 'importSubs', force: !!force }, r => {
       ib.disabled = false; ib.textContent = '⟳ 取り込みと同期';
       if (r && !r.error) {
-        toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録に無い ${r.removed}件に「未登録」の印を付けました)` : ''));
+        toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.note ? `(${r.note})` : ''));
       }
       else if (confirm('バックグラウンド取り込みに失敗しました(' + ((r && r.error) || '不明') + ')。YouTubeのタブを開いて取り込みますか?')) window.open('https://www.youtube.com/feed/channels?tf_import=1', '_blank');
     });
