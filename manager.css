@@ -540,3 +540,12 @@ body.nobulk .card .chk { display: none; }
 .card.unsub .av { filter: grayscale(.7); opacity: .75; }
 .tag.plus.delch { padding: 3px 10px; font: inherit; font-size: 12px; color: var(--un-fg); background: var(--un-bg); border: 1px solid var(--un-ln); cursor: pointer; }
 .tag.plus.delch:hover { filter: brightness(1.08); }
+
+/* 左のフォルダ一覧が、スマホ・タブレットで最後まで見えなかったのを直す。
+   100vh は、ブラウザのアドレスバーや下の操作バーの分まで含むので、一覧の下の端が、画面の外に出ていた。
+   実際に見えている高さ(100dvh)に合わせ、一覧の中を最後までスクロールできるようにする(下に余白も足す) */
+@supports (height: 100dvh) { .app { min-height: 100dvh; } .side { height: 100dvh; } }
+.side { box-sizing: border-box; min-height: 0; }
+.side > nav { min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+.side > nav > * { flex: none; }
+@media (max-width: 800px) { .side { height: auto; } } /* 1列の画面: 一覧は全部を出して、ページごとスクロールする(これまでどおり) */
