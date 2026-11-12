@@ -528,3 +528,15 @@ a.played b { color: var(--sub); }
 
 /* 「まとめて入れる」を非表示にしているとき(⚙ チャンネル管理の設定 → 整理): カードのチェックを出さない */
 body.nobulk .card .chk { display: none; }
+
+/* 未登録(YouTube で登録していない)チャンネル: 一覧とフォルダには残し、印で分かるようにする。色は変数で持つ(ダーク / ライト) */
+:root { --un-bg: #fde8e8; --un-fg: #b42318; --un-ln: #f1a9a0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --un-bg: #4a1f1f; --un-fg: #ffb4ab; --un-ln: #8c3a34; } }
+:root[data-theme="dark"] { --un-bg: #4a1f1f; --un-fg: #ffb4ab; --un-ln: #8c3a34; }
+:root[data-theme="light"] { --un-bg: #fde8e8; --un-fg: #b42318; --un-ln: #f1a9a0; }
+.unsubtag, .unsubmk { display: inline-block; margin-left: 6px; padding: 0 7px; border: 1px solid var(--un-ln); border-radius: 999px; background: var(--un-bg); color: var(--un-fg); font-size: 11px; font-weight: 600; line-height: 18px; white-space: nowrap; vertical-align: middle; }
+.unsubmk { flex: none; margin-left: 0; padding: 0 5px; font-size: 10px; line-height: 16px; }
+.card.unsub { border-color: var(--un-ln); box-shadow: inset 3px 0 0 var(--un-fg); }
+.card.unsub .av { filter: grayscale(.7); opacity: .75; }
+.tag.plus.delch { padding: 3px 10px; font: inherit; font-size: 12px; color: var(--un-fg); background: var(--un-bg); border: 1px solid var(--un-ln); cursor: pointer; }
+.tag.plus.delch:hover { filter: brightness(1.08); }

@@ -334,13 +334,13 @@
     document.addEventListener('click', e => {
       const t = e.target && e.target.closest ? e.target.closest('ytd-subscribe-button-renderer, yt-subscribe-button-view-model, ytd-subscription-notification-toggle-button-renderer-next, yt-confirm-dialog-renderer #confirm-button, tp-yt-paper-dialog #confirm-button') : null;
       if (!t) return;
-      clearTimeout(st); st = setTimeout(() => { try { chrome.runtime.sendMessage({ type: 'subsAuto', gap: 0, why: '登録 / 登録解除' }, r => { void chrome.runtime.lastError; if (r && r.removed) toast(`登録を解除した ${r.removed}件を、TubeFolio2 の一覧からも消しました`, 5000); }); } catch (e2) { /* 拡張機能を更新した直後など */ } }, 6000);
+      clearTimeout(st); st = setTimeout(() => { try { chrome.runtime.sendMessage({ type: 'subsAuto', gap: 0, why: '登録 / 登録解除' }, r => { void chrome.runtime.lastError; if (r && r.removed) toast(`登録を解除した ${r.removed}件に、TubeFolio2 の一覧で「未登録」の印を付けました(一覧とフォルダには残ります)`, 5000); }); } catch (e2) { /* 拡張機能を更新した直後など */ } }, 6000);
     }, true);
   }
   function bgImport() {
     toast('取り込み中…(バックグラウンド)', 60000);
     chrome.runtime.sendMessage({ type: 'importSubs' }, r => {
-      if (r && !r.error) toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録を解除した ${r.removed}件を消しました)` : r.held ? `(登録に無い ${r.held}件は、数が多いので消していません。管理画面の「取り込みと同期」で確かめられます)` : ''), 8000);
+      if (r && !r.error) toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録に無い ${r.removed}件に「未登録」の印を付けました)` : ''), 8000);
       else { toast('バックグラウンド取り込みに失敗。ページ経由で再試行します'); setTimeout(() => { location.href = '/feed/channels?tf_import=1'; }, 1500); }
     });
   }
@@ -1012,10 +1012,10 @@
       const img = r.querySelector('img');
       list.push({ key, name, avatar: img && /^https:\/\/(yt3|lh3)\.|ggpht/.test(img.src) ? img.src : '' });
     });
-    const sy = list.length ? await TF.syncChannels(list, false) : { removed: [], held: 0 }; // 取り込みと同時に、登録を解除したチャンネルを消す
+    const sy = list.length ? await TF.syncChannels(list) : { removed: [], held: 0 }; // 取り込みと同時に、登録に無いチャンネルに「未登録」の印を付ける(消さない)
     window.scrollTo(0, 0);
     importing = false;
-    toast(`✓ ${list.length}件のチャンネルを取り込みました` + (sy.removed.length ? `(登録を解除した ${sy.removed.length}件を消しました)` : ''), 6000);
+    toast(`✓ ${list.length}件のチャンネルを取り込みました` + (sy.removed.length ? `(登録に無い ${sy.removed.length}件に「未登録」の印を付けました)` : ''), 6000);
     if (location.search.includes('tf_import')) setTimeout(() => { location.href = '/feed/subscriptions'; }, 1500);
   }
   function checkImport() {

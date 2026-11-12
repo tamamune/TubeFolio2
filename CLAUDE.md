@@ -29,3 +29,11 @@
 - `<select>` の一覧(`option`)、入力欄、ボタンの無効状態、ホバー、選択中の表示も、両方のモードで文字と背景のコントラストを確認する。`select` と `option` には、背景色と文字色を明示する(未指定だと、片方のモードで読めなくなる)。
 - 画像・アイコンは、背景色に関係なく見えるものを使う(白一色・黒一色の絵は避ける)。
 - 変更後は、`deploy-ext.cmd` で反映し、両方のモードで見た目を確認してからコミットする。
+
+## スマホのブラウザ(Vivaldi for Android)で読み込むための決まり
+- `manifest.json` に、静的な declarativeNetRequest のルール(`declarative_net_request.rule_resources`)を書かない。書くと、ブラウザが拡張機能のフォルダに `_metadata` を作り、スマホでは次の読み込みが「Cannot load extension with file or directory name _metadata」で失敗する。ルールは `background.js` の `updateSessionRules` で登録する。
+- 名前が `_` で始まるファイル・フォルダを、拡張機能のフォルダに置かない(フォルダに `_metadata` が残っていたら、消してから読み込む)。
+- スマホでは、拡張機能からの `www.youtube.com` への通信が `m.youtube.com` へ回されるので、`background.js` のセッションルール(id 3)で、パソコンのブラウザとして名乗っている。
+
+## 登録チャンネルの同期(未登録のチャンネル)
+- YouTube の登録に無いチャンネルは、消さない。`channels[キー].unsub = 1` の印を付けて、管理画面で「🚫 未登録」と表示する(`TF.syncChannels`)。消すのは、利用者が管理画面で行う。

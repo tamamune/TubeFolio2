@@ -47,7 +47,7 @@
     const d = (Date.now() - ts) / 864e5;
     return d < 1 ? '今日' : d < 30 ? `${d | 0}日前` : d < 365 ? `${(d / 30) | 0}か月前` : `${(d / 365) | 0}年前`;
   };
-  const inView = () => chans().filter(c => view === 'all' ? true : view === 'none' ? !filed(c).length : inTree(c, view));
+  const inView = () => chans().filter(c => view === 'all' ? true : view === 'unsub' ? !!c.unsub : view === 'none' ? !filed(c).length : inTree(c, view));
   // ---- 投稿の新しさ: ガラスバーのボタンから、ツールと同じガラスのメニューで表示 ----
   function drawStats() {
     const tg = document.getElementById('statsTgl'); if (tg) tg.classList.toggle('on', !!actFilter);
@@ -109,7 +109,7 @@
   const justFiled = new Set(); let justView = '';
   function visible() {
     const q = $('#q').value.trim().toLowerCase();
-    let l = chans().filter(c => view === 'all' ? true : view === 'none' ? (!filed(c).length || justFiled.has(c.key)) : inTree(c, view));
+    let l = chans().filter(c => view === 'all' ? true : view === 'unsub' ? !!c.unsub : view === 'none' ? (!filed(c).length || justFiled.has(c.key)) : inTree(c, view));
     if (q) l = l.filter(c => (nameOf(c) + ' ' + c.key).toLowerCase().includes(q));
     if (actFilter) l = l.filter(c => act[c.key] && bucketOf(act[c.key][actFilter.f]) === actFilter.b);
     return l.sort((a, b) => b.addedAt - a.addedAt);
@@ -126,12 +126,13 @@
       return `<div class="tn${view === g.id ? ' act' : ''}" data-g="${g.id}" draggable="true" style="--c:${g.color};--d:${depth}">
         <span class="cv${kids.length || direct.length ? '' : ' none'}">${isOpen ? '▾' : '▸'}</span><span class="ic">${TF.iconHtml(g.icon)}</span>
         <span class="nm">${esc(g.name)}</span><span class="n">${total}</span><span class="mv" data-mv="up" title="上へ">▲</span><span class="mv" data-mv="dn" title="下へ">▼</span>${g.parent && ids.has(g.parent) ? '<span class="mv" data-mv="out" title="1つ上の階層へ出す(親フォルダと並べる)">⇤</span>' : ''}<span class="sub" title="サブフォルダを作成">＋</span><span class="ed" title="編集">✎</span></div>` +
-        (isOpen ? treeHtml(g.id, depth + 1) + direct.map(c => `<div class="tc" data-k="${esc(c.key)}" data-from="${g.id}" draggable="true" style="--d:${depth + 1}">${avHtml(c, 'av mini')}<span class="nm">${esc(nameOf(c))}</span></div>`).join('') : '');
+        (isOpen ? treeHtml(g.id, depth + 1) + direct.map(c => `<div class="tc${c.unsub ? ' unsub' : ''}" data-k="${esc(c.key)}" data-from="${g.id}" draggable="true" style="--d:${depth + 1}">${avHtml(c, 'av mini')}<span class="nm">${esc(nameOf(c))}</span>${c.unsub ? '<span class="unsubmk" title="YouTube で登録していないチャンネル">未登録</span>' : ''}</div>`).join('') : '');
     }).join('');
   }
   function drawNav() {
     const nv = (id, ic, nm, n, add) => `<div class="tn${view === id ? ' act' : ''}" data-g="${id}" data-fixed="1" style="--d:0"><span class="cv none">▸</span><span class="ic">${ic}</span><span class="nm">${nm}</span>${add ? '<span class="addg" title="フォルダを作成">＋</span>' : ''}<span class="n">${n}</span></div>`;
-    $('#nav').innerHTML = nv('all', '🗂️', 'すべて', chans().length, true) + treeHtml(null, 0) + nv('none', '📥', '未分類', chans().filter(c => !filed(c).length).length); // 未分類は一番下
+    $('#nav').innerHTML = nv('all', '🗂️', 'すべて', chans().length, true) + treeHtml(null, 0) + nv('none', '📥', '未分類', chans().filter(c => !filed(c).length).length) // 未分類は下
+      + (chans().some(c => c.unsub) || view === 'unsub' ? nv('unsub', '🚫', '未登録', chans().filter(c => c.unsub).length) : ''); // 未登録(YouTube で登録していないチャンネル)があるときだけ出す
     observeAvatars($('#nav'));
   }
 
@@ -162,18 +163,18 @@
     $('#chview').hidden = true; $('#howto').hidden = false; $('#grid').hidden = false; document.querySelector('header').hidden = false;
     const l = visible();
     const g = grp(view);
-    $('#ttl').textContent = view === 'all' ? 'すべてのチャンネル' : view === 'none' ? '未分類' : (TF.iconText(g.icon) + ' ' + g.name);
+    $('#ttl').textContent = view === 'all' ? 'すべてのチャンネル' : view === 'unsub' ? '未登録(YouTube で登録していないチャンネル)' : view === 'none' ? '未分類' : (TF.iconText(g.icon) + ' ' + g.name);
     $('#sub').textContent = `${l.length} チャンネル` + (g ? ' ・ サブフォルダ内も含む' : '');
     $('#empty').hidden = l.length > 0;
     if (!l.length) $('#empty').innerHTML = chans().length ? '該当するチャンネルがありません' :
       'まだチャンネルがありません。<br>右上の「取り込みと同期」で登録チャンネルを読み込みましょう。';
-    $('#grid').innerHTML = l.map(c => `<div class="card${sel.has(c.key) ? ' sel' : ''}" draggable="true" data-k="${esc(c.key)}">
+    $('#grid').innerHTML = l.map(c => `<div class="card${sel.has(c.key) ? ' sel' : ''}${c.unsub ? ' unsub' : ''}" draggable="true" data-k="${esc(c.key)}">
       <input type="checkbox" class="chk" ${sel.has(c.key) ? 'checked' : ''}>
       ${avHtml(c)}
-      <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank" draggable="false">${esc(nameOf(c))}</a>
+      <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank" draggable="false">${esc(nameOf(c))}</a>${c.unsub ? '<span class="unsubtag" title="YouTube で登録していないチャンネルです(登録を解除した、または登録せずにフォルダへ入れた)。一覧とフォルダには残ります。YouTube で登録すると、この印は消えます">🚫 未登録</span>' : ''}
         <small>${esc(c.key)}</small>
         <div class="acts">${act[c.key] ? TYPES.map(([f, lb]) => `<span style="--c:${BK.find(b => b[0] === bucketOf(act[c.key][f]))[3]}">${lb.slice(0, 2)} ${agoText(act[c.key][f])}</span>`).join('') : ''}</div>
-        <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}<button type="button" class="tx" data-rmg="${x.id}" title="「${esc(x.name)}」から外す">×</button></span>`; }).join('')}<button type="button" class="tag plus fbtn" title="入れるフォルダを選ぶ(いくつでも選べます)">📁 フォルダ${filed(c).length ? 'を変える' : 'に入れる'}</button></div>
+        <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}<button type="button" class="tx" data-rmg="${x.id}" title="「${esc(x.name)}」から外す">×</button></span>`; }).join('')}<button type="button" class="tag plus fbtn" title="入れるフォルダを選ぶ(いくつでも選べます)">📁 フォルダ${filed(c).length ? 'を変える' : 'に入れる'}</button>${c.unsub ? '<button type="button" class="tag plus delch" title="このチャンネルを、TubeFolio2 の一覧とフォルダから消す">🗑 一覧から消す</button>' : ''}</div>
         ${assistOn() && !filed(c).length ? `<div class="sugg" data-k="${esc(c.key)}">${suggHtml(c)}</div>` : ''}</div></div>`).join('');
     observeAvatars($('#grid')); paintAssist(); observeSugg();
     drawBulk(); drawStats();
@@ -315,6 +316,7 @@
     if (e.target.closest('a')) return;
     const card = e.target.closest('.card'); if (!card) return;
     const k = card.dataset.k;
+    if (e.target.closest('.delch')) { const c = S.channels[k]; if (c && confirm(`「${nameOf(c)}」を、TubeFolio2 の一覧とフォルダから消しますか?\n(YouTube 側は、何も変わりません)`)) TF.mutate(st => { delete st.channels[k]; }).then(() => { sel.delete(k); toast('一覧から消しました'); }); return; } // 未登録のチャンネルだけに出るボタン
     const fb = e.target.closest('.fbtn'); if (fb) return openPick([k], fb); // 📁 フォルダ: このチャンネルを入れるフォルダを選ぶ
     const tx = e.target.closest('.tx[data-rmg]'); if (tx) { const gid = tx.dataset.rmg; justFiled.add(k); return void TF.mutate(st => { const c = st.channels[k]; if (c) c.groups = c.groups.filter(x => x !== gid); }).then(() => toast('フォルダから外しました')); } // タグの ×
     if (!bulkOn()) return; // 「まとめて入れる」を非表示にしているときは、カードを押しても選ばない
@@ -441,17 +443,16 @@
   chrome.runtime.onMessage.addListener(m => { if (m && m.type === 'importProgress' && ib.disabled) ib.textContent = `取り込み中… ${m.n}件`; });
   // 取り込みと同時に、YouTube で登録を解除したチャンネルを、一覧から消す(フォルダからも外れる)。消す数が多すぎるときだけ、確かめる
   // 最後に YouTube の登録と合わせた時刻を、ボタンの説明に出す。管理画面を開いたとき、前回から30分以上たっていれば、裏で合わせ直す
-  const paintSubs = v => { ib.title = 'YouTube の今の登録チャンネルを取り込み、登録を解除したチャンネルを一覧とフォルダから消します。\n(起動時・6時間ごと・YouTube で登録 / 登録解除を押したときにも、自動で合わせます)' + (v && v.t ? `\n最後の同期: ${new Date(v.t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}(${v.count}件)` : ''); };
+  const paintSubs = v => { ib.title = 'YouTube の今の登録チャンネルを取り込みます。YouTube で登録していないチャンネルは、消さずに残して「🚫 未登録」の印を付けます。\n(起動時・6時間ごと・YouTube で登録 / 登録解除を押したときにも、自動で合わせます)' + (v && v.t ? `\n最後の同期: ${new Date(v.t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}(${v.count}件)` : ''); };
   chrome.storage.local.get('subsSyncAt').then(r => paintSubs(r.subsSyncAt));
   chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.subsSyncAt) paintSubs(ch.subsSyncAt.newValue); });
-  chrome.runtime.sendMessage({ type: 'subsAuto', gap: 30 * 60e3, why: '管理画面' }, r => { void chrome.runtime.lastError; if (r && r.removed) toast(`YouTube で登録を解除した ${r.removed}件を、一覧から消しました`); });
+  chrome.runtime.sendMessage({ type: 'subsAuto', gap: 30 * 60e3, why: '管理画面' }, r => { void chrome.runtime.lastError; if (r && r.removed) toast(`YouTube の登録に無い ${r.removed}件に「未登録」の印を付けました`); });
   const runImport = force => {
     ib.disabled = true; ib.textContent = '取り込み中…';
     chrome.runtime.sendMessage({ type: 'importSubs', force: !!force }, r => {
       ib.disabled = false; ib.textContent = '⟳ 取り込みと同期';
       if (r && !r.error) {
-        toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録を解除した ${r.removed}件を消しました)` : ''));
-        if (r.held && confirm(`YouTube の登録チャンネルに無いチャンネルが、${r.held}件あります(一覧の半分より多い数です)。\nこれらを、TubeFolio2 の一覧とフォルダから消しますか?\n\n※ 取り込みがうまくいっていないだけのこともあります。心当たりがなければ「キャンセル」を押してください。`)) runImport(true);
+        toast(`✓ ${r.count}件のチャンネルを取り込みました` + (r.removed ? `(登録に無い ${r.removed}件に「未登録」の印を付けました)` : ''));
       }
       else if (confirm('バックグラウンド取り込みに失敗しました(' + ((r && r.error) || '不明') + ')。YouTubeのタブを開いて取り込みますか?')) window.open('https://www.youtube.com/feed/channels?tf_import=1', '_blank');
     });
@@ -661,14 +662,14 @@
     const st = await chrome.storage.local.get(['meta', 'activity']); meta = st.meta || {}; act = st.activity || {};
     // YouTube内に埋め込み表示のとき: 表示フォルダは YouTube左メニュー側(tfView)で選ぶ
     const embed = location.search.includes('embed=1');
-    const okView = () => { if (view !== 'all' && view !== 'none' && !grp(view) && !(view.startsWith('ch:') && S.channels[view.slice(3)])) view = 'all'; };
+    const okView = () => { if (view !== 'all' && view !== 'none' && view !== 'unsub' && !grp(view) && !(view.startsWith('ch:') && S.channels[view.slice(3)])) view = 'all'; };
     if (embed) { document.body.classList.add('embed'); const tv = (await chrome.storage.local.get('tfView')).tfView; if (tv) view = tv; okView(); }
     draw();
     chrome.storage.onChanged.addListener(async ch => {
       if (embed && ch.tfView) { view = ch.tfView.newValue || 'all'; sel.clear(); S = await TF.get(); okView(); return draw(); }
       if (!(ch.groups || ch.channels || ch.settings)) return; // meta更新では再描画しない
       S = await TF.get();
-      if (view !== 'all' && view !== 'none' && !grp(view)) view = 'all';
+      if (view !== 'all' && view !== 'none' && view !== 'unsub' && !grp(view)) view = 'all';
       draw();
     });
   })();

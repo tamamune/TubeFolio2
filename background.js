@@ -233,9 +233,25 @@ async function authHeaders() {
   return { Authorization: `SAPISIDHASH ${ts}_${hex}`, 'X-Origin': ORIGIN, 'X-Goog-AuthUser': '0' };
 }
 // 拡張からのfetchは Origin が chrome-extension:// になり 403 になるため、YouTubeのOriginに書き換える
+// 埋め込みプレーヤー(/embed/…tgref=1)の Referer の書き換えも、ここで登録する(id 2)。以前は manifest の静的ルール(embed_rules.json)だったが、
+//   静的ルールがあると、ブラウザが拡張機能のフォルダに「_metadata」を作り、スマホの Vivaldi では、次に読み込むときに
+//   「Cannot load extension with file or directory name _metadata」で読み込めなくなるので、やめた。
+// スマホのブラウザ: 拡張機能からの www.youtube.com への通信が m.youtube.com へ回されて失敗する(CORS)ので、パソコンのブラウザとして名乗る(id 3)
+const IS_MOBILE = /Android|Mobile|iPhone|iPad/i.test(navigator.userAgent);
 chrome.declarativeNetRequest.updateSessionRules({
-  removeRuleIds: [1],
+  removeRuleIds: [1, 2, 3],
   addRules: [{
+    id: 2, priority: 1,
+    action: { type: 'modifyHeaders', requestHeaders: [{ header: 'referer', operation: 'set', value: 'https://tubefolio.example/' }] },
+    condition: { urlFilter: '/embed/*tgref=1', requestDomains: ['www.youtube.com', 'www.youtube-nocookie.com'], resourceTypes: ['sub_frame'] }
+  }, ...(IS_MOBILE ? [{
+    id: 3, priority: 1,
+    action: { type: 'modifyHeaders', requestHeaders: [
+      { header: 'User-Agent', operation: 'set', value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36' },
+      { header: 'Sec-CH-UA-Mobile', operation: 'set', value: '?0' }, { header: 'Sec-CH-UA-Platform', operation: 'set', value: '"Windows"' }
+    ] },
+    condition: { urlFilter: '||www.youtube.com/', initiatorDomains: [chrome.runtime.id], resourceTypes: ['xmlhttprequest'] }
+  }] : []), {
     id: 1, priority: 1,
     action: { type: 'modifyHeaders', requestHeaders: [
       { header: 'Origin', operation: 'set', value: ORIGIN },
@@ -270,7 +286,7 @@ function collect(data, out) {
   return next;
 }
 let importP = null;
-// prune = true(「取り込みと同期」を押したとき): 取り込みと同時に、登録を解除したチャンネルを一覧から消す(TF.syncChannels)。force = 消す数が多くても消す
+// prune = true(「取り込みと同期」を押したとき・自動の同期): 取り込みと同時に、YouTube の登録に無いチャンネルに「未登録」の印を付ける(TF.syncChannels。消さない)
 function importSubs(prune, force) {
   return importP || (importP = (async () => {
     const html = await (await fetch(`${ORIGIN}/feed/channels`, { credentials: 'include' })).text();
@@ -295,23 +311,22 @@ function importSubs(prune, force) {
     if (!out.size) throw new Error('no channels (ログインしていないか、YouTube側の形式が変わりました)');
     const list = [...out.values()]; let sync = { removed: [], held: 0 };
     await bulkMetaIds(list); // チャンネルID(UC…)を保存しておく(新着一覧が、チャンネルページを開かずにRSSを取れる。登録を解除したチャンネルを見分けるのにも使う)
-    if (prune && full) sync = await TF.syncChannels(list, !!force); else await TF.upsertChannels(list); // 一覧を最後まで取れたときだけ、消す
-    if (sync.removed.length) { try { bgLog('取り込み', `登録を解除したチャンネルを ${sync.removed.length}件 消しました: ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ } }
+    if (prune && full) sync = await TF.syncChannels(list); else await TF.upsertChannels(list); // 一覧を最後まで取れたときだけ、印を付ける
+    if (sync.removed.length) { try { bgLog('取り込み', `YouTube の登録に無いチャンネル ${sync.removed.length}件に「未登録」の印を付けました(一覧には残します): ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ } }
     if (prune && full) await chrome.storage.local.set({ subsSyncAt: { t: Date.now(), count: out.size, removed: sync.removed.length, held: sync.held } }); // 最後に、YouTube の登録と合わせた時刻(この端末だけの記録)
     return { count: out.size, removed: sync.removed.length, held: sync.held };
   })().finally(() => { importP = null; }));
 }
 
-// ---- 登録チャンネルの自動の同期: YouTube の今の登録に、TubeFolio2 の一覧を合わせ続ける(足す + 登録を解除したチャンネルを消す) ----
+// ---- 登録チャンネルの自動の同期: YouTube の今の登録に、TubeFolio2 の一覧を合わせ続ける(足す + 登録に無いチャンネルに「未登録」の印を付ける。消さない) ----
 //   きっかけ: ブラウザの起動時 / 6時間ごと(アラーム tf-subs)/ 管理画面を開いたとき / YouTube のページで「登録」「登録解除」を押したとき(content.js)。
-//   gap = 前回の同期から、これより短ければ何もしない(ミリ秒)。消す数が多すぎるときは、手動のときと同じく消さない(held)。失敗は、動作ログに残すだけ
+//   gap = 前回の同期から、これより短ければ何もしない(ミリ秒)。失敗は、動作ログに残すだけ
 async function subsAuto(gap, why) {
   const { subsSyncAt, channels } = await chrome.storage.local.get(['subsSyncAt', 'channels']);
   if (!channels || !Object.keys(channels).length) return { skipped: true }; // まだ一度も取り込んでいない: 勝手には始めない
   if (gap && subsSyncAt && Date.now() - (subsSyncAt.t || 0) < gap) return { skipped: true };
   try {
     const r = await importSubs(true, false);
-    if (r.held) bgLog('取り込み', `自動の同期(${why}): 登録に無いチャンネルが ${r.held}件ありますが、数が多いので消していません(管理画面の「取り込みと同期」で確かめられます)`, 'warn');
     return r;
   } catch (e) { try { bgLog('取り込み', `自動の同期(${why})に失敗: ${String(e.message || e)}`, 'warn'); } catch (e2) { /* 無視 */ } return { error: String(e.message || e) }; }
 }
