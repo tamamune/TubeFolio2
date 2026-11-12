@@ -7,7 +7,7 @@ window.addEventListener('message', e => {
   const app = document.querySelector('ytd-app');
   if (!app || !g.id || !g.url) return;
   const endpoint = g.type === 'watch'
-    ? { commandMetadata: { webCommandMetadata: { url: g.url, webPageType: 'WEB_PAGE_TYPE_WATCH', rootVe: 3832 } }, watchEndpoint: { videoId: g.id } }
+    ? { commandMetadata: { webCommandMetadata: { url: g.url, webPageType: 'WEB_PAGE_TYPE_WATCH', rootVe: 3832 } }, watchEndpoint: { videoId: g.id, ...(g.list ? { playlistId: g.list } : {}) } }
     : { commandMetadata: { webCommandMetadata: { url: g.url, webPageType: 'WEB_PAGE_TYPE_CHANNEL', rootVe: 3611, apiUrl: '/youtubei/v1/browse' } }, browseEndpoint: { browseId: g.id, canonicalBaseUrl: g.url } };
   app.dispatchEvent(new CustomEvent('yt-navigate', { bubbles: true, composed: true, detail: { endpoint } }));
 });

@@ -11,8 +11,6 @@ const P = qp.get('p') || '', TITLE = qp.get('t') || 'ページ';
 document.title = TITLE + ' - TubeFolio2';
 const $ = s => document.querySelector(s);
 const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const KIND = { new: 'v', live: 'l', shorts: 's' };
-const DAYS = 4;
 const main = $('main');
 
 // 枠は、サムネの大きさ・位置が変わったとき(日付の折りたたみ・画面幅・画像の読み込み)に、必ず測り直す
@@ -89,73 +87,8 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
 } else if (P === 'rec') { recPage(); // 検索
 } else if (P === 'bm') { bmPage(); // ブックマーク
 } else if (P === 'hist') { histPage(); // 視聴履歴(histpage.js)
-} else if (!KIND[P]) { // まだ中身のないページ
+} else { // まだ中身のないページ
   main.innerHTML = `<h1>${esc(TITLE)}</h1><p class="empty">このページは、まだ中身がありません。</p>`;
-} else {
-  const kind = KIND[P];
-  const sortKey = 'tfPageSort_' + P;
-  let data = null, timer = 0;
-
-  main.innerHTML = `<div class="head"><h1>${esc(TITLE)}</h1><span class="sub">登録チャンネルの新着(直近${DAYS}日)</span><span class="sp"></span><span id="st"></span></div><div id="list"></div>`;
-
-  const ymd = d => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${'日月火水木金土'[d.getDay()]})`;
-  const dkey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-  const hm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  const url = it => it.kind === 's' ? `https://www.youtube.com/shorts/${it.id}` : `https://www.youtube.com/watch?v=${it.id}`;
-
-  // 一覧は、全部を作り直さず、新しく取れた分だけを、新しい順の正しい位置に差し込む(取得中に何度も更新しても重くならない)
-  const els = new Map(); let built = false;
-  const foldKey = 'tfPageFold_' + P; let fold = {}; try { fold = JSON.parse(localStorage.getItem(foldKey) || '{}'); } catch (e) { /* 無視 */ }
-  function build() {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const days = Array.from({ length: DAYS }, (_, i) => new Date(today.getTime() - i * 86400000));
-    $('#list').innerHTML = (kind === 'l' ? '<section class="day livenow" data-k="live" hidden><div class="dh"><span class="fd">▾</span><h2>🔴 ライブ中</h2><span class="cnt"></span></div><div class="grid"></div></section>' : '') + days.map((d, i) =>
-      `<section class="day${fold[dkey(d)] ? ' fold' : ''}" data-k="${dkey(d)}"><div class="dh"><span class="fd">▾</span><h2>${ymd(d)}${i === 0 ? ' ・今日' : i === 1 ? ' ・昨日' : ''}</h2><span class="cnt"></span></div><div class="grid ${kind === 's' ? 'shorts' : ''}"></div><p class="none">この日の新着はありません。</p></section>`).join('');
-    built = true; els.clear();
-  }
-  function draw() {
-    if (!data) { $('#list').innerHTML = '<p class="empty">読み込み中…</p>'; built = false; return; }
-    if (!built) build();
-    const want = new Map(); // 場所:ID → 動画
-    (data.items || []).filter(x => x.kind === kind).forEach(x => { const sec = (kind === 'l' && x.live) ? 'live' : dkey(new Date(x.published)); if ($(`#list section[data-k="${sec}"]`)) want.set(sec + ':' + x.id, { x, sec }); });
-    els.forEach((el, k) => { if (!want.has(k)) { el.remove(); els.delete(k); } }); // 取れなくなったもの(配信が終わった等)は消す
-    const tpl = document.createElement('template');
-    [...want].filter(([k]) => !els.has(k)).sort((a, b) => b[1].x.published.localeCompare(a[1].x.published)).forEach(([k, { x, sec }]) => {
-      tpl.innerHTML = card(x); const el = tpl.content.firstElementChild; el.dataset.pub = x.published;
-      const grid = $(`#list section[data-k="${sec}"] .grid`);
-      const after = [...grid.children].find(c => c.dataset.pub < x.published); // 新しい順: 自分より古い最初の動画の前に入れる
-      grid.insertBefore(el, after || null); els.set(k, el);
-    });
-    document.querySelectorAll('#list section.day').forEach(s => {
-      const n = s.querySelectorAll('.grid > .card').length; s.querySelector('.cnt').textContent = n ? n + '件' : '';
-      const none = s.querySelector('.none'); if (none) none.hidden = n > 0; if (s.dataset.k === 'live') s.hidden = !n;
-    });
-  }
-  function card(x) {
-    const t = new Date(x.published), th = `https://i.ytimg.com/vi/${x.id}/${x.kind === 's' ? 'oardefault' : 'mqdefault'}.jpg`;
-    return `<a class="card" data-ch="${esc(x.ch)}"${x.key ? ` data-chkey="${esc(x.key)}"` : ''} data-reg="1" href="${url(x)}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${th}" data-vid="${x.id}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}</div>
-      <div class="inf">${x.avatar ? `<img class="av" loading="lazy" src="${esc(x.avatar)}">` : '<span class="av"></span>'}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.ch)}</small><small>投稿 ${hm(t)}</small></div></div></a>`;
-  }
-
-
-  function status() {
-    chrome.runtime.sendMessage({ type: 'feedStatus', kind }, r => {
-      const st = $('#st'); if (!st) return;
-      if (r && r.running) { st.textContent = `${r.phase} ${r.done}/${r.total}(取得できた分から表示)`; if (r.items && r.items.length) { data = { items: r.items, t: 0 }; draw(); } timer = setTimeout(status, 600); } else st.textContent = data && data.t ? `更新: ${new Date(data.t).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : '';
-    });
-  }
-  function load(force) {
-    clearTimeout(timer); status();
-    chrome.runtime.sendMessage({ type: 'feedAll', days: DAYS, force: !!force, kind }, r => {
-      clearTimeout(timer);
-      if (!r || r.error) { $('#st').textContent = '取得に失敗しました' + (r && r.error ? `(${r.error})` : ''); return; }
-      data = r; draw(); status();
-    });
-  }
-  draw();
-  // 前回の結果があれば、すぐに表示する(古くても先に見せて、裏で最新に更新する)
-  try { chrome.storage.local.get('feedCache_' + kind).then(r => { const fc = r['feedCache_' + kind]; if (fc && fc.items && !data) { data = fc; draw(); const st = $('#st'); if (st && !st.textContent) st.textContent = '前回の結果を表示中(更新しています)'; } }); } catch (e) { /* 無視 */ }
-  load(false);
 }
 // 一覧のチャンネル名(とチャンネルのアイコン)を押したら、動画ではなく、そのチャンネルのページを開く(カード全体が動画へのリンクなので、先に受け取って止める)。
 //   行き先: カードに付けたチャンネルID / @ハンドル → 登録チャンネル(名前で照らし合わせる) → どれも分からないときは、YouTube でチャンネル名を探す

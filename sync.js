@@ -157,7 +157,7 @@ function syncNow(interactive) {
       const rev = push ? Date.now() : Math.max(lrev, rrev);
       await applySet({ ...set, syncMeta: { rev, k: keys, init: true } });
       if (push) await upload(tok, id, JSON.stringify({ app: 'TubeFolio2', rev, keys, data }));
-      await chrome.storage.local.set({ syncBase: baseOf(data) }); // Drive と同じになった内容を、次の同期のために覚えておく(アップロードに失敗したときは、覚えない)
+      { const nb = baseOf(data); if (!same(nb, base)) await chrome.storage.local.set({ syncBase: nb }); } // 変わったときだけ書く(大きいので、5分ごとに書き直すと重い) // Drive と同じになった内容を、次の同期のために覚えておく(アップロードに失敗したときは、覚えない)
       await setStatus('ok', took && push ? '他のPCの内容を取り込み、この端末の変更をDriveに保存しました' : took ? '他のPCの内容を取り込みました' : push ? 'Driveに保存しました' : '最新です');
       return { ok: true };
     } catch (e) {

@@ -332,9 +332,12 @@ const TGX = (() => {
     go(idx + 1);
   }, true);
 
-  // ---------- 終わる30秒前に「次のおすすめ動画」4本 ----------
-  //   1本目：TubeFolioの連続再生中なら次の動画 ／ YouTubeの再生リストで見ているならリストの次の動画
-  //   2本目以降：TubeFolioの「後で見る」からランダム（無ければYouTubeのおすすめ＝関連動画）
+  // ---------- 終わる30秒前に「次のおすすめ動画」4本(左から 1・2・3・4) ----------
+  //   決まり(選ばなかったときは、1番を自動で再生する。✕で閉じたときは、自動で再生しない = YouTube のふだんの動きのまま):
+  //   ・「TubeFolio2 後で見る」に入っている動画を見ている → 1〜4番とも「TubeFolio2 後で見る」からランダム(どの再生リストから開いたかは問わない)
+  //   ・それ以外の動画で、再生リストがある(URL の再生リスト / 投稿者の再生リスト)→ 1番 = その再生リストの次の動画、2〜4番 = 後で見るからランダム
+  //   ・それ以外の動画で、再生リストが無い → 1番 = YouTube の次の動画(関連動画の先頭)、2〜4番 = 後で見るからランダム
+  //   ・TubeFolio2 の連続再生の途中 → 1番 = 連続再生の次の動画(連続再生が、自分で次へ進む)
   //   出す場面（pickMode）：'auto'＝TubeFolioの「後で見る」に入っている動画を見ているときだけ（初期）
   //       ① 後で見るの動画 → 4本とも後で見るからランダム（連続再生中なら1本目は連続再生の次）
   //       ② 後で見るの動画を YouTube の再生リストで見ている → 1本目は再生リストの次・2〜4本目は後で見るからランダム
@@ -392,7 +395,22 @@ const TGX = (() => {
     laterEver.add(v);
     try { const arr = JSON.parse(sessionStorage.getItem('tgLaterPlay') || '[]'); arr.push(v); sessionStorage.setItem('tgLaterPlay', JSON.stringify(arr.slice(-50))); } catch { /* なし */ }
   }, true);
-  let pickBusy = false, pickClosed = null, pickTry = 0, pickDiagFor = null;
+  let pickBusy = false, pickClosed = null, pickTry = 0, pickDiagFor = null, pickAuto = null;
+  // 動画へ移る: YouTube 自身のページ移動(速い)。1.5秒たっても移っていなければ、ページごと開く
+  function goPick(x) {
+    if (x.qi != null) return go(x.qi);
+    const u = x.url || '/watch?v=' + x.v, list = x.list || (u.match(/[?&]list=([\w-]+)/) || [])[1] || '';
+    try { window.postMessage({ tfGo: { type: 'watch', id: x.v, url: u, list } }, '*'); } catch { /* なし */ }
+    setTimeout(() => { if (curVid() !== x.v) location.assign(u); }, 1500);
+  }
+  // 選ばなかったとき: 終わる直前に、1番へ移る(YouTube が再生リストの次などへ勝手に進む前に)
+  function autoPick(vEl, v) {
+    const a = pickAuto; if (!a || a.done || a.v !== v || a.self || pickClosed === v || !document.getElementById('tg-pick')) return;
+    a.done = true; try { vEl.pause(); } catch { /* なし */ }
+    try { TG.log('次のおすすめ', `選ばれなかったので、1番を再生: ${a.x.t || a.x.v}`); } catch { /* なし */ }
+    document.getElementById('tg-pick')?.remove(); goPick(a.x);
+  }
+  document.addEventListener('ended', e => { const vEl = e.target; if (vEl?.tagName === 'VIDEO' && vEl.closest?.('#movie_player') && !document.querySelector('#movie_player.ad-showing')) autoPick(vEl, curVid()); }, true);
   document.addEventListener('timeupdate', e => {
     const vEl = e.target;
     if (vEl.tagName !== 'VIDEO' || pickMode === 'off') return;
@@ -412,6 +430,7 @@ const TGX = (() => {
     if (pickMode !== 'always') { if (scene === 'later' ? PK.pickLater === false : PK.pickList === false) return; }
     const dur = vEl.duration, left = (dur || 0) - vEl.currentTime;
     if (!dur || !isFinite(dur) || !isFinite(left) || dur < 20) return;
+    if (left <= 0.8 && !vEl.paused) autoPick(vEl, v);
     const pickSec = Math.min(+PK.pickSec || PICK_SEC, dur * 0.3); // 短い動画は終わりの3割
     if (left > pickSec + 5) {
       if (pickFor === v) { pickFor = null; document.getElementById('tg-pick')?.remove(); }
@@ -430,7 +449,7 @@ const TGX = (() => {
     if (box && pickFor && v !== pickFor) { box.remove(); pickFor = null; }
   }
   document.addEventListener('play', e => { if (e.target?.tagName === 'VIDEO' && e.target.closest?.('#movie_player')) closePickIfMoved(curVid()); }, true);
-  window.addEventListener('yt-navigate-start', () => { document.getElementById('tg-pick')?.remove(); pickFor = null; });
+  window.addEventListener('yt-navigate-start', () => { document.getElementById('tg-pick')?.remove(); pickFor = null; pickAuto = null; });
   window.addEventListener('yt-navigate-finish', () => closePickIfMoved(curVid()));
   // YouTubeの再生リスト（右側のリスト）で、今の次の動画
   function nextInYtList() {
@@ -452,7 +471,7 @@ const TGX = (() => {
       const idx = Q.items.findIndex(x => x.v === v);
       const n = Q.items[idx + 1];
       if (n) { out.push({ ...n, qi: idx + 1, first: '次' }); skip.add(n.v); }
-    } else if (listParam() && !(plTargetId && listParam() === plTargetId)) { // 再生リストで見ているとき: 1本目はリストの次(「TubeFolio2 後で見る」そのものを見ているときは、4本とも後で見るからランダム)
+    } else if (scene !== 'later' && listParam() && !(plTargetId && listParam() === plTargetId)) { // 再生リストで見ているとき: 1本目はリストの次(「TubeFolio2 後で見る」そのものを見ているときは、4本とも後で見るからランダム)
       const n = nextInYtList();
       if (n) { out.push(n); skip.add(n.v); }
     } else if (scene === 'list' && !listParam() && crFor === v && crInfo && crInfo.next) { // URLに再生リストの指定がなくても、投稿者の再生リストに入っている動画: 1本目はそのリストの次
@@ -469,7 +488,7 @@ const TGX = (() => {
     const later = laterAll.filter(x => !skip.has(x.v) && !x.short);
     for (const x of later.sort(() => Math.random() - 0.5)) {
       if (out.length >= 4) break;
-      out.push({ v: x.v, t: x.t, ch: x.ch?.name || '', d: x.d || 0, url: '/watch?v=' + x.v + (x.list ? '&list=' + x.list : ''), src: '後で見る' });
+      const lst = x.list || (x.pl && plTargetId ? plTargetId : ''); out.push({ v: x.v, t: x.t, ch: x.ch?.name || '', d: x.d || 0, list: lst, url: '/watch?v=' + x.v + (lst ? '&list=' + lst : ''), src: '後で見る' });
       skip.add(x.v);
     }
     // 足りなければYouTubeのおすすめ（関連動画）
@@ -481,23 +500,27 @@ const TGX = (() => {
     }
     try { TG.log('次のおすすめ', out.length ? `${out.length}本を表示(${out.map(x => x.first ? x.first : x.src || '?').join('・')})` : '候補が0本でした(後で見るの本数 ' + plLater.length + ')'); } catch { /* なし */ }
     if (!out.length || curVid() !== v) return;
+    if (!out[0].first) out[0].first = '1番';
     document.getElementById('tg-pick')?.remove();
     const dur = s => { s = Math.round(s || 0); if (!s) return ''; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s % 60).padStart(2, '0'); };
     const box = document.createElement('div');
     box.id = 'tg-pick';
-    const note = out[0].first ? '選ばなければ「' + out[0].first + '」を自動で再生' : '押すとその動画へ';
+    // 選ばなかったときに再生する動画(1番)。YouTube 自身が同じ動画へ進むとき(URL の再生リストの次)・連続再生の途中は、YouTube / 連続再生に任せる
+    const ytSelf = out[0].qi != null || (out[0].first === 'リストの次' && !!listParam() && /[?&]list=/.test(out[0].url || '') && (out[0].url || '').includes('list=' + listParam()));
+    pickAuto = { v, x: out[0], self: ytSelf, done: false };
+    const note = '選ばなければ、1番(左)を自動で再生';
     box.innerHTML = `<div class="tg-pk-h"><b>次のおすすめ動画</b><span>（${note}）</span><button class="tg-pk-x" title="閉じる">✕</button></div>
       <div class="tg-pk-list">${out.map((x, k) => `<button class="tg-pk-item ${x.first ? 'next' : ''}" data-k="${k}">
         <span class="tg-pk-th"><img src="https://i.ytimg.com/vi/${esc(x.v)}/mqdefault.jpg" alt="">${x.d ? `<i>${dur(x.d)}</i>` : ''}${x.first ? `<em>${esc(x.first)}</em>` : x.src ? `<em class="sub">${esc(x.src)}</em>` : ''}</span>
         <span class="tg-pk-t">${esc(x.t || '')}</span><span class="tg-pk-c">${esc(x.ch || '')}</span></button>`).join('')}</div>`;
     ['click', 'dblclick', 'mousedown', 'mouseup', 'keydown'].forEach(t => box.addEventListener(t, ev => ev.stopPropagation()));
     box.addEventListener('click', ev => {
-      if (ev.target.closest('.tg-pk-x')) { pickClosed = v; box.remove(); return; }
+      if (ev.target.closest('.tg-pk-x')) { pickClosed = v; if (pickAuto && pickAuto.v === v) pickAuto.done = true; box.remove(); return; }
       const b = ev.target.closest('.tg-pk-item');
       if (!b) return;
       const x = out[+b.dataset.k];
-      if (x.qi != null) go(x.qi);
-      else location.assign(x.url || '/watch?v=' + x.v);
+      if (pickAuto && pickAuto.v === v) pickAuto.done = true; // 選んだので、自動では移らない
+      box.remove(); goPick(x);
     });
     player.appendChild(box);
     TG.sfx('next'); // 🔔 クイズ正解の音

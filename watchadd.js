@@ -147,22 +147,70 @@
   window.addEventListener('resize', place);
 
   // ---- 再生画面の右下の ⚙ / チャンネルのページの「📁 フォルダ」 ----
+  // ---- 表示の切り替え(チャンネルのページの「🙈」): 視聴済みを隠す(settings.hideWatched)/ 低評価率を表示(px.disBadge)/ メンバー限定の動画を隠す(hideMembers)。
+  //   上のガラスバーの 👁 と同じ設定(どれも Drive同期の対象)。実際に隠す・出すのは、content.js(視聴済み)・xtra.js(低評価率)・memhide.js(メンバー限定)
+  const disp = { hw: false, dis: true, mem: false };
+  const loadDisp = () => chrome.storage.local.get(['settings', 'px', 'hideMembers']).then(r => { disp.hw = !!(r.settings || {}).hideWatched; disp.dis = !r.px || r.px.disBadge !== false; disp.mem = !!r.hideMembers; if (menu && menu._disp) dispView(); }).catch(() => {});
+  loadDisp(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && (ch.settings || ch.px || ch.hideMembers)) loadDisp(); });
+  function dispView() {
+    if (!menu) return; menu._disp = true; menu._root = false; menu._folder = null;
+    const row = (a, on, ic, t, note) => `<button class="it${on ? ' on' : ''}" data-d="${a}" title="${esc(note)}"><i class="ck">${on ? '✓' : ''}</i><span class="ic">${ic}</span><span class="nm">${t}</span></button>`;
+    setView(head('表示の切り替え', false) + `<div class="l">${row('hw', disp.hw, '🙈', '視聴済みを隠す', '8割以上見た動画を隠します')}${row('dis', disp.dis, '👎', '低評価率を表示', 'サムネに、低評価の割合を出します')}${row('mem', disp.mem, '👑', 'メンバー限定の動画を隠す', 'メンバー限定の動画を隠します')}</div>`);
+  }
+  document.addEventListener('click', e => { // 押すたびに、その場で切り替える(メニューは開いたまま)
+    const b = menu && menu._disp && e.target.closest ? e.target.closest('#tf-wmenu button[data-d]') : null; if (!b) return;
+    e.preventDefault(); e.stopPropagation(); const d = b.dataset.d;
+    if (d === 'hw') chrome.storage.local.get('settings').then(r => { const s = r.settings || {}; s.hideWatched = !s.hideWatched; return chrome.storage.local.set({ settings: s }); });
+    else if (d === 'dis') chrome.storage.local.get('px').then(r => { const px = r.px || {}; px.disBadge = px.disBadge === false; return chrome.storage.local.set({ px }); });
+    else if (d === 'mem') chrome.storage.local.set({ hideMembers: !disp.mem });
+  }, true);
   const GEAR = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.7l-2-3.4a.5.5 0 0 0-.6-.2l-2.5 1a7.300 7.300 0 0 0-1.700-1L14.400 2.400a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9.100 5.100a7.300 7.300 0 0 0-1.700 1l-2.500-1a.5.5 0 0 0-.6.2l-2 3.400a.5.5 0 0 0 .1.700L4.600 11a7.500 7.500 0 0 0 0 2l-2.100 1.600a.5.5 0 0 0-.1.700l2 3.400a.5.5 0 0 0 .6.2l2.500-1a7.300 7.300 0 0 0 1.700 1l.4 2.700a.5.5 0 0 0 .5.4h4a.5.5 0 0 0 .5-.4l.4-2.700a7.300 7.300 0 0 0 1.700-1l2.500 1a.5.5 0 0 0 .6-.2l2-3.400a.5.5 0 0 0-.1-.700L19.400 13zM12 15.500A3.500 3.500 0 1 1 12 8.500a3.500 3.500 0 0 1 0 7z"/></svg>';
-  let fab = null, lastV = null;
+  let fab = null, lastV = null, noSpotSince = 0;
+  // 再生画面の ⚙ の置き場所: 動画の下のボタンの並び(高く評価・共有・保存・…)の「保存」の右。
+  //   「保存」が見つからない(幅が狭くて「…」の中に入った等)ときは、「…」の左。並びそのものが見つからないときは、右下に浮かべる(これまでと同じ)
+  const SAVE_RE = /保存|^save\b|save to playlist/i;
+  function fabSpot() {
+    const acts = document.querySelector('ytd-watch-flexy:not([hidden]) ytd-watch-metadata #actions ytd-menu-renderer, ytd-watch-flexy:not([hidden]) #actions ytd-menu-renderer');
+    if (!acts) return null;
+    const save = [...acts.querySelectorAll('button')].find(b => b !== fab && !b.closest('#tf-wadd') && SAVE_RE.test((b.getAttribute('aria-label') || b.textContent || '').trim()) && b.getBoundingClientRect().width > 0);
+    if (save) { // 「保存」を包んでいる、並びの1つ分(yt-button-view-model など)の後ろ
+      let w = save; while (w.parentElement && w.parentElement !== acts && !/^(top-level-buttons-computed|flexible-item-buttons)$/.test(w.parentElement.id)) w = w.parentElement;
+      return { after: w, like: save };
+    }
+    const more = acts.querySelector(':scope > #button-shape, :scope > yt-button-shape#button-shape, :scope > yt-icon-button#button');
+    return more ? { before: more, like: more.querySelector('button') || more } : null;
+  }
+  function placeFab() {
+    const s = fabSpot();
+    if (s) {
+      noSpotSince = 0; fab.classList.add('tf-inrow');
+      { // 大きさ・すき間を、となりのボタン(保存 / …)に合わせる
+        const r = s.like.getBoundingClientRect(), sz = Math.round(r.height);
+        if (sz >= 24 && sz <= 60 && fab.style.getPropertyValue('--tf-rb') !== sz + 'px') fab.style.setProperty('--tf-rb', sz + 'px');
+        const sib = s.after || s.before, gap = sib ? parseFloat(getComputedStyle(sib).marginLeft) || 8 : 8;
+        if (fab.style.getPropertyValue('--tf-rg') !== gap + 'px') fab.style.setProperty('--tf-rg', gap + 'px');
+      }
+      if (s.after && s.after.nextElementSibling !== fab) s.after.after(fab);
+      else if (s.before && s.before.previousElementSibling !== fab) s.before.before(fab);
+      return;
+    }
+    if (!noSpotSince) noSpotSince = Date.now();
+    if (Date.now() - noSpotSince > 4000 && (fab.parentElement !== document.body || fab.classList.contains('tf-inrow'))) { fab.classList.remove('tf-inrow'); document.body.appendChild(fab); } // 4秒探しても無ければ、右下へ
+  }
   function ensure() {
     // 再生画面: ⚙
-    if (!isWatch()) { if (fab) { if (menu && anchorEl === fab) closeMenu(); fab.remove(); fab = null; } }
+    if (!isWatch()) { if (fab) { if (menu && anchorEl === fab) closeMenu(); fab.remove(); fab = null; } noSpotSince = 0; }
     else {
-      if (!fab || !fab.isConnected) {
-        fab = document.createElement('button'); fab.id = 'tf-wadd'; fab.title = '登録(TubeFolio2 後で見る / 再生リスト / フォルダ)'; fab.innerHTML = GEAR + '<span>登録</span>';
+      if (!fab) {
+        fab = document.createElement('button'); fab.id = 'tf-wadd'; fab.type = 'button'; fab.title = '登録(TubeFolio2 後で見る / 再生リスト / フォルダ)'; fab.setAttribute('aria-label', '登録(TubeFolio2)'); fab.innerHTML = GEAR + '<span>登録</span>';
         fab.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (menu && anchorEl === fab) return closeMenu(); openMenu(fab); rootView(); });
-        document.body.appendChild(fab);
       }
+      placeFab();
       if (lastV !== vid()) { lastV = vid(); if (menu && anchorEl === fab) closeMenu(); }
     }
     // チャンネルのページ: 見出しのボタンの並びの最後に「📁 フォルダ」
     let cb = document.getElementById('tf-chfold');
-    if (!chPath()) { if (cb) cb.remove(); return; }
+    if (!chPath()) { if (cb) cb.remove(); const d0 = document.getElementById('tf-chdisp'); if (d0) { if (menu && anchorEl === d0) closeMenu(); d0.remove(); } return; }
     const acts = document.querySelector('ytd-browse:not([hidden]) yt-flexible-actions-view-model, ytd-browse:not([hidden]) ytd-c4-tabbed-header-renderer #buttons');
     if (!acts) return;
     if (cb && cb.parentElement !== acts) { cb.remove(); cb = null; }
@@ -175,6 +223,16 @@
     const ch = pageChannel(), S = globalThis.TGPage && TGPage.state && TGPage.state();
     let n = 0; if (ch && S && S.channels) { const c = S.channels[ch.key] || S.channels['channel/' + ch.key]; n = c && c.groups ? c.groups.length : 0; }
     const label = n ? `📁 フォルダ(${n})` : '📁 フォルダ'; if (cb.textContent !== label) { cb.textContent = label; cb.classList.toggle('on', n > 0); }
+    // その横に「🙈」: 表示の切り替え(上のガラスバーの 👁 と同じ3つ。チャンネルのページでは、ガラスバーを出していないため)
+    let db = document.getElementById('tf-chdisp');
+    if (db && db.parentElement !== acts) { db.remove(); db = null; }
+    if (!db) {
+      db = document.createElement('button'); db.id = 'tf-chdisp'; db.type = 'button'; db.textContent = '🙈';
+      db.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (menu && anchorEl === db) return closeMenu(); openMenu(db); dispView(); });
+      acts.appendChild(db);
+    }
+    if (cb.nextElementSibling !== db) cb.after(db);
+    { const on = disp.hw || disp.mem; if (db.classList.contains('on') !== on) db.classList.toggle('on', on); const t = '表示の切り替え: ' + [disp.hw ? '視聴済みを隠している' : '視聴済みを表示', disp.dis ? '低評価率を表示' : '低評価率を隠している', disp.mem ? 'メンバー限定を隠している' : 'メンバー限定を表示'].join(' ・ '); if (db.title !== t) db.title = t; }
   }
   setInterval(ensure, 800);
   document.addEventListener('yt-navigate-finish', () => { closeMenu(); setTimeout(ensure, 300); });

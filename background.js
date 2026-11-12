@@ -1,7 +1,7 @@
 const openMgr = () => chrome.tabs.create({ url: chrome.runtime.getURL('manager.html') });
 // ---- 動作ログ(元のTubeFolioから移植): 設定 →「📜 動作ログ」で見られる。保存先は storage の tgLog(この端末だけ・同期しない) ----
 // 保存はバックグラウンドだけが行う(同時書き込みで消えないように)。YouTubeのタブは、2秒ごとにまとめて 'tg-log' で送ってくる。
-var TG_LOG_MAX = 2000, _bgLogBuf = [], _bgLogT = null, _bgLogChain = Promise.resolve();
+var TG_LOG_MAX = 400, _bgLogBuf = [], _bgLogT = null, _bgLogChain = Promise.resolve();
 function writeLog(items) {
   _bgLogChain = _bgLogChain.then(async () => {
     const { tgLog = [] } = await chrome.storage.local.get('tgLog');
@@ -11,7 +11,7 @@ function writeLog(items) {
 }
 function bgLog(cat, msg, level = 'info') {
   _bgLogBuf.push({ t: Date.now(), c: cat, m: String(msg), l: level, s: 'bg' });
-  if (!_bgLogT) _bgLogT = setTimeout(() => { _bgLogT = null; writeLog(_bgLogBuf.splice(0)); }, 500);
+  if (!_bgLogT) _bgLogT = setTimeout(() => { _bgLogT = null; writeLog(_bgLogBuf.splice(0)); }, 3000); // 3秒ぶんまとめて書く
 }
 const logged = (cat, p, what = '') => p.then(r => { bgLog(cat, (what || '完了') + (r && r.count != null ? `(${r.count}件)` : '')); return r; }, e => { bgLog(cat, String((e && e.message) || e), 'error'); throw e; });
 // 拡張機能のボタン(桜)を押す = 拡張機能を再読み込み(vivaldi://extensions のリロードと同じ)→ 開いているYouTubeと管理画面も読み込み直す。管理画面は開かない(右クリックのメニューから開ける)
@@ -233,9 +233,25 @@ async function authHeaders() {
   return { Authorization: `SAPISIDHASH ${ts}_${hex}`, 'X-Origin': ORIGIN, 'X-Goog-AuthUser': '0' };
 }
 // 拡張からのfetchは Origin が chrome-extension:// になり 403 になるため、YouTubeのOriginに書き換える
+// 埋め込みプレーヤー(/embed/…tgref=1)の Referer の書き換えも、ここで登録する(id 2)。以前は manifest の静的ルール(embed_rules.json)だったが、
+//   静的ルールがあると、ブラウザが拡張機能のフォルダに「_metadata」を作り、スマホの Vivaldi では、次に読み込むときに
+//   「Cannot load extension with file or directory name _metadata」で読み込めなくなるので、やめた。
+// スマホのブラウザ: 拡張機能からの www.youtube.com への通信が m.youtube.com へ回されて失敗する(CORS)ので、パソコンのブラウザとして名乗る(id 3)
+const IS_MOBILE = /Android|Mobile|iPhone|iPad/i.test(navigator.userAgent);
 chrome.declarativeNetRequest.updateSessionRules({
-  removeRuleIds: [1],
+  removeRuleIds: [1, 2, 3],
   addRules: [{
+    id: 2, priority: 1,
+    action: { type: 'modifyHeaders', requestHeaders: [{ header: 'referer', operation: 'set', value: 'https://tubefolio.example/' }] },
+    condition: { urlFilter: '/embed/*tgref=1', requestDomains: ['www.youtube.com', 'www.youtube-nocookie.com'], resourceTypes: ['sub_frame'] }
+  }, ...(IS_MOBILE ? [{
+    id: 3, priority: 1,
+    action: { type: 'modifyHeaders', requestHeaders: [
+      { header: 'User-Agent', operation: 'set', value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36' },
+      { header: 'Sec-CH-UA-Mobile', operation: 'set', value: '?0' }, { header: 'Sec-CH-UA-Platform', operation: 'set', value: '"Windows"' }
+    ] },
+    condition: { urlFilter: '||www.youtube.com/', initiatorDomains: [chrome.runtime.id], resourceTypes: ['xmlhttprequest'] }
+  }] : []), {
     id: 1, priority: 1,
     action: { type: 'modifyHeaders', requestHeaders: [
       { header: 'Origin', operation: 'set', value: ORIGIN },
@@ -270,7 +286,7 @@ function collect(data, out) {
   return next;
 }
 let importP = null;
-// prune = true(「取り込みと同期」を押したとき): 取り込みと同時に、登録を解除したチャンネルを一覧から消す(TF.syncChannels)。force = 消す数が多くても消す
+// prune = true(「取り込みと同期」を押したとき・自動の同期): 取り込みと同時に、YouTube の登録に無いチャンネルを整理する(TF.syncChannels: フォルダに入っていれば「未登録」の印を付けて残し、入っていなければ消す)
 function importSubs(prune, force) {
   return importP || (importP = (async () => {
     const html = await (await fetch(`${ORIGIN}/feed/channels`, { credentials: 'include' })).text();
@@ -293,31 +309,30 @@ function importSubs(prune, force) {
       chrome.runtime.sendMessage({ type: 'importProgress', n: out.size }).catch(() => {});
     }
     if (!out.size) throw new Error('no channels (ログインしていないか、YouTube側の形式が変わりました)');
-    const list = [...out.values()]; let sync = { removed: [], held: 0 };
+    const list = [...out.values()]; let sync = { removed: [], deleted: [], note: '', held: 0 };
     await bulkMetaIds(list); // チャンネルID(UC…)を保存しておく(新着一覧が、チャンネルページを開かずにRSSを取れる。登録を解除したチャンネルを見分けるのにも使う)
-    if (prune && full) sync = await TF.syncChannels(list, !!force); else await TF.upsertChannels(list); // 一覧を最後まで取れたときだけ、消す
-    if (sync.removed.length) { try { bgLog('取り込み', `登録を解除したチャンネルを ${sync.removed.length}件 消しました: ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ } }
+    if (prune && full) sync = await TF.syncChannels(list); else await TF.upsertChannels(list); // 一覧を最後まで取れたときだけ、印を付ける
+    try { if (sync.deleted.length) bgLog('取り込み', `登録もフォルダも無いチャンネルを ${sync.deleted.length}件 消しました: ${sync.deleted.slice(0, 30).join(' / ')}`); if (sync.removed.length) bgLog('取り込み', `フォルダに入っている未登録のチャンネル ${sync.removed.length}件に「未登録」の印を付けました(残します): ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ }
     if (prune && full) await chrome.storage.local.set({ subsSyncAt: { t: Date.now(), count: out.size, removed: sync.removed.length, held: sync.held } }); // 最後に、YouTube の登録と合わせた時刻(この端末だけの記録)
-    return { count: out.size, removed: sync.removed.length, held: sync.held };
+    return { count: out.size, removed: sync.removed.length, deleted: sync.deleted.length, note: sync.note, held: sync.held };
   })().finally(() => { importP = null; }));
 }
 
-// ---- 登録チャンネルの自動の同期: YouTube の今の登録に、TubeFolio2 の一覧を合わせ続ける(足す + 登録を解除したチャンネルを消す) ----
+// ---- 登録チャンネルの自動の同期: YouTube の今の登録に、TubeFolio2 の一覧を合わせ続ける(足す。登録に無いチャンネルは、フォルダに入っていれば「未登録」の印を付けて残し、入っていなければ消す) ----
 //   きっかけ: ブラウザの起動時 / 6時間ごと(アラーム tf-subs)/ 管理画面を開いたとき / YouTube のページで「登録」「登録解除」を押したとき(content.js)。
-//   gap = 前回の同期から、これより短ければ何もしない(ミリ秒)。消す数が多すぎるときは、手動のときと同じく消さない(held)。失敗は、動作ログに残すだけ
+//   gap = 前回の同期から、これより短ければ何もしない(ミリ秒)。失敗は、動作ログに残すだけ
 async function subsAuto(gap, why) {
   const { subsSyncAt, channels } = await chrome.storage.local.get(['subsSyncAt', 'channels']);
   if (!channels || !Object.keys(channels).length) return { skipped: true }; // まだ一度も取り込んでいない: 勝手には始めない
   if (gap && subsSyncAt && Date.now() - (subsSyncAt.t || 0) < gap) return { skipped: true };
   try {
     const r = await importSubs(true, false);
-    if (r.held) bgLog('取り込み', `自動の同期(${why}): 登録に無いチャンネルが ${r.held}件ありますが、数が多いので消していません(管理画面の「取り込みと同期」で確かめられます)`, 'warn');
     return r;
   } catch (e) { try { bgLog('取り込み', `自動の同期(${why})に失敗: ${String(e.message || e)}`, 'warn'); } catch (e2) { /* 無視 */ } return { error: String(e.message || e) }; }
 }
 chrome.alarms.get('tf-subs').then(a => { if (!a) chrome.alarms.create('tf-subs', { periodInMinutes: 360, delayInMinutes: 3 }); }).catch(() => {});
 chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tf-subs') subsAuto(60 * 60e3, '定期'); });
-chrome.runtime.onStartup.addListener(() => { setTimeout(() => subsAuto(60 * 60e3, '起動時'), 20e3); });
+chrome.runtime.onStartup.addListener(() => { setTimeout(() => subsAuto(6 * 60 * 60e3, '起動時'), 90e3); }); // 起動の直後は避ける(スマホで重くなる)。6時間以内に合わせていれば、何もしない
 
 // ---- 新着一覧(登録チャンネル全体)。新着動画 / ライブ・配信 / ショート のページ用 ----
 // 各チャンネルのRSS(最新15件)から、N日分の動画を集める。ショートは、RSSのリンク(/shorts/)で分かる。

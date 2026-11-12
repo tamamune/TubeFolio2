@@ -275,67 +275,7 @@ html[data-tf-g-cols] ytd-rich-item-renderer ytd-channel-name, html[data-tf-g-col
 
 /* 隠れたつまみ: 幅が足りずボタンがパネルの外へはみ出していた(→マウスを移すとパネルが閉じて押せない)のを修正 */
 
-/* ===== テスト4: ガラス調の縦長サイドバー(CSSネスト) ===== */
-#tf-gsb-root { position: fixed; z-index: 2147483000; left: 16px; top: 72px; color: #f4efe9; font: 14px/1.4 Roboto, "Yu Gothic UI", sans-serif; text-align: left; }
-#tf-gsb-root, #tf-gsb-root * { box-sizing: border-box; }
-#tf-gsb-root {
-.gs{width:244px;border-radius:30px;padding:14px 12px 12px;display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.06) 60%,rgba(255,170,90,.18));border:1px solid rgba(255,255,255,.28);box-shadow:0 20px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.35);backdrop-filter:blur(22px) saturate(1.3);-webkit-backdrop-filter:blur(22px) saturate(1.3);transition:width .3s ease}
-.i{width:20px;text-align:center;font-style:normal;opacity:.9;flex:none}
-.gs-head{display:flex;align-items:center;gap:10px;padding:4px 4px 8px}
-.gs-logo{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7a5a,#d8321f);display:grid;place-items:center;font-weight:700;flex:none}
-.gs-brand{flex:1;min-width:0;white-space:nowrap}.gs-brand b{display:block;font-size:14px}.gs-brand small{font-size:11px;opacity:.65}
-.gs-toggle{width:26px;height:26px;border-radius:50%;border:0;background:#fff;color:#222;cursor:pointer;font-size:16px;line-height:1;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.3)}
-.gs-search{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14)}
-.gs-search input{flex:1;min-width:0;background:none;border:0;outline:0;color:inherit;font:inherit}.gs-search input::placeholder{color:rgba(255,255,255,.65)}
-kbd{font:10px system-ui;padding:2px 6px;border-radius:6px;background:rgba(255,255,255,.14);opacity:.8;white-space:nowrap}
-.gs-sec{font-size:10px;letter-spacing:.12em;opacity:.6;padding:12px 10px 4px;white-space:nowrap}
-.gs-nav{display:flex;flex-direction:column;gap:2px}
-.gs-it{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;position:relative;transition:background .15s}
-.gs-it:hover{background:rgba(255,255,255,.1)}
-.gs-it.act{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
-.gs-it em{font-style:normal;flex:1}
-.bd{font-style:normal;font-size:11px;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.88);color:#222;font-weight:600}
-.bd.r{background:#e5432d;color:#fff}
-.dot{width:8px;height:8px;border-radius:50%;background:#e5432d;margin-right:4px}
-.chev{opacity:.7;transition:transform .2s}.gs-it.open .chev{transform:rotate(180deg)}
-.gs-sub{margin:0 0 4px 22px;padding-left:12px;border-left:1px solid rgba(255,255,255,.25);display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s}
-.gs-sub.shut{grid-template-rows:0fr}.gs-sub>div{overflow:hidden;min-height:0}
-.gs-sub a{display:flex;align-items:center;gap:9px;padding:7px 8px;font-size:13px;white-space:nowrap;cursor:pointer;opacity:.92}
-.c{width:8px;height:8px;border-radius:50%}.c.g{background:#3fc58a}.c.o{background:#ee6a4a}.c.p{background:#9b6bf0}
-.gs-night{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-top:6px;white-space:nowrap}.gs-night em{font-style:normal;flex:1}
-.sw{width:38px;height:22px;border-radius:999px;border:0;background:rgba(255,255,255,.85);position:relative;cursor:pointer;flex:none;transition:background .2s}
-.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:left .2s}
-.sw.on{background:#3fc58a}.sw.on::after{left:19px}
-.gs-user{display:flex;align-items:center;gap:10px;padding:10px 8px 4px;border-top:1px solid rgba(255,255,255,.18);white-space:nowrap}
-.gs-user div{flex:1;min-width:0}.gs-user b{display:block;font-size:13px}.gs-user small{font-size:11px;opacity:.65}
-.av{width:34px;height:34px;border-radius:50%;background:#f0c9a0;color:#442;display:grid;place-items:center;font-weight:700;position:relative;flex:none}
-.av i{position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;background:#3fc58a;border:2px solid #4a3d30}
-.upd{opacity:.6}
-.gs.mini{width:64px;align-items:center;border-radius:32px;padding:14px 6px 12px}
-.gs.mini .gs-brand,.gs.mini kbd,.gs.mini em,.gs.mini .bd,.gs.mini .gs-sub,.gs.mini .chev,.gs.mini .gs-user div,.gs.mini .upd,.gs.mini .gs-search input{display:none}
-.gs.mini .gs-sec{height:1px;padding:0;margin:8px 0;background:rgba(255,255,255,.25);font-size:0;width:28px}
-.gs.mini .gs-nav{align-items:center}
-.gs.mini .gs-head{flex-direction:column;gap:8px;padding:2px 0 6px;position:relative}
-.gs.mini .gs-toggle{position:absolute;right:-22px;top:6px;width:22px;height:22px}
-.gs.mini .gs-search{padding:9px;border-radius:50%;background:none;border:0}
-.gs.mini .gs-it{padding:9px;border-radius:50%;justify-content:center}
-.gs.mini .gs-it .dot,.gs.mini .gs-it .bd{display:block;position:absolute;top:2px;right:2px;margin:0;font-size:0;padding:0;width:9px;height:9px;background:#e5432d}
-.gs.mini .gs-night{justify-content:center;padding:10px 0}.gs.mini .sw{display:none}
-.gs.mini .gs-user{justify-content:center;padding:10px 0 2px}
-.gs.mini .gs-it:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 14px);top:50%;transform:translateY(-50%);padding:5px 12px;border-radius:10px;background:rgba(235,230,224,.92);color:#222;font-size:12px;font-weight:600;white-space:nowrap;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.3)}
-}
-#tf-gsb-root .gs { position: relative; }
-#tf-gsb-root .gs-x { position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; border: 0; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; cursor: pointer; line-height: 1; }
-#tf-gsb-root { cursor: grab; touch-action: none; }
-#tf-gsb-root.drag { cursor: grabbing; user-select: none; }
-#tf-gsb-root .gs-it, #tf-gsb-root button, #tf-gsb-root input { cursor: pointer; }
-#tf-gsb-root input { cursor: text; }
 /* ロゴだけの丸いアイコン */
-#tf-gsb-root .gs.min { width: 56px; height: 56px; padding: 0; gap: 0; border-radius: 50%; align-items: center; justify-content: center; transition: none; }
-#tf-gsb-root .gs.min > *:not(.gs-head):not(.gs-x) { display: none; }
-#tf-gsb-root .gs.min .gs-head { padding: 0; }
-#tf-gsb-root .gs.min .gs-head > *:not(.gs-logo) { display: none; }
-#tf-gsb-root .gs.min .gs-x { top: -6px; right: -6px; }
 /* 新D: サムネの角だけに、登録=青 / 未登録=赤 の線を描く(フォルダ色は使わない)。
    サムネとの隙間4px、角は同心円(外側の角丸 = サムネの角丸12px + 隙間4px = 16px)、線の長さは固定64px */
 .tf-sub.tfx-nest, .tf-unsub.tfx-nest { position: relative; }
@@ -365,10 +305,6 @@ ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn > .tf-lbl { position: absolut
 /* ヘッダーのテストボタン(配置 / サムネ / テスト)は常時出さない。⚙ メニューの「テスト機能」から開く */
 
 /* 右下のハブ: 普段はロゴだけの丸。マウスを乗せると開く */
-#tf-gsb-root { left: auto; top: auto; right: 20px; bottom: 20px; }
-#tf-gsb-root .gs { transform-origin: right bottom; }
-#tf-gsb-root .gs.min { box-shadow: 0 6px 20px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.35); }
-#tf-gsb-root .gs-it .i { font-size: 15px; }
 /* 各項目に乗せたときに左へ開く中身 */
 #tf-gsb-fly { position: fixed; z-index: 2147483001; width: 230px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 8px; border-radius: 22px; color: #f4efe9; font: 13px/1.3 Roboto, "Yu Gothic UI", sans-serif;
   background: linear-gradient(180deg, rgba(255,255,255,.24), rgba(255,255,255,.08) 60%, rgba(255,170,90,.2)), rgba(40, 34, 30, .55); border: 1px solid rgba(255,255,255,.3);
@@ -388,8 +324,6 @@ ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn > .tf-lbl { position: absolut
 #tf-set .tf-dev > summary { padding: 6px 4px; font-size: 11px; color: var(--tf-sub); cursor: pointer; }
 
 /* ハブ: 1本目は、アイコンだけの細長いバー。アイコンに乗せると波のように次のバーが開く */
-#tf-gsb-root .gs:not(.min) { width: 56px; padding: 12px 6px; }
-#tf-gsb-root .gs.mini .gs-it:hover::after { display: none; }
 @keyframes tfWave { from { opacity: 0; transform: translateX(22px) scaleX(.8); } to { opacity: 1; transform: none; } }
 @keyframes tfWaveItem { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @keyframes tfWaveDown { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -398,24 +332,8 @@ ytd-rich-shelf-renderer.tf-nshelf button.tf-lblbtn > .tf-lbl { position: absolut
 #tf-gsb-fly > :nth-child(1) { animation-delay: .02s; } #tf-gsb-fly > :nth-child(2) { animation-delay: .05s; } #tf-gsb-fly > :nth-child(3) { animation-delay: .08s; }
 #tf-gsb-fly > :nth-child(4) { animation-delay: .11s; } #tf-gsb-fly > :nth-child(5) { animation-delay: .14s; } #tf-gsb-fly > :nth-child(6) { animation-delay: .17s; }
 #tf-gsb-fly > :nth-child(7) { animation-delay: .20s; } #tf-gsb-fly > :nth-child(8) { animation-delay: .23s; } #tf-gsb-fly > :nth-child(n+9) { animation-delay: .26s; }
-#tf-gsb-root .gs:not(.min) .gs-it { animation: tfWaveDown .3s cubic-bezier(.2, .8, .2, 1) both; }
-#tf-gsb-root .gs:not(.min) .gs-it:nth-child(2) { animation-delay: .04s; } #tf-gsb-root .gs:not(.min) .gs-it:nth-child(3) { animation-delay: .08s; }
-#tf-gsb-root .gs:not(.min) .gs-it:nth-child(4) { animation-delay: .12s; } #tf-gsb-root .gs:not(.min) .gs-it:nth-child(5) { animation-delay: .16s; }
-#tf-gsb-root .gs:not(.min) .gs-it:nth-child(6) { animation-delay: .20s; } #tf-gsb-root .gs:not(.min) .gs-it:nth-child(n+7) { animation-delay: .24s; }
 
 /* 縦の「Liquid Bulge」: バーに、選んだアイコンの所だけ液体のような山が左へ突き出る。山の所から次のバーが開く */
-#tf-gsb-root .gs:not(.min) { background: none; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; overflow: visible; }
-#tf-gsb-root .gs > :not(.gs-bg) { position: relative; z-index: 1; }
-#tf-gsb-root .gs-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: .8; filter: url(#tf-goo) drop-shadow(0 12px 26px rgba(0, 0, 0, .5)); }
-#tf-gsb-root .gs-bg i { position: absolute; display: block; }
-#tf-gsb-root .gs-rail { inset: 0; border-radius: 28px; background: linear-gradient(180deg, #78726c, #5b5148 60%, #86603a); }
-#tf-gsb-root .gs-bulge { left: -13px; width: 46px; height: 46px; border-radius: 50%; top: 40px; transform: scale(0); transition: top .38s cubic-bezier(.3, 1.35, .5, 1), transform .3s cubic-bezier(.3, 1.35, .5, 1); }
-#tf-gsb-root .gs-bulge.on { transform: scale(1); }
-#tf-gsb-root .gs:not(.min) .gs-it { color: #fff; }
-#tf-gsb-root .gs:not(.min) .gs-it:hover { background: none; }
-#tf-gsb-root .gs:not(.min) .gs-it.act { background: none; border-color: transparent; box-shadow: none; }
-#tf-gsb-root .gs:not(.min) .gs-it .i { transition: transform .3s cubic-bezier(.3, 1.35, .5, 1); }
-#tf-gsb-root .gs:not(.min) .gs-it.act .i { transform: translateX(-9px) scale(1.15); }
 
 /* ハブから開いた設定: 画面中央のガラス調 */
 #tf-set.tf-glass { width: 390px; max-width: calc(100vw - 16px); padding: 12px; border-radius: 24px; color: #f4efe9; border: 1px solid rgba(255,255,255,.3);
@@ -522,7 +440,7 @@ html[data-tf-fit] ytd-rich-item-renderer yt-content-metadata-view-model [class*=
 /* リロード時のガタつき防止: early.js が付ける data-tf-boot の間は画面を隠し、整形後にふわっと表示する */
 html[data-tf-boot] ytd-app { opacity: 0 !important; }
 html:not([data-tf-boot]) ytd-app { transition: opacity .15s ease; }
-html[data-tf-boot] #tf-hbar, html[data-tf-boot] #tf-gsb-root, html[data-tf-boot] #tf-view { opacity: 0 !important; }
+html[data-tf-boot] #tf-hbar, html[data-tf-boot] #tf-view { opacity: 0 !important; }
 
 /* ツールバーの置き方(試験): 配置ボタンで切り替え */
 #tf-hbar .tfh-pos { background: transparent !important; border: 1px dashed var(--tf-line, rgba(128,128,128,.5)) !important; font-size: 12px; opacity: .75; }
@@ -560,8 +478,6 @@ html[data-tf-pgk="rec"] #tf-hbar.tf-hfloat [data-p="rec"], html[data-tf-pgk="lat
 #tf-hbar.tf-hfloat[data-mode="bottom"] { border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 60%, rgba(255,170,90,.07)), rgba(16, 14, 13, .82); border-color: rgba(255,255,255,.16); }
 #tf-hbar.tf-hfloat[data-mode="bottom"] button { border-radius: 8px; }
 #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min, #tf-hbar.tf-hfloat[data-mode="bottom"].tf-min .tfh-min { border-radius: 8px; }
-#tf-gsb-root .gs.min { border-radius: 16px; }
-#tf-gsb-root .gs-x { border-radius: 6px; }
 
 /* 下バー → 上側(ヘッダーの下)に表示。その分、ページを下げて内容に重ならないようにする */
 #tf-hbar.tf-hfloat[data-mode="bottom"] { top: calc(var(--tf-mh, 56px) + 6px); bottom: auto; }
@@ -1029,8 +945,10 @@ html[dark] { --wm-bg: rgba(40,40,44,.96); --wm-fg: #f1f1f1; --wm-sub: #aaa; --wm
 html:has(#movie_player.ytp-fullscreen) #tf-wadd, html:fullscreen #tf-wadd { display: none; }
 @media (max-width: 640px) { #tf-wadd { right: 10px; bottom: 64px; padding: 0 10px; } #tf-wadd span { display: none; } }
 #tf-chfold { flex: none; align-self: center; height: 36px; margin-left: 8px; padding: 0 16px; border: 0; border-radius: 18px; background: var(--yt-spec-badge-chip-background, var(--wm-hv)); color: var(--yt-spec-text-primary, var(--wm-fg)); font: 500 14px/36px Roboto, Arial, "Noto Sans JP", sans-serif; white-space: nowrap; cursor: pointer; }
-#tf-chfold:hover { background: var(--yt-spec-10-percent-layer, var(--wm-ln)); }
-#tf-chfold.on { box-shadow: inset 0 0 0 1px var(--wm-acc); }
+#tf-chfold:hover, #tf-chdisp:hover { background: var(--yt-spec-10-percent-layer, var(--wm-ln)); }
+#tf-chfold.on, #tf-chdisp.on { box-shadow: inset 0 0 0 1px var(--wm-acc); }
+/* チャンネルのページの「🙈」(表示の切り替え)。「📁 フォルダ」の横。色は、フォルダのボタンと同じ変数 */
+#tf-chdisp { flex: none; align-self: center; width: 40px; height: 36px; margin-left: 8px; padding: 0; border: 0; border-radius: 18px; background: var(--yt-spec-badge-chip-background, var(--wm-hv)); color: var(--yt-spec-text-primary, var(--wm-fg)); font: 400 18px/36px Roboto, Arial, "Noto Sans JP", sans-serif; text-align: center; cursor: pointer; }
 #tf-wmenu { position: fixed; z-index: 2147483000; width: min(300px, calc(100vw - 16px)); max-height: min(460px, calc(100vh - 16px)); display: flex; flex-direction: column; box-sizing: border-box; padding: 6px; border-radius: 12px; background: var(--wm-bg); color: var(--wm-fg); border: 1px solid var(--wm-ln); box-shadow: 0 8px 28px rgba(0,0,0,.35); font: 400 14px/20px Roboto, Arial, "Noto Sans JP", sans-serif; }
 #tf-wmenu .h { display: flex; align-items: center; gap: 4px; padding: 2px 2px 6px 8px; border-bottom: 1px solid var(--wm-ln); margin-bottom: 4px; }
 #tf-wmenu .h b { flex: 1; font-weight: 700; }
@@ -1109,3 +1027,11 @@ html:has(#movie_player.ytp-fullscreen) #tf-wadd, html:fullscreen #tf-wadd { disp
 .tf-fch { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; margin-top: 3px; }
 .tf-fch > span { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; box-sizing: border-box; padding: 0 8px 0 6px; border-radius: 9px; background: var(--tf-chip); color: var(--tf-fg); font: 500 11px/18px Roboto, Arial, "Noto Sans JP", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tf-fch > span::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--tf-sub)); }
+/* 再生画面の ⚙(登録): 動画の下のボタンの並びの「保存」の右に、YouTube と同じ形の丸いボタンで出す(右下に浮かべるのは、並びが見つからないときだけ) */
+#tf-wadd.tf-inrow { position: static; flex: none; align-self: center; box-sizing: border-box; width: var(--tf-rb, 36px); height: var(--tf-rb, 36px); min-width: 0; padding: 0; margin: 0 0 0 var(--tf-rg, 8px); vertical-align: middle; justify-content: center; line-height: 0; gap: 0; border: 0; border-radius: 50%; background: var(--tf-rowbtn); color: var(--tf-fg); box-shadow: none; z-index: auto; }
+#tf-wadd.tf-inrow span { display: none; }
+#tf-wadd.tf-inrow svg { display: block; width: 24px; height: 24px; }
+#tf-wadd.tf-inrow:hover { background: var(--tf-rowbtn-h); color: var(--tf-fg); border: 0; }
+:root { --tf-rowbtn: rgba(0,0,0,.05); --tf-rowbtn-h: rgba(0,0,0,.1); }
+html[dark] { --tf-rowbtn: rgba(255,255,255,.1); --tf-rowbtn-h: rgba(255,255,255,.2); }
+html:has(#movie_player.ytp-fullscreen) #tf-wadd.tf-inrow, html:fullscreen #tf-wadd.tf-inrow { display: inline-flex; }

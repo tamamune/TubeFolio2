@@ -47,9 +47,11 @@ const TF = (() => {
   }
   function mutate(fn) {
     const p = q.then(async () => {
-      const s = await get();
+      const s = await get(), before = { groups: JSON.stringify(s.groups), channels: JSON.stringify(s.channels), settings: JSON.stringify(s.settings) };
       await fn(s);
-      await chrome.storage.local.set(s);
+      // 変わったキーだけを書く(書くたびに、開いている全部のページへ中身が送られる。チャンネルの一覧は大きいので、変えていないときは送らない)
+      const set = {}; for (const k of ['groups', 'channels', 'settings']) if (JSON.stringify(s[k]) !== before[k]) set[k] = s[k];
+      if (Object.keys(set).length) await chrome.storage.local.set(set);
       return s;
     });
     q = p.catch(() => {});
@@ -135,8 +137,33 @@ const TF = (() => {
   // 「視聴済み」の動画IDの集まり(少し再生しただけの動画は、含めない)
   const playedSet = hist => { const out = new Set(); playedInfo(hist).forEach((e, id) => { if (isPlayed(e)) out.add(id); }); return out; };
 
+  // 同じチャンネルが、@ハンドル と チャンネルID(UC…)の2つのキーで入っていたら、1つにまとめる(フォルダは両方の分を合わせる)。
+  //   同じかどうかは、チャンネルID(UC… のキーそのもの / meta[キー].id)で見る。残すキー: keep に入っているもの(取り込んだ一覧)→ @ハンドル → 先に登録した方
+  //   s = mutate の中身。まとめた数を返す
+  function mergeDupes(s, meta, keep) {
+    const idOf = c => (/^UC[\w-]{22}$/.test(c.key) ? c.key : (meta[c.key] && meta[c.key].id) || '');
+    const by = new Map();
+    Object.values(s.channels).forEach(c => { const id = idOf(c); if (!id) return; const a = by.get(id); if (a) a.push(c); else by.set(id, [c]); });
+    let n = 0;
+    by.forEach(arr => {
+      if (arr.length < 2) return;
+      const rank = c => (keep && keep.has(c.key) ? 0 : 2) + (/^UC[\w-]{22}$/.test(c.key) ? 1 : 0);
+      arr.sort((a, b) => rank(a) - rank(b) || (a.addedAt || 0) - (b.addedAt || 0));
+      const k = arr[0];
+      arr.slice(1).forEach(c => {
+        (c.groups || []).forEach(g => { if (!k.groups.includes(g)) k.groups.push(g); });
+        if (c.addedAt && (!k.addedAt || c.addedAt < k.addedAt)) k.addedAt = c.addedAt;
+        if (!k.avatar && c.avatar) k.avatar = c.avatar;
+        if ((!k.name || k.name === k.key) && c.name && c.name !== c.key) k.name = c.name;
+        if (k.unsub && !c.unsub) delete k.unsub;
+        delete s.channels[c.key]; n++;
+      });
+    });
+    return n;
+  }
   return {
-    SYNC_KEYS, playedSet, playedInfo, pctOf, isPlayed, PLAYED_PCT,
+    SYNC_KEYS,
+ playedSet, playedInfo, pctOf, isPlayed, PLAYED_PCT,
     KW_DICT, kwList, defaultKw, groupKw,
     PALETTE, ICONS, ANIME, get, mutate, uid, keyFromHref, subtree, flat, clean, suggestIcon,
     // 既定アイコン(⭐)のままのフォルダに、名前に合うアイコンを設定する。変更件数を返す
@@ -165,7 +192,12 @@ const TF = (() => {
         s.channels[c.key] = { groups: [], addedAt: Date.now(), ...o, key: c.key, name: c.name || (o && o.name) || c.key, avatar: c.avatar || (o && o.avatar) || '' };
       });
     }),
-    toggleGroup: (meta, gid) => mutate(s => {
+    toggleGroup: (meta, gid) => mutate(async s => {
+      if (!s.channels[meta.key]) { // 同じチャンネルが、別のキーで入っていないか(チャンネルIDで照らし合わせる)
+        const md = (await chrome.storage.local.get('meta')).meta || {}, want = /^UC[\w-]{22}$/.test(meta.key) ? meta.key : (md[meta.key] && md[meta.key].id) || meta.id || '';
+        const hit = want && Object.values(s.channels).find(c => c.key === want || (md[c.key] && md[c.key].id === want));
+        if (hit) meta = { ...meta, key: hit.key };
+      }
       const c = s.channels[meta.key] || (s.channels[meta.key] = { key: meta.key, name: meta.name || meta.key, avatar: meta.avatar || '', groups: [], addedAt: Date.now() });
       if (meta.name && (!c.name || c.name === c.key)) c.name = meta.name;
       if (meta.avatar && !c.avatar) c.avatar = meta.avatar;
@@ -173,21 +205,32 @@ const TF = (() => {
       if (i >= 0) c.groups.splice(i, 1); else c.groups.push(gid);
     }),
     addGroup: (name, icon, color) => mutate(s => { s.groups.push({ id: uid(), name, icon: icon || '📁', color: color || PALETTE[s.groups.length % PALETTE.length] }); }),
-    // YouTube の登録チャンネルの一覧(list: [{ key, name, avatar, id }])に、チャンネルを合わせる: 一覧にあるものを足し、一覧に無いもの(登録を解除したチャンネル)を消す。
-    //   同じチャンネルかどうかは、キー(@ハンドル / UC…)と、チャンネルID(meta の id)の両方で見る(ハンドルを変えたチャンネルを、消さないように)。
-    //   消す数が多すぎるとき(20件より多く、かつ半分より多い)は、取り込みの失敗かもしれないので、消さずに held(消すはずだった数)を返す。force = true なら、必ず消す
-    syncChannels: async (list, force) => {
+    // YouTube の登録チャンネルの一覧(list: [{ key, name, avatar, id }])に、チャンネルを合わせる。決まり:
+    //   ・YouTube で登録している            → 残す(一覧に無ければ足す。「未登録」の印は外す)
+    //   ・登録していないが、フォルダに入っている → 残して、「未登録」の印(unsub: 1)を付ける
+    //   ・登録していなくて、フォルダにも入っていない → 一覧から消す
+    //   「フォルダに入っている」= 今あるフォルダに、1つでも入っている(消したフォルダのIDだけが残っているものは、入っていない扱い)。
+    //   同じチャンネルかどうかは、キー(@ハンドル / UC…)と、チャンネルID(meta の id)の両方で見る(ハンドルを変えたチャンネルを、未登録にしないように)。
+    //   返す値: removed = 今回、新しく「未登録」の印を付けたチャンネルの名前 / deleted = 今回、消したチャンネルの名前 / unsub = 残っている未登録の数 / note = 画面に出す説明
+    syncChannels: async list => {
       const meta = (await chrome.storage.local.get('meta')).meta || {}, keys = new Set(list.map(c => c.key)), ids = new Set(list.map(c => c.id).filter(Boolean));
       const idOf = c => (/^UC[\w-]{22}$/.test(c.key) ? c.key : (meta[c.key] && meta[c.key].id) || c.id || '');
-      const removed = []; let held = 0;
+      const removed = [], deleted = []; let unsub = 0, merged = 0;
       await mutate(s => {
         list.forEach(c => { const o = s.channels[c.key]; s.channels[c.key] = { groups: [], addedAt: Date.now(), ...o, key: c.key, name: c.name || (o && o.name) || c.key, avatar: c.avatar || (o && o.avatar) || '' }; });
-        const all = Object.values(s.channels), gone = all.filter(c => !keys.has(c.key) && !ids.has(idOf(c)));
-        if (!force && gone.length > 20 && gone.length > all.length / 2) { held = gone.length; return; }
-        gone.forEach(c => { removed.push(c.name || c.key); delete s.channels[c.key]; });
+        { const m2 = { ...meta }; list.forEach(c => { if (c.id && !(m2[c.key] && m2[c.key].id)) m2[c.key] = { ...(m2[c.key] || {}), id: c.id }; }); merged = mergeDupes(s, m2, keys); } // 同じチャンネルの重複を、1つにまとめる
+        const gids = new Set(s.groups.map(g => g.id));
+        Object.values(s.channels).forEach(c => {
+          if (keys.has(c.key) || ids.has(idOf(c))) { if (c.unsub) delete c.unsub; return; }
+          if (!(c.groups || []).some(id => gids.has(id))) { deleted.push(c.name || c.key); delete s.channels[c.key]; return; }
+          unsub++; if (!c.unsub) { c.unsub = 1; removed.push(c.name || c.key); }
+        });
       });
-      return { removed, held };
+      const note = [merged ? `重複していた ${merged}件を1つにまとめました` : '', deleted.length ? `登録もフォルダも無い ${deleted.length}件を消しました` : '', removed.length ? `フォルダに入っている未登録 ${removed.length}件は「未登録」の印を付けて残しました` : ''].filter(Boolean).join('・');
+      return { removed, deleted, unsub, merged, note, held: 0 };
     },
+    // 重複しているチャンネルを、1つにまとめる(管理画面を開いたときに呼ぶ)。変わらなければ、何も書かない
+    dedupeChannels: async () => { const meta = (await chrome.storage.local.get('meta')).meta || {}; let n = 0; await mutate(s => { n = mergeDupes(s, meta, null); }); return n; },
     // Drive同期と同じ内容(TF.SYNC_KEYS のすべて)を、JSON にする
     exportJson: async () => JSON.stringify({ app: 'TubeFolio2', version: 1, exportedAt: new Date().toISOString(), data: await chrome.storage.local.get(SYNC_KEYS) }, null, 2)
   };

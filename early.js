@@ -1,15 +1,16 @@
 // document_start で実行。リロード時のレイアウトのガタつき対策:
 //  1) 保存済みの列数などの設定を、YouTubeが最初に描画する前に反映する
 //  2) 拡張機能の整形(左メニューのフォルダ・ツールバー・文字サイズ調整など)が終わるまで、画面を一時的に隠す
-// 解除は content.js(整形後) か、下のタイマー(最大2.5秒)のどちらか早い方。
+// 解除は content.js(整形後) か、下のタイマー(最大1.2秒)のどちらか早い方。スマホでは隠さない。
 // ※ THUMBS のキーは content.js と同じにしておくこと。
 (() => {
   const root = document.documentElement;
   const p = location.pathname;
-  const hideMain = p !== '/watch' && !p.startsWith('/shorts');
+  const touch = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })(); // スマホ: 隠すと、起動が遅く見えるので隠さない
+  const hideMain = p !== '/watch' && !p.startsWith('/shorts') && !touch;
   // リロード時に、前のスクロール位置へ戻さない(戻すと、上のガラスバーの下に一覧の先頭が隠れた位置から始まってしまう)
   if (hideMain) { try { history.scrollRestoration = 'manual'; } catch (e) {} }
-  if (hideMain) { root.setAttribute('data-tf-boot', ''); setTimeout(() => root.removeAttribute('data-tf-boot'), 2500); }
+  if (hideMain) { root.setAttribute('data-tf-boot', ''); setTimeout(() => root.removeAttribute('data-tf-boot'), 1200); }
   const THUMBS = ['cols', 'scols'];
   try {
     chrome.storage.local.get('settings').then(r => {
