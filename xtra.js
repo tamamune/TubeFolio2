@@ -202,9 +202,9 @@ const TGXtra = (() => {
       toast(`${SB_NAME[g.c] || g.c}の区間です`, '⏩ 飛ばす', () => { sb.ignore.add(manual); const e = video(); if (e) e.currentTime = Math.min(g.e, (e.duration || g.e) - 0.1); }, Math.max(2000, (g.e - t) * 1000));
     } else if (manual < 0 && sb.manual >= 0) document.querySelector('.tg-sbtoast')?.remove();
     sb.manual = manual;
-    if (!vEl.paused) sbRaf = requestAnimationFrame(sbCheck); // 再生中は毎フレーム確認（区間に入った瞬間に飛ばす）
+    if (!vEl.paused) sbRaf = setTimeout(sbCheck, 100); // 再生中は0.1秒ごとに確認(区間に入ったら飛ばす)。毎フレームだと、20秒で約870回動いて重かった
   }
-  document.addEventListener('playing', e => { if (e.target === video() && !sbRaf) sbRaf = requestAnimationFrame(sbCheck); }, true);
+  document.addEventListener('playing', e => { if (e.target === video() && !sbRaf) sbRaf = setTimeout(sbCheck, 0); }, true);
   document.addEventListener('seeked', e => { if (e.target === video()) sbCheck(); }, true);
 
   // ================= 👎 再生時の低評価率の警告 =================
@@ -549,7 +549,7 @@ const TGXtra = (() => {
       ghCheck(v, m?.desc || '');
       wiki(v, title, m?.kw || []);
     }
-    outCheck().catch(() => {});
+    if (!(window.tfQuiet && window.tfQuiet())) outCheck().catch(() => {});
   }
   setInterval(() => { tick().catch(() => {}); }, 1500);
 

@@ -78,6 +78,7 @@
   function sweepYt() {
     document.documentElement.classList.toggle('tg-focus-on', ST.active);
     const lockOn = ST.active && F.hideHome;
+    if (!lockOn) { document.querySelectorAll('[data-tglock]').forEach(it => { if (it.matches(ITEM)) delete it.dataset.tglock; }); watchLock(); return; } // オフのときは、印を外すだけ(再生画面の関連動画まで、毎回全部見回らない)
     document.querySelectorAll(ITEM).forEach(it => {
       if (it.parentElement && it.parentElement.closest(ITEM)) return; // 入れ子は外側だけ
       let lk = false;
@@ -127,7 +128,7 @@
   let t0 = 0; const later = () => { clearTimeout(t0); t0 = setTimeout(sweep, 300); };
   new MutationObserver(later).observe(document.documentElement, { childList: true, subtree: true });
   window.addEventListener('yt-navigate-finish', later);
-  setInterval(() => { if (!document.hidden) { const s = state(F); if (s.active !== ST.active) { ST = s; } sweep(); } }, 1500);
+  setInterval(() => { if (!document.hidden && !(window.tfQuiet && window.tfQuiet())) { const s = state(F); if (s.active !== ST.active) { ST = s; } sweep(); } }, 1500);
   chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && (ch.focus || ch.channels || ch.groups)) load(); });
   load();
 })();

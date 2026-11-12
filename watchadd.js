@@ -234,7 +234,7 @@
     if (cb.nextElementSibling !== db) cb.after(db);
     { const on = disp.hw || disp.mem; if (db.classList.contains('on') !== on) db.classList.toggle('on', on); const t = '表示の切り替え: ' + [disp.hw ? '視聴済みを隠している' : '視聴済みを表示', disp.dis ? '低評価率を表示' : '低評価率を隠している', disp.mem ? 'メンバー限定を隠している' : 'メンバー限定を表示'].join(' ・ '); if (db.title !== t) db.title = t; }
   }
-  setInterval(ensure, 800);
+  setInterval(() => { if (!(window.tfQuiet && window.tfQuiet())) ensure(); }, 800);
   document.addEventListener('yt-navigate-finish', () => { closeMenu(); setTimeout(ensure, 300); });
   window.tfFolderPick = { open: (anchor, ch) => { openMenu(anchor); folderView(ch, false); }, close: closeMenu };
 })();

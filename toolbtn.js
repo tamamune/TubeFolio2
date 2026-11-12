@@ -97,5 +97,5 @@
     e.stopPropagation(); if (e.cancelable) e.preventDefault(); // ブラウザが作るクリック(二重になる)は止めて、こちらで1回だけ起こす
     c.b.click();
   }, { capture: true, passive: false });
-  setInterval(tick, 500);
+  setInterval(() => { if (!(window.tfQuiet && window.tfQuiet())) tick(); }, 500);
 })();

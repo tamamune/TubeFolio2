@@ -8,7 +8,7 @@ const TGComments = (() => {
   // mode: 'cmt'＝コメント ／ 'tr'＝文字起こし（動画の再生位置に合わせて流れる）
   let cfg = { side: 'right', speed: 2, width: 'normal', sort: 'top', end: 'hide', mode: 'cmt', tr: 'ja' }; // tr：外国語のコメントを日本語に
   let segs = null, segIdx = -1;
-  let vid = null, token = null, loading = false, ctl = null, raf = 0, last = 0, hover = false, userUntil = 0, ended = false, acc = 0;
+  let vid = null, token = null, loading = false, ctl = null, raf = 0, last = 0, hover = false, userUntil = 0, ended = false, acc = 0, pos = null, chkAt = 0;
   let panel = null, list = null, btn = null, menu = null;
 
   chrome.storage.local.get('cmt').then(({ cmt }) => { cfg = { ...cfg, ...(cmt || {}) }; sync(); });
@@ -301,7 +301,7 @@ const TGComments = (() => {
   // 止まっている間は毎フレーム動かさず、0.5秒ごとに再開を確認するだけにする
   let idleT = null;
   function idle() {
-    cancelAnimationFrame(raf); raf = 0; last = 0;
+    cancelAnimationFrame(raf); raf = 0; last = 0; pos = null;
     if (idleT) return;
     idleT = setTimeout(() => { idleT = null; if (list && !raf) raf = requestAnimationFrame(tick); }, 500);
   }
@@ -359,6 +359,7 @@ const TGComments = (() => {
     const dt = last ? Math.min(100, t - last) : 16;
     last = t;
     if (!list || document.hidden) return;
+    if ((window.tfQuiet && window.tfQuiet())) { idle(); return; } // 再生画面を開いた直後は、動かさない
     if (cfg.mode === 'tr') {
       const v = video();
       if (!v || hover || t < userUntil) { idle(); return; }
@@ -369,10 +370,14 @@ const TGComments = (() => {
     const v = video();
     const playing = v && !v.paused && !v.ended;
     if (!playing || hover || t < userUntil) { idle(); return; }
-    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 1) { if (!loading) maybeMore(); onEnd(t); return; }
+    // 位置・高さを読むと、そのたびに画面の組み立て直しが起きる(YouTube が絶えず画面を書き換えているため重い)。読むのは0.5秒に1回だけにして、あいだは自分で数えた位置を書くだけにする
+    if (pos == null || t - chkAt > 500) {
+      chkAt = t; pos = list.scrollTop;
+      if (pos + list.clientHeight >= list.scrollHeight - 1) { if (!loading) maybeMore(); onEnd(t); return; }
+    }
     endAt = 0;
     acc += (SPEED[cfg.speed] || 36) * dt / 1000;
-    if (acc >= 1) { const n = Math.floor(acc); acc -= n; list.scrollTop += n; }
+    if (acc >= 1) { const n = Math.floor(acc); acc -= n; pos += n; list.scrollTop = pos; }
   }
 
   // ページの切り替え・プレーヤーの作り直しに追従

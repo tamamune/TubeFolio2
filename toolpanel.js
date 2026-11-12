@@ -96,5 +96,5 @@
       bar.innerHTML = tabs.map(([id, lb, cls]) => `<button class="tg-tp-tab${cls}${open === id ? ' on' : ''}" data-tp="${id}">${lb}</button>`).join('');
     }
   }
-  setInterval(tick, 700);
+  setInterval(() => { if (!(window.tfQuiet && window.tfQuiet())) tick(); }, 700);
 })();

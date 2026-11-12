@@ -274,7 +274,7 @@
   }
 
   ready.then(() => {
-    setInterval(() => { if (!document.hidden) { ensureBtn(); poll(); } }, 400);
+    setInterval(() => { if (!document.hidden && !(window.tfQuiet && window.tfQuiet())) { ensureBtn(); poll(); } }, 400);
     setInterval(tickTimed, 100);
   });
 })();

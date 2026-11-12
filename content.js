@@ -14,7 +14,12 @@
   const groupOf = id => S.groups.find(g => g.id === id);
   // ミックスリスト(YouTube が自動で作る再生リスト)のカードか。カードのいちばん最初の動画リンクが list=RD… のとき・まとめのサムネ(重なったサムネ)のとき。
   //   「カードのどこかに list=RD のリンクがあるか」で見ると、♪ の付いた音楽の動画(ラジオを始めるリンクを持つ)まで、ミックスリストと間違える
-  const isMixCard = card => { const a = card.querySelector('a[href*="watch?v="]'); return !!(a && /[?&]list=RD/.test(a.getAttribute('href') || '')) || !!card.querySelector('yt-collection-thumbnail-view-model, ytd-playlist-thumbnail'); };
+  //   音楽の動画は、サムネのリンクそのものが「ラジオ再生(list=RD…)」のことがある。長さ(3:22 など)が出ていれば、ミックスリストではなく動画とみなす
+  const isMixCard = card => {
+    if (card.querySelector('yt-collection-thumbnail-view-model, ytd-playlist-thumbnail')) return true;
+    const a = card.querySelector('a[href*="watch?v="]'); if (!(a && /[?&]list=RD/.test(a.getAttribute('href') || ''))) return false;
+    return ![...card.querySelectorAll('yt-thumbnail-badge-view-model, badge-shape, ytd-thumbnail-overlay-time-status-renderer')].some(b => /\d:\d\d/.test(b.textContent || ''));
+  };
   const cardKey = card => {
     const a = card.querySelector('a[href^="/@"], a[href^="/channel/UC"]');
     return a ? TF.keyFromHref(a.getAttribute('href')) : null;
@@ -211,7 +216,7 @@
       laterBtnFor(card, id, inl);
     });
   }
-  setInterval(() => { if (!document.hidden) markPlayed(); }, 1500);
+  setInterval(() => { if (!document.hidden && !(window.tfQuiet && window.tfQuiet())) markPlayed(); }, 1500);
   // ホーム: チャンネル名の下に、フォルダ設定で登録したフォルダの名前を出す(フォルダの色の点 + 名前)。
   //   チャンネル名の行の中には入れない(名前の読み取り bylineText に混ざらないよう、行の後ろに、別の行として足す)。YouTube がカードを作り直して消えたら、次の見回りで付け直す
   const folderChip = (card, gs) => {
@@ -482,6 +487,7 @@
   // 「新着動画」などのページ(iframe)の中をクリックしたときも、開いているメニューを閉じる(iframeの中のクリックは、こちらのページには届かないため)
   const closeAllMenus = () => { closeFly(); closeSettings(); };
   window.addEventListener('message', e => { if (e.data && e.data.tfClick) closeAllMenus(); });
+  window.addEventListener('message', e => { if (!e.data || typeof e.data.tfToast !== 'string' || !String(e.origin).startsWith('chrome-extension://' + chrome.runtime.id)) return; toast(e.data.tfToast.slice(0, 300), 8000); }); // 埋め込みのページ(視聴など)からのお知らせ
   window.addEventListener('blur', () => setTimeout(() => { if (document.activeElement && document.activeElement.tagName === 'IFRAME') closeAllMenus(); }, 0)); // iframeへフォーカスが移ったとき
   document.addEventListener('mousedown', e => { if ($('#tf-gsb-fly.tf-barfly') && !e.target.closest('#tf-gsb-fly') && !e.target.closest('#tf-hbar [data-a="hub"]')) closeFly(); }, true);
   // 一覧のサムネの低評価率(xtra.js の設定 px.disBadge)の状態。ボタンの見た目に使う
@@ -1087,7 +1093,9 @@
 
   // ---------- 更新ループ ----------
   let tmr = 0;
-  const refresh = () => { if (!S) return; document.documentElement.toggleAttribute('data-tf-hide-create', S.settings.hideCreate === true); processCards(); processShorts(); alignShelves(); fixShelves(); renderBar(); renderHBar(); applyThumb(); fitFonts(); const p = $('#tf-pop'); if (p && p._draw) p._draw(); };
+  const refresh = () => { if (!S) return; document.documentElement.toggleAttribute('data-tf-hide-create', S.settings.hideCreate === true);
+    if (/^\/(watch|shorts)/.test(location.pathname)) { renderHBar(); return; } // 再生画面・ショート: ホーム用の整形(一覧のカード・棚・列数・文字の大きさ)はしない。下のバーを隠すだけ(1回100ミリ秒を超えていた)
+    processCards(); processShorts(); alignShelves(); fixShelves(); renderBar(); renderHBar(); applyThumb(); fitFonts(); const p = $('#tf-pop'); if (p && p._draw) p._draw(); };
   const schedule = () => { clearTimeout(tmr); tmr = setTimeout(refresh, 250); };
 
   async function init() {

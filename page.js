@@ -195,7 +195,8 @@ function viewPage() {
   chrome.storage.local.get('settings').then(r => { plFolder = (r.settings || {}).plFolder || 'all'; applyFolder(); });
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area !== 'local') return;
-    if (ch.settings) { const ns = ch.settings.newValue || {}; if ((ns.plFolder || 'all') !== plFolder) { plFolder = ns.plFolder || 'all'; applyFolder(); } if (ns.sleepFrom) sleepFrom = ns.sleepFrom; if (ns.sleepTo) sleepTo = ns.sleepTo; if (ns.plSort) plSort = ns.plSort; }
+    if (ch.sleepWin && !ch.settings) chrome.storage.local.get('settings').then(r => { const s = r.settings || {}, sw = ch.sleepWin.newValue || {}; sleepFrom = s.sleepFrom || sw.from || sleepFrom; sleepTo = s.sleepTo || sw.to || sleepTo; });
+    if (ch.settings) { const ns = ch.settings.newValue || {}; if ((ns.plFolder || 'all') !== plFolder) { plFolder = ns.plFolder || 'all'; applyFolder(); } if (ns.sleepFrom) sleepFrom = ns.sleepFrom; if (ns.sleepTo) sleepTo = ns.sleepTo; if (ch.sleepWin) { const sw = ch.sleepWin.newValue || {}; if (!ns.sleepFrom && sw.from) sleepFrom = sw.from; if (!ns.sleepTo && sw.to) sleepTo = sw.to; } if (ns.plSort) plSort = ns.plSort; }
     if (ch.groups || ch.channels) TF.get().then(S => { curS = S; grpMap = Object.fromEntries(S.groups.map(g => [g.id, g])); chIdx = new Map(); Object.values(S.channels).forEach(c => { const n = nrm(TF.clean(c.name)); if (n) chIdx.set(n, c); }); markAll(); applyFolder(); });
   });
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#plfx')) { e.preventDefault(); chrome.storage.local.get('settings').then(r => { const s = r.settings || {}; s.plFolder = 'all'; return chrome.storage.local.set({ settings: s }); }); } });
@@ -356,10 +357,10 @@ function viewPage() {
     });
     container.addEventListener('dragend', () => { if (!drag) return; drag.classList.remove('dragging'); drag = null; onSave([...container.children].filter(c => c.matches(itemSel)).map(c => c.dataset.id)); });
   }
-  Promise.all([new Promise(res => chrome.runtime.sendMessage({ type: 'plLists' }, res)), chrome.storage.local.get(['settings', 'plSeen'])]).then(([r, st]) => {
+  Promise.all([new Promise(res => chrome.runtime.sendMessage({ type: 'plLists' }, res)), chrome.storage.local.get(['settings', 'plSeen', 'sleepWin'])]).then(([r, st]) => {
     plSeen = st.plSeen || {};
     const box = $('#pls'), ord = (st.settings || {}).plOrder || {}, plOpen = (st.settings || {}).plOpen || {}; // plOpen: 再生リストごとの「最初から開く(true)/閉じる(false)」。未設定の既定は、「TubeFolio2 後で見る」だけ開く
-    freeMin = (st.settings || {}).freeMin || 30; sleepFrom = (st.settings || {}).sleepFrom || '23:00'; sleepTo = (st.settings || {}).sleepTo || '06:00'; plSort = (st.settings || {}).plSort || {};
+    freeMin = (st.settings || {}).freeMin || 30; { const sw = st.sleepWin || {}; sleepFrom = (st.settings || {}).sleepFrom || sw.from || '23:00'; sleepTo = (st.settings || {}).sleepTo || sw.to || '06:00'; } plSort = (st.settings || {}).plSort || {};
     if (!r || r.error) { box.innerHTML = `<p class="empty">再生リストを取得できませんでした${r && r.error ? `(${esc(r.error)})` : ''}。YouTubeにログインしているか、確認してください。</p>`; return; }
     const byOrd = (arr, key) => { const o = ord[key] || []; return arr.map((x, i) => [x, i]).sort((a, b) => { const ia = o.indexOf(a[0].id), ib = o.indexOf(b[0].id); return (ia < 0 ? 1e6 + a[1] : ia) - (ib < 0 ? 1e6 + b[1] : ib); }).map(x => x[0]); };
     const all = r.lists || [];
@@ -474,9 +475,11 @@ function viewPage() {
     const tb = e.target.closest('.pltools button[data-a]'); // 見出しの操作(ぴったり再生・就寝時間まで・連続再生・ランダム再生)
     if (tb) {
       const box = tb.closest('.pltools'), id = box.dataset.id, list = cache.get(id) || [], msg = box.querySelector('.fmsg'), inp = box.querySelector('.fmin'), a = tb.dataset.a;
-      const fit = (min, label) => { const pick = pickFit(list, min * 60); if (!pick.length) { msg.textContent = '収まる動画がありません(長さが分かる未視聴の動画が対象)'; return; } msg.textContent = `${label}: ${pick.length}本(${hmt(pick.reduce((s, x) => s + secOf(x.len), 0))})を再生します`; playIds(pick); };
+      const warn = text => { msg.textContent = text; msg.classList.add('warn'); clearTimeout(msg._t); msg._t = setTimeout(() => msg.classList.remove('warn'), 8000); try { if (window !== window.top) parent.postMessage({ tfToast: '⚠ ' + text }, 'https://www.youtube.com'); else alert(text); } catch (e2) { /* なし */ } };
+      msg.classList.remove('warn');
+      const fit = (min, label) => { const pick = pickFit(list, min * 60); if (!pick.length) { const sh = list.filter(x => secOf(x.len) > 0 && (x.pct || 0) < 90).reduce((m, x) => Math.min(m, secOf(x.len)), Infinity); warn(`${label}に収まる動画がありません。` + (isFinite(sh) ? `いちばん短い動画は ${hmt(sh)} です。` : '長さが分かる未視聴の動画がありません。') + '(再生しませんでした)'); return; } msg.textContent = `${label}: ${pick.length}本(${hmt(pick.reduce((s, x) => s + secOf(x.len), 0))})を再生します`; playIds(pick); };
       if (a === 'fit') { freeMin = Math.max(5, Math.min(600, parseInt(String(inp.value).replace(/[^\d]/g, ''), 10) || 30)); saveSet('freeMin', freeMin); fit(freeMin, `空き時間 ${freeMin}分`); }
-      else if (a === 'bed') { const m = minToBed(); if (m < 5) { msg.textContent = `もう就寝時間(${sleepFrom}〜${sleepTo})です。おやすみなさい🌙`; return; } fit(m, `就寝時間(${sleepFrom})まで ${hmt(m * 60)}`); }
+      else if (a === 'bed') { const m = minToBed(); if (m < 1) { warn(`もう就寝時間(${sleepFrom}〜${sleepTo})です。おやすみなさい🌙(再生しませんでした)`); return; } fit(m, `就寝時間(${sleepFrom})まで ${hmt(m * 60)}`); }
       else { let l = list.filter(x => (x.pct || 0) < 90); if (!l.length) l = list.slice(); if (!l.length) { msg.textContent = '再生できる動画がありません'; return; } if (a === 'rnd') { l = l.slice().sort(() => Math.random() - 0.5); playIds(l); } else playList(id, list); }
       return;
     }

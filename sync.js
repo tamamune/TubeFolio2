@@ -63,21 +63,25 @@ async function upload(tok, id, body) {
 
 // ---- 中身どうしを合わせるキー ----
 const HIST_MAX = 30000; // 視聴履歴の再生の記録の上限(古いものから捨てる)
+// 同じ項目が両方にあって中身が違うとき、どちらを採るかを、どちらのPCで比べても同じになるように決める(文字にして大きい方)。
+//   以前は「自分の側(a)を優先」だったので、PC-A は A を、PC-B は B を残して送り合い、同期が30秒ごとに終わらなかった
+const pickStable = (x, y) => (JSON.stringify(x) >= JSON.stringify(y) ? x : y);
 const MERGE = {
   // 視聴履歴: { v: { 動画ID: [タイトル, チャンネル名, チャンネルのキー, 長さ(秒), ショートか] }, p: [[開始(秒), 動画ID, 見た秒数], …], g: 最後に削除した時刻 }。同じ再生(開始+動画)は、長い方を残す
   hist(a, b) {
     // g = 最後に「削除」をした時刻。新しい削除をした側を元にして、もう一方からは、その削除よりあとの再生だけを足す(消した記録が、同期で戻らないように)
     const ga = (a && a.g) || 0, gb = (b && b.g) || 0, g = Math.max(ga, gb), m = new Map();
     const pa = ((a && a.p) || []).filter(x => ga >= gb || (Array.isArray(x) && x[0] * 1000 > gb)), pb = ((b && b.p) || []).filter(x => gb >= ga || (Array.isArray(x) && x[0] * 1000 > ga));
-    for (const x of [...pa, ...pb]) { if (!Array.isArray(x)) continue; const k = x[0] + '|' + x[1], o = m.get(k); if (!o || (x[2] || 0) > (o[2] || 0)) m.set(k, x); }
+    for (const x of [...pa, ...pb]) { if (!Array.isArray(x)) continue; const k = x[0] + '|' + x[1], o = m.get(k); if (!o || (x[2] || 0) > (o[2] || 0) || ((x[2] || 0) === (o[2] || 0) && (x[3] || 0) > (o[3] || 0)) || ((x[2] || 0) === (o[2] || 0) && (x[3] || 0) === (o[3] || 0) && pickStable(x, o) === x)) m.set(k, x); } // 長く見た方 → 先まで進んだ方 → どちらでも同じになる決め方
     const p = [...m.values()].sort((x, y) => x[0] - y[0]).slice(-HIST_MAX), used = new Set(p.map(x => x[1])), v = {};
-    for (const src of [(a && a.v) || {}, (b && b.v) || {}]) for (const [id, d] of Object.entries(src)) if (used.has(id) && (!v[id] || (d && d[0] && !v[id][0]))) v[id] = d;
+    const filled = d => (Array.isArray(d) ? d.filter(x => x !== '' && x != null && x !== 0).length : 0); // 分かっている情報の数
+    for (const src of [(a && a.v) || {}, (b && b.v) || {}]) for (const [id, d] of Object.entries(src)) { if (!used.has(id)) continue; const o = v[id]; if (!o || filled(d) > filled(o) || (filled(d) === filled(o) && pickStable(d, o) === d)) v[id] = d; }
     return g ? { v, p, g } : { v, p };
   },
   // ランダムタグ: タグごとに、あとで変えた方(at が新しい方)を採る
   playedTags(a, b) {
     const out = { ...(a || {}) };
-    for (const [k, e] of Object.entries(b || {})) { const o = out[k]; if (!o || (e && (e.at || 0) > (o.at || 0))) out[k] = e; }
+    for (const [k, e] of Object.entries(b || {})) { const o = out[k]; if (!o || (e && (e.at || 0) > (o.at || 0)) || (e && (e.at || 0) === (o.at || 0) && pickStable(e, o) === e)) out[k] = e; }
     return out;
   },
   // 再生リストの登録日({ リストID: { 動画ID: 年月日の数字(20261108)。0 = 分からない } }): 分かっている方・早い方の日を採る
@@ -158,7 +162,8 @@ function syncNow(interactive) {
       await applySet({ ...set, syncMeta: { rev, k: keys, init: true } });
       if (push) await upload(tok, id, JSON.stringify({ app: 'TubeFolio2', rev, keys, data }));
       { const nb = baseOf(data); if (!same(nb, base)) await chrome.storage.local.set({ syncBase: nb }); } // 変わったときだけ書く(大きいので、5分ごとに書き直すと重い) // Drive と同じになった内容を、次の同期のために覚えておく(アップロードに失敗したときは、覚えない)
-      await setStatus('ok', took && push ? '他のPCの内容を取り込み、この端末の変更をDriveに保存しました' : took ? '他のPCの内容を取り込みました' : push ? 'Driveに保存しました' : '最新です');
+      const tk = Object.keys(set), pk = push ? SYNC_KEYS.filter(k => data[k] !== undefined && !same(data[k], rdata[k])) : [], nm = a => a.length ? '(' + a.join('・') + ')' : '';
+      await setStatus('ok', took && push ? `他のPCの内容を取り込み${nm(tk)}、この端末の変更をDriveに保存しました${nm(pk)}` : took ? `他のPCの内容を取り込みました${nm(tk)}` : push ? `Driveに保存しました${nm(pk)}` : '最新です');
       return { ok: true };
     } catch (e) {
       const msg = /interaction_required|user interaction|did not approve/i.test(String(e.message || e)) ? "ログインが必要です。「☁ 同期」ボタンを押してください(" + String(e.message || e).slice(0, 60) + ")" : String(e.message || e);

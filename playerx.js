@@ -821,7 +821,8 @@ const TGPlayerX = (() => {
   });
 
   // ---------- 休憩・就寝リマインダー ----------
-  let cont = 0, lastPlay = 0, nextBrk = 0, nextBed = 0;
+  let cont = 0, lastPlay = 0, nextBrk = 0, nextBed = 0, navAt = Date.now();
+  document.addEventListener('yt-navigate-finish', () => { navAt = Date.now(); }); // お知らせは、再生画面を開いてから10秒たってから(ページが落ち着くまでは、ボタンが押せないことがあるため)
   const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
   function inSleep() {
     if (!sleep.on || !cfg.bed) return false;
@@ -867,8 +868,9 @@ const TGPlayerX = (() => {
     if (!playing) return;
     if (cfg.brk > 0) {
       if (!nextBrk) nextBrk = cfg.brk * 60;
-      if (cont >= nextBrk) { nextBrk = cont + cfg.brk * 60; remind('brk', `☕ 続けて <b>${Math.round(cont / 60)}分</b> 見ています。<br>少し目と体を休めませんか？`, 15); }
+      if (cont >= nextBrk && now - navAt >= 10e3) { nextBrk = cont + cfg.brk * 60; remind('brk', `☕ 続けて <b>${Math.round(cont / 60)}分</b> 見ています。<br>少し目と体を休めませんか？`, 15); }
     }
+    if (now - navAt < 10e3) return;
     if (inSleep() && now >= nextBed) {
       nextBed = now + 30 * 60e3;
       remind('bed', `🌙 就寝時間（${esc(sleep.from)}〜${esc(sleep.to)}）です。<br>そろそろ区切りをつけて、おやすみの準備をしませんか？`, 15);
@@ -885,22 +887,24 @@ const TGPlayerX = (() => {
     if (!curVid()) { setMini(false); clearSide(); return; }
     // 1つの機能が失敗しても(スマホのブラウザなどで、部品の形が違うとき)、後ろの機能(タグ・元の概要欄など)が止まらないように、1つずつ守って呼ぶ
     const run = (name, fn) => { try { const r = fn(); if (r && r.catch) r.catch(e => tickErr(name, e)); } catch (e) { tickErr(name, e); } };
+    // 急ぐもの(再生の始めから効いてほしいもの)
     run('再生速度', () => applyRate());
+    run('スキップ', applySkip);
+    run('広告', adFast);
+    run('省データ', () => applySaver());
+    run('休憩', () => checkRemind(dt));
+    if ((window.tfQuiet && window.tfQuiet())) return; // 再生画面を開いた直後(5秒)は、ここまで。残りは、ページが落ち着いてから
     run('戻る・進む', ensureSeek);
     run('バー', applyBars);
     run('チャンネル設定', ensureChBtn);
     run('ツール', ensureTools);
-    run('スキップ', applySkip);
     run('フィルター', applyFilter);
     run('A-B', abMark);
     run('字幕', autoSub);
-    run('広告', adFast);
-    run('省データ', () => applySaver());
     run('タグ', () => showMeta());
     run('ズレた関連', () => { if (!adShowing()) return showNth(); });
     run('エコー', ensureEcho);
     run('ミニ', checkMini);
-    run('休憩', () => checkRemind(dt));
   }
   setInterval(tick, 1000);
   document.addEventListener('yt-navigate-finish', () => { if (!curVid()) clearSide(); rateFor = null; document.querySelector('.tg-px-chpop')?.remove(); setTimeout(tick, 300); });

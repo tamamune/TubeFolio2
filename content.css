@@ -434,8 +434,6 @@ html[data-tf-fit] ytd-rich-item-renderer ytd-channel-name yt-formatted-string, h
 html[data-tf-fit] ytd-rich-item-renderer yt-content-metadata-view-model [class*="metadata-row" i]:first-child,
 html[data-tf-fit] ytd-rich-item-renderer yt-content-metadata-view-model [class*="metadata-row" i]:first-child span,
 html[data-tf-fit] ytd-rich-item-renderer yt-content-metadata-view-model [class*="metadata-row" i]:first-child a { white-space: normal !important; overflow: hidden; text-overflow: ellipsis; }
-html[data-tf-fit] ytd-rich-item-renderer ytd-channel-name yt-formatted-string, html[data-tf-fit] ytd-rich-item-renderer ytd-channel-name a,
-html[data-tf-fit] ytd-rich-item-renderer yt-content-metadata-view-model [class*="metadata-row" i]:first-child span[class*="attributed" i] { display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2 !important; line-clamp: 2 !important; max-height: none !important; }
 
 /* リロード時のガタつき防止: early.js が付ける data-tf-boot の間は画面を隠し、整形後にふわっと表示する */
 html[data-tf-boot] ytd-app { opacity: 0 !important; }
@@ -1035,3 +1033,15 @@ html:has(#movie_player.ytp-fullscreen) #tf-wadd, html:fullscreen #tf-wadd { disp
 :root { --tf-rowbtn: rgba(0,0,0,.05); --tf-rowbtn-h: rgba(0,0,0,.1); }
 html[dark] { --tf-rowbtn: rgba(255,255,255,.1); --tf-rowbtn-h: rgba(255,255,255,.2); }
 html:has(#movie_player.ytp-fullscreen) #tf-wadd.tf-inrow, html:fullscreen #tf-wadd.tf-inrow { display: inline-flex; }
+/* 一覧(ホーム・登録チャンネル・チャンネルのページ)のカード: チャンネル名・再生回数・投稿日を、横幅が足りなくても「…」で切らずに、折り返して全部出す。
+   YouTube は、この行を1行に収めて、はみ出しを隠している(チャンネル名 ▷ 再生回数 投稿日 が1行のときも、2行のときもある) */
+/*   部品の名前(クラス名)は、YouTube が書き方を変えることがある(metadata-row / MetadataRow など)ので、名前の一部と、部品そのもの(タグ)の両方で当てる。
+     タイトル(2行で切る)は、この部品の外にあるので、影響しない */
+ytd-rich-item-renderer :is(yt-content-metadata-view-model, [class*="content-metadata-view-model" i], [class*="contentmetadataviewmodel" i]),
+ytd-rich-item-renderer :is(yt-content-metadata-view-model, [class*="content-metadata-view-model" i], [class*="contentmetadataviewmodel" i]) * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; max-width: none !important; max-height: none !important; -webkit-line-clamp: unset !important; line-clamp: none !important; }
+ytd-rich-item-renderer :is(yt-content-metadata-view-model, [class*="content-metadata-view-model" i], [class*="contentmetadataviewmodel" i]), ytd-rich-item-renderer :is(yt-content-metadata-view-model, [class*="content-metadata-view-model" i], [class*="contentmetadataviewmodel" i]) div { flex-wrap: wrap !important; height: auto !important; }
+ytd-rich-item-renderer :is(yt-content-metadata-view-model, [class*="content-metadata-view-model" i], [class*="contentmetadataviewmodel" i]) div > * { min-width: 0; flex-shrink: 1 !important; }
+ytd-rich-item-renderer ytd-channel-name, ytd-rich-item-renderer ytd-channel-name #container, ytd-rich-item-renderer ytd-channel-name #text-container,
+ytd-rich-item-renderer ytd-channel-name yt-formatted-string, ytd-rich-item-renderer ytd-channel-name a,
+ytd-rich-item-renderer #metadata-line, ytd-rich-item-renderer #metadata-line span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; max-height: none !important; -webkit-line-clamp: unset !important; }
+ytd-rich-item-renderer #metadata-line { flex-wrap: wrap !important; }
