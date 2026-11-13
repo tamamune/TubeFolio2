@@ -42,17 +42,10 @@ select { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line);
 .btn { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); text-decoration: none; color: var(--fg); }
 .pri { background: var(--acc); color: #fff; border-color: var(--acc); font-weight: 600; }
 
-.bulk { position: sticky; top: 12px; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 14px; background: var(--panel); border: 1px solid var(--acc); border-radius: 14px; box-shadow: var(--shadow); }
-.bulk #bgroups { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
-.bulk #bgroups button, #bclr { padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--chip); }
-.bulk #bgroups button:hover { border-color: var(--c); }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
 .card { position: relative; display: flex; gap: 12px; padding: 14px; background: var(--panel); border: 1.5px solid transparent; border-radius: var(--r); box-shadow: var(--shadow); transition: .15s; cursor: grab; }
 .card:hover { transform: translateY(-2px); }
-.card.sel { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 7%, var(--panel)); }
-.card .chk { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; accent-color: var(--acc); opacity: 0; }
-.card:hover .chk, .card.sel .chk { opacity: 1; }
 .av { width: 52px; height: 52px; flex: none; border-radius: 50%; background: var(--chip) center/cover; display: grid; place-items: center; font-weight: 700; color: var(--sub); }
 .info { min-width: 0; flex: 1; }
 .info a { display: block; font-weight: 600; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 22px; }
@@ -178,11 +171,9 @@ body.embed .side { display: none; }
 :root[data-embed] .lg button { font-size: 12px; }
 :root[data-embed] .card { background: transparent; box-shadow: none; border: 1px solid var(--line); border-radius: 12px; }
 :root[data-embed] .card:hover { transform: none; background: var(--chip); }
-:root[data-embed] .card.sel { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent); }
 :root[data-embed] .info a { font-size: 16px; line-height: 22px; font-weight: 500; }
 :root[data-embed] .info small { font-size: 12px; }
 :root[data-embed] .tag { font-size: 12px; border-radius: 8px; }
-:root[data-embed] .bulk { border-radius: 12px; box-shadow: none; }
 :root[data-embed] .empty { border-radius: 12px; font-size: 14px; }
 :root[data-embed] dialog { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
 :root[data-embed] .av { width: 56px; height: 56px; }
@@ -199,7 +190,6 @@ body.embed .side { display: none; }
 :root[data-embed] .btn, :root[data-embed] select { flex: none; white-space: nowrap; }
 :root[data-embed] #drvst { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
 :root[data-embed] .stats { margin-bottom: 8px; padding: 8px 14px; }
-:root[data-embed] .bulk { margin-bottom: 8px; }
 
 /* チャンネル個別表示 */
 .chh { display: flex; gap: 18px; align-items: center; margin: 4px 0 18px; }
@@ -274,9 +264,6 @@ body { font-family: Roboto, "Yu Gothic UI", "Segoe UI", system-ui, sans-serif; }
 .btn.pri:hover { background: color-mix(in srgb, var(--fg) 85%, var(--bg)); }
 .card { border-radius: 12px; border: 0; background: var(--panel); }
 .card:hover { transform: none; background: var(--chip); }
-.card.sel { background: color-mix(in srgb, var(--acc) 14%, var(--panel)); outline: 2px solid var(--acc); }
-.bulk { background: var(--chip); border: 0; border-radius: 12px; }
-.bulk #bgroups button, #bclr { border: 0; border-radius: 18px; background: var(--bg); }
 .tag { border-radius: 8px; }
 dialog { border-radius: 12px; border: 1px solid var(--line); background: var(--bg); box-shadow: 0 8px 32px rgba(0,0,0,.4); }
 dialog .pri, dialog button.pri { border-radius: 18px; }
@@ -496,7 +483,6 @@ dialog#dlg { width: min(760px, 96vw); max-height: 94vh; overflow-y: auto; }
 .tag.plus.fbtn { padding: 3px 10px; font: inherit; font-size: 12px; color: var(--fg); background: var(--chip); border: 1px dashed color-mix(in srgb, var(--fg) 35%, transparent); }
 .tag.plus.fbtn:hover { border-style: solid; border-color: var(--acc); color: var(--acc); }
 .card:hover .tag.plus.fbtn { background: var(--panel); }
-.bulk #bgroups button.pk { background: var(--fg); color: var(--bg); font-weight: 500; }
 #fpick { position: fixed; z-index: 50; width: min(340px, calc(100vw - 16px)); max-height: min(560px, calc(100vh - 16px)); display: flex; flex-direction: column; padding: 10px; border-radius: 14px; background: var(--panel); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,.35); }
 #fpick .fp-h { display: flex; align-items: flex-start; gap: 8px; }
 #fpick .fp-h b { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
@@ -527,7 +513,6 @@ a.played::before { content: "✓ 視聴済み"; position: absolute; top: 6px; le
 a.played b { color: var(--sub); }
 
 /* 「まとめて入れる」を非表示にしているとき(⚙ チャンネル管理の設定 → 整理): カードのチェックを出さない */
-body.nobulk .card .chk { display: none; }
 
 /* 未登録(YouTube で登録していない)チャンネル: 一覧とフォルダには残し、印で分かるようにする。色は変数で持つ(ダーク / ライト) */
 :root { --un-bg: #fde8e8; --un-fg: #b42318; --un-ln: #f1a9a0; }
