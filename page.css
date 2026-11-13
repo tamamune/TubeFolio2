@@ -361,3 +361,13 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .hd-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
 @media (max-width: 900px) { .hd-six { grid-template-columns: repeat(3, minmax(0, 1fr)); } .hd-three { grid-template-columns: 1fr; } }
 .hd-six .hd-s { grid-column: auto; }
+
+/* ダッシュボード: 視聴履歴の一覧(いちばん下)と、チャンネル・分布の2列 */
+.hd-three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 900px) { .hd-three { grid-template-columns: 1fr; } }
+.hd-hist { margin-top: 12px; }
+.hd-hh { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; } .hd-hh h2 { margin: 0; }
+.hd-hh input { height: 32px; min-width: 220px; padding: 0 14px; border: 1px solid var(--hd-line); border-radius: 16px; background: var(--hd-bg); color: var(--hd-fg); font: inherit; font-size: 13px; outline: none; }
+.hd-hh input:focus { border-color: var(--hd-acc); }
+.hd-dh { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--hd-line); font-size: 12.5px; font-weight: 600; } .hd-dh small { color: var(--hd-sub); font-weight: 400; }
+.hd-more { display: block; width: 100%; height: 36px; margin-top: 10px; border: 0; border-radius: 18px; background: var(--hd-chip); color: var(--hd-fg); font: inherit; font-size: 13px; cursor: pointer; } .hd-more:hover { background: var(--hd-l1); }

@@ -42,8 +42,6 @@ function histDash() {
     const chs = new Map(); P.forEach(x => { const m = H.v[x[1]] || [], nm = m[1] || '(チャンネル不明)', c = chs.get(nm) || { name: nm, val: 0, n: 0 }; c.val += x[2] || 0; c.n++; chs.set(nm, c); });
     const top = [...chs.values()].sort((a, b) => b.val - a.val).slice(0, 5), tmax = Math.max(1, ...top.map(c => c.val));
     const topCh = (() => { const m = new Map(); wk.forEach(x => { const n = (H.v[x[1]] || [])[1]; if (n) m.set(n, (m.get(n) || 0) + x[2]); }); return [...m.entries()].sort((a, b) => b[1] - a[1])[0]; })();
-    // 最近見た動画(重複なし)
-    const seen = new Set(), recent = []; for (let i = H.p.length - 1; i >= 0 && recent.length < 8; i--) { const x = H.p[i]; if (seen.has(x[1])) continue; seen.add(x[1]); recent.push(x); }
     // カレンダー
     const y = calM.getFullYear(), mo = calM.getMonth(), first = new Date(y, mo, 1), last = new Date(y, mo + 1, 0);
     const mvals = []; for (let d = 1; d <= last.getDate(); d++) mvals.push(byDay.get(dkey(new Date(y, mo, d))) || 0);
@@ -99,18 +97,34 @@ function histDash() {
       </div>
       <section class="hd-card hd-daily"><h2>📊 日ごとの視聴時間(直近${dn}日)</h2><div class="hd-bars">${dbars.map(([d, v]) => `<i style="height:${Math.max(3, Math.round(v / dmax * 100))}%" class="${v ? '' : 'z'}" title="${d.getMonth() + 1}月${d.getDate()}日(${WD[d.getDay()]}) ・ ${v ? hm(v) : '—'}"></i>`).join('')}</div>
         <div class="hd-bl"><span>${dbars[0][0].getMonth() + 1}/${dbars[0][0].getDate()}</span><span>${now.getMonth() + 1}/${now.getDate()}</span></div></section>
-      <div class="hd-two">
-        <section class="hd-card"><h2>🕘 最近見た動画</h2>${recent.length ? recent.map(x => { const m = H.v[x[1]] || [], test = /^TFTEST/.test(x[1]), d = new Date(x[0] * 1000);
-          return `<a class="hd-rv" ${test ? '' : `href="https://www.youtube.com/${m[4] ? 'shorts/' : 'watch?v='}${esc(x[1])}" target="_top"`}>${test ? '<span class="th"></span>' : `<img loading="lazy" src="https://i.ytimg.com/vi/${esc(x[1])}/mqdefault.jpg" alt="">`}<span class="tx"><b>${esc(m[0] || x[1])}</b><small>${esc(m[1] || '')} ・ ${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}</small></span></a>`; }).join('') : '<p class="hd-none">まだありません</p>'}</section>
-        <section class="hd-card"><h2>📺 よく見たチャンネル</h2>${top.length ? top.map(c => `<div class="hd-ch" title="${esc(c.name)} ・ ${hm(c.val)} ・ ${c.n}回"><span>${esc(c.name)}</span><i><u style="width:${Math.max(4, Math.round(c.val / tmax * 100))}%"></u></i><small>${hm(c.val)}</small></div>`).join('') : '<p class="hd-none">まだありません</p>'}</section>
-      </div>
       <div class="hd-three">
+        <section class="hd-card"><h2>📺 よく見たチャンネル</h2>${top.length ? top.map(c => `<div class="hd-ch" title="${esc(c.name)} ・ ${hm(c.val)} ・ ${c.n}回"><span>${esc(c.name)}</span><i><u style="width:${Math.max(4, Math.round(c.val / tmax * 100))}%"></u></i><small>${hm(c.val)}</small></div>`).join('') : '<p class="hd-none">まだありません</p>'}</section>
         <section class="hd-card"><h2>🎞 動画の長さ別</h2>${lenB.map(b => `<div class="hd-ch" title="${hm(b[1])}"><span>${b[0]}</span><i><u style="width:${b[1] ? Math.max(4, Math.round(b[1] / lmax * 100)) : 0}%"></u></i><small>${hm(b[1])}</small></div>`).join('')}</section>
         <section class="hd-card"><h2>📁 フォルダ別</h2>${folRows.length ? folRows.map(r => `<div class="hd-ch" title="${esc(r.name)} ・ ${hm(r.val)}"><span>${esc(r.name)}</span><i><u style="width:${Math.max(4, Math.round(r.val / fmax * 100))}%"></u></i><small>${hm(r.val)}</small></div>`).join('') : '<p class="hd-none">フォルダに入れたチャンネルの動画がありません</p>'}</section>
         <section class="hd-card"><h2>⭐ よく見た動画</h2>${topV.length ? topV.map(([id, e]) => { const m = H.v[id] || []; return `<div class="hd-ch" title="${esc(m[0] || id)} ・ ${e.n}回"><span>${esc(m[0] || id)}</span><i><u style="width:${Math.max(4, Math.round(e.val / topV[0][1].val * 100))}%"></u></i><small>${hm(e.val)}</small></div>`; }).join('') : '<p class="hd-none">まだありません</p>'}</section>
-      </div>`;
+      </div>
+      <section class="hd-card hd-hist"><div class="hd-hh"><h2>🕘 視聴履歴(新しい順・過去へさかのぼれます)</h2><input id="hd-q" type="search" placeholder="タイトル・チャンネルで絞り込み" value="${esc(hq)}" autocomplete="off"></div><div id="hd-list"></div></section>`;
+    drawList();
   }
+  // ---- 視聴履歴の一覧: 日付ごと。30件ずつ「もっと見る」で、いちばん古い記録まで ----
+  let hq = '', shown = 30;
+  function drawList() {
+    const el = $('#hd-list'); if (!el) return;
+    const words = hq.toLowerCase().split(/\s+/).filter(Boolean);
+    const all = H.p.slice().reverse(), hit = words.length ? all.filter(x => { const m = H.v[x[1]] || [], t = ((m[0] || '') + ' ' + (m[1] || '')).toLowerCase(); return words.every(w => t.includes(w)); }) : all;
+    if (!hit.length) { el.innerHTML = '<p class="hd-none">' + (H.p.length ? '該当する記録がありません' : 'まだありません') + '</p>'; return; }
+    const dsum = new Map(); hit.forEach(x => { const k = dkey(new Date(x[0] * 1000)); dsum.set(k, (dsum.get(k) || 0) + (x[2] || 0)); });
+    let last = '', out = '';
+    hit.slice(0, shown).forEach(x => {
+      const d = new Date(x[0] * 1000), k = dkey(d), m = H.v[x[1]] || [], test = /^TFTEST/.test(x[1]);
+      if (k !== last) { last = k; out += `<div class="hd-dh">${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${WD[d.getDay()]})<small>${hm(dsum.get(k))}</small></div>`; }
+      out += `<a class="hd-rv" ${test ? '' : `href="https://www.youtube.com/${m[4] ? 'shorts/' : 'watch?v='}${esc(x[1])}" target="_top"`}>${test ? '<span class="th"></span>' : `<img loading="lazy" src="https://i.ytimg.com/vi/${esc(x[1])}/mqdefault.jpg" alt="">`}<span class="tx"><b>${esc(m[0] || x[1])}</b><small>${esc(m[1] || '')}${m[4] ? ' ・ ショート' : ''} ・ ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ・ ${hm(x[2] || 0)}</small></span></a>`;
+    });
+    el.innerHTML = out + (hit.length > shown ? `<button class="hd-more" data-more="1">もっと見る(残り ${hit.length - shown}件)</button>` : `<p class="hd-none">${hit.length}件 ・ ここまでが、いちばん古い記録です</p>`);
+  }
+  box.addEventListener('input', e => { if (e.target.id === 'hd-q') { hq = e.target.value; shown = 30; drawList(); } });
   box.addEventListener('click', e => {
+    if (e.target.closest('[data-more]')) { shown += 60; drawList(); return; }
     const d = e.target.closest('[data-d]'); if (d) { days = +d.dataset.d; try { localStorage.setItem('tfHdDays', String(days)); } catch (x) { /* なし */ } draw(); return; }
     const m = e.target.closest('[data-m]'); if (m) { calM = new Date(calM.getFullYear(), calM.getMonth() + (+m.dataset.m), 1); draw(); }
   });
