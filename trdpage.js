@@ -103,3 +103,6 @@ function trdApiPage() {
   kb.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'tr-kin') $('#tr-ksave').click(); });
   load();
 }
+
+// ---- 検索2(上のバーの「検索2」): 検索ページに、種類「📈 急上昇」(日付をさかのぼれる)を足したもの(search.js の recPage({ trend: true }))
+function rec2Page() { recPage({ trend: true }); }

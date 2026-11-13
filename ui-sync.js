@@ -7,7 +7,7 @@
 //   反映したあと、'tfUiApplied' のイベントを出す(テーマなど、すぐ見た目を変える必要があるものが、受け取って使う)。
 (() => {
   if (window.__tfUiSync) return; window.__tfUiSync = true;
-  const OK = k => /^(tfTheme|tfPageFold_.+|tfPageSort_.+|tfRecScope|tfRecKind|tfRecQ|tfHistTab|tfHistDays|tfOpen|tfMgrTab|tfStats|tfSetTab|tfSetSub|tfSetOSub)$/.test(String(k));
+  const OK = k => /^(tfTheme|tfPageFold_.+|tfPageSort_.+|tfRecScope|tfRecKind|tfRecQ|tfHistTab|tfHistDays|tfOpen|tfMgrTab|tfStats|tfSetTab|tfSetSub|tfSetOSub|tfRec2Kind)$/.test(String(k));
   let ls, set0, rm0;
   try { ls = window.localStorage; set0 = Storage.prototype.setItem; rm0 = Storage.prototype.removeItem; } catch (e) { return; }
   let ui = {}, ready = false, t = 0;

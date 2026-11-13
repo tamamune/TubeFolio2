@@ -89,6 +89,7 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
 } else if (P === 'hist') { histPage(); // 視聴履歴(histpage.js)
 } else if (P === 'trdapi') { trdApiPage(); // 急上昇動画(YouTube Data API・実験。trdpage.js)
 } else if (P === 'trd') { trdPage(); // 急上昇動画(日付別・実験。trdpage.js)
+} else if (P === 'rec2') { rec2Page(); // 検索2: 検索 + 急上昇(日付をさかのぼる)のタブ(trdpage.js)
 } else if (P === 'histd') { histDash(); // 視聴履歴ダッシュボード(試作。histdash.js)
 } else { // まだ中身のないページ
   main.innerHTML = `<h1>${esc(TITLE)}</h1><p class="empty">このページは、まだ中身がありません。</p>`;
@@ -149,9 +150,35 @@ document.addEventListener('click', e => {
 // ---------- 視聴: 再生リスト。「ライブラリに保存」した再生リスト(ミックスリストなど)は「ライブラリ」ひとつにまとめ、中はサムネのカードで並べる。
 // 自分の再生リスト(後で見る・高く評価した動画を含む)は、細い行で1つずつ。行・カードは、ドラッグで順番を変えられる(順番は設定 plOrder に保存 = Drive同期の対象)。 ----------
 function viewPage() {
-  main.innerHTML = `<div class="head vhead"><h1 title="再生リスト(ドラッグで順番を変えられます)">${esc(TITLE)}</h1><form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form><span id="plf" class="sub"></span><span id="st"></span></div>
+  main.innerHTML = `<div class="head vhead"><h1 title="再生リスト(ドラッグで順番を変えられます)">${esc(TITLE)}</h1><span id="st"></span><span id="plf" class="sub"></span><button type="button" id="vreel" class="vreel" title="TubeFolio2 後で見る・非登録チャンネル・急上昇から10本を選んで、横に流れるリールで出します">🎞 おすすめ10本</button><form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form></div>
     <div id="pls"><p class="empty">読み込み中…</p></div>`;
   const loaded = new Set();
+  // ---- 「🎵 音楽🎵」(急上昇の音楽を自動で入れる再生リスト。background.js の musicAuto)のカードに 📌 取り置き:
+  //   印を付けた動画は、30日たっても自動では外さない(autoMusic.keep。Drive同期の対象)。もう一度押すと外す
+  $('#vreel').addEventListener('click', () => { if (typeof openReel === 'function') openReel(); }); // 🎞 おすすめ10本(reel.js)
+  let am = {};
+  const markKeep = () => {
+    const id = am.listId;
+    document.querySelectorAll('#pls .card').forEach(cd => {
+      const th = cd.querySelector('.th'); if (!th) return;
+      const href = cd.getAttribute('href') || '', v = (href.match(/[?&]v=([\w-]{11})/) || [])[1]; let b = th.querySelector('.vkeep');
+      if (!id || !v || !href.includes('list=' + id)) { if (b) b.remove(); return; }
+      if (!b) { b = document.createElement('button'); b.type = 'button'; b.className = 'vkeep'; b.textContent = '📌'; th.appendChild(b); }
+      const k = !!(am.keep || {})[v]; if (b.dataset.vid !== v) b.dataset.vid = v; if (b.classList.contains('on') !== k) b.classList.toggle('on', k);
+      const tt = k ? '取り置き中(30日たっても、自動では外しません。押すと解除)' : '📌 取り置き(30日たっても、自動では外さない)'; if (b.title !== tt) b.title = tt;
+    });
+  };
+  chrome.storage.local.get('autoMusic').then(r => { am = r.autoMusic || {}; markKeep(); }).catch(() => {});
+  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.autoMusic) { am = ch.autoMusic.newValue || {}; markKeep(); } });
+  { let kt = 0; new MutationObserver(() => { clearTimeout(kt); kt = setTimeout(markKeep, 200); }).observe($('#pls'), { childList: true, subtree: true }); }
+  document.addEventListener('click', async e => {
+    const b = e.target.closest && e.target.closest('.vkeep'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const v = b.dataset.vid, { autoMusic: a = {} } = await chrome.storage.local.get('autoMusic'), keep = { ...(a.keep || {}) };
+    if (keep[v]) delete keep[v]; else keep[v] = Date.now();
+    b.classList.toggle('on', !!keep[v]); // 先に見た目を変える
+    await chrome.storage.local.set({ autoMusic: { ...a, keep } });
+  }, true);
   // ---- 登録チャンネルの目印: サムネに色の線(フォルダ登録=フォルダの色 / 登録のみ=青 / 未登録=赤)。チャンネルは、表示名で照らし合わせる ----
   const nrm = t => String(t || '').normalize('NFKC').trim().toLowerCase();
   let chIdx = new Map(), grpMap = {};
@@ -321,7 +348,7 @@ function viewPage() {
     return out.sort((a, b) => cand.indexOf(a) - cand.indexOf(b));
   };
   // 連続再生の待ち行列: 動画IDの並びを保存して、先頭の動画を開く。以降の「次の動画」は、YouTube側(content.js)が、再生が終わるたびに順に開く
-  const playIds = list => { const ids = list.map(x => x.id).filter(Boolean); if (!ids.length) return; chrome.storage.local.set({ tfQueue: { ids, t: Date.now() } }).then(() => window.open('https://www.youtube.com/watch?v=' + ids[0], '_top')); };
+  const playIds = (list, name) => { const ids = list.map(x => x.id).filter(Boolean); if (!ids.length) return; chrome.storage.local.set({ tfQueue: { ids, t: Date.now(), name: name || '連続再生' } }).then(() => window.open('https://www.youtube.com/watch?v=' + ids[0], '_top')); };
   // 再生リストを、初めから(YouTube本来の再生リストとして)連続再生
   const playList = (id, list) => { const first = (list.find(x => (x.pct || 0) < 90) || list[0] || {}).id; if (!first) return; chrome.storage.local.remove('tfQueue').then(() => window.open('https://www.youtube.com/watch?v=' + first + '&list=' + encodeURIComponent(id), '_top')); };
   const hmMin = t => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
@@ -479,10 +506,10 @@ function viewPage() {
       const box = tb.closest('.pltools'), id = box.dataset.id, list = cache.get(id) || [], msg = box.querySelector('.fmsg'), inp = box.querySelector('.fmin'), a = tb.dataset.a;
       const warn = text => { msg.textContent = text; msg.classList.add('warn'); clearTimeout(msg._t); msg._t = setTimeout(() => msg.classList.remove('warn'), 8000); try { if (window !== window.top) parent.postMessage({ tfToast: '⚠ ' + text }, 'https://www.youtube.com'); else alert(text); } catch (e2) { /* なし */ } };
       msg.classList.remove('warn');
-      const fit = (min, label) => { const pick = pickFit(list, min * 60); if (!pick.length) { const sh = list.filter(x => secOf(x.len) > 0 && (x.pct || 0) < 90).reduce((m, x) => Math.min(m, secOf(x.len)), Infinity); warn(`${label}に収まる動画がありません。` + (isFinite(sh) ? `いちばん短い動画は ${hmt(sh)} です。` : '長さが分かる未視聴の動画がありません。') + '(再生しませんでした)'); return; } msg.textContent = `${label}: ${pick.length}本(${hmt(pick.reduce((s, x) => s + secOf(x.len), 0))})を再生します`; playIds(pick); };
+      const fit = (min, label) => { const pick = pickFit(list, min * 60); if (!pick.length) { const sh = list.filter(x => secOf(x.len) > 0 && (x.pct || 0) < 90).reduce((m, x) => Math.min(m, secOf(x.len)), Infinity); warn(`${label}に収まる動画がありません。` + (isFinite(sh) ? `いちばん短い動画は ${hmt(sh)} です。` : '長さが分かる未視聴の動画がありません。') + '(再生しませんでした)'); return; } msg.textContent = `${label}: ${pick.length}本(${hmt(pick.reduce((s, x) => s + secOf(x.len), 0))})を再生します`; playIds(pick, label); };
       if (a === 'fit') { freeMin = Math.max(5, Math.min(600, parseInt(String(inp.value).replace(/[^\d]/g, ''), 10) || 30)); saveSet('freeMin', freeMin); fit(freeMin, `空き時間 ${freeMin}分`); }
       else if (a === 'bed') { const m = minToBed(); if (m < 1) { warn(`もう就寝時間(${sleepFrom}〜${sleepTo})です。おやすみなさい🌙(再生しませんでした)`); return; } fit(m, `就寝時間(${sleepFrom})まで ${hmt(m * 60)}`); }
-      else { let l = list.filter(x => (x.pct || 0) < 90); if (!l.length) l = list.slice(); if (!l.length) { msg.textContent = '再生できる動画がありません'; return; } if (a === 'rnd') { l = l.slice().sort(() => Math.random() - 0.5); playIds(l); } else playList(id, list); }
+      else { let l = list.filter(x => (x.pct || 0) < 90); if (!l.length) l = list.slice(); if (!l.length) { msg.textContent = '再生できる動画がありません'; return; } if (a === 'rnd') { l = l.slice().sort(() => Math.random() - 0.5); playIds(l, 'ランダム再生'); } else playList(id, list); }
       return;
     }
     if (e.target.closest('.pltools')) return; // 入力欄などを押しても、開閉しない

@@ -1,7 +1,7 @@
 # TubeFolio2 開発ルール(どのPCで修正する場合も必ず守る)
 
 ## Google Drive 同期は必須
-- 各PCで登録した TubeFolio2 の設定・登録データは、すべて Google Drive(appDataFolder の `tubefolio2.json`)に保存し、他のPCでも共有できる状態を保つこと。対象のキーは [store.js](store.js) の `TF.SYNC_KEYS` の1か所で決める([sync.js](sync.js) の `SYNC_KEYS`・JSONの書き出し/読み込みが、これを使う)。今の対象: groups / channels / settings / meta / activity / cmt / px / folderRates / sleepWin / chSet / later / laterRemoved / folderSeen / cchap / pickMode / notifyRules / notifyFolders / focus / ui / bookmarks / playedTags / trendHours / fOpen / hideMembers / setGrp / cmtNames / hist(視聴履歴) / plSeen(再生リストの登録日)。
+- 各PCで登録した TubeFolio2 の設定・登録データは、すべて Google Drive(appDataFolder の `tubefolio2.json`)に保存し、他のPCでも共有できる状態を保つこと。対象のキーは [store.js](store.js) の `TF.SYNC_KEYS` の1か所で決める([sync.js](sync.js) の `SYNC_KEYS`・JSONの書き出し/読み込みが、これを使う)。今の対象: groups / channels / settings / meta / activity / cmt / px / folderRates / sleepWin / chSet / later / laterRemoved / folderSeen / cchap / pickMode / notifyRules / notifyFolders / focus / ui / bookmarks / playedTags / trendHours / fOpen / hideMembers / setGrp / cmtNames / hist(視聴履歴) / plSeen(再生リストの登録日) / autoMusic(急上昇の音楽を「🎵 音楽🎵」へ自動で入れる設定と記録。前回の実行時刻を共有して、複数のPCで重ねて動かない)。
 - 同期の方式は「キーごとの統合」: キーごとに最後に変えた時刻(`syncMeta.k`)を持ち、キーごとに新しい方を採る(全体を丸ごと上書きしない)。hist / playedTags / plSeen は、中身どうしを合わせる(`sync.js` の `MERGE`)。その端末で初めて同期するときは、Drive の内容を優先する。
 - 2回目の同期からは、キーの中の**項目ごと**(フォルダごと・チャンネルごと・設定の項目ごと)に統合する(`sync.js` の `merge3`)。前回の同期のときの内容(`syncBase`。この端末だけに置く)と比べて、「この端末だけが変えた項目」「相手だけが変えた項目」を、それぞれ採る。両方が変えた項目だけ、あとで変えた方を採る。これで、別のPCで設定を1つ変えただけで、フォルダ設定(groups / channels)が古い内容に戻ることがない。
 - JSON の書き出し / 読み込み(管理画面・設定)も、`TF.SYNC_KEYS` の全部を対象にする(Drive同期と同じ内容)。

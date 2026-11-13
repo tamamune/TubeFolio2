@@ -406,14 +406,19 @@ const TGX = (() => {
   // 選ばなかったとき: 終わる直前に、1番へ移る(YouTube が再生リストの次などへ勝手に進む前に)
   function autoPick(vEl, v) {
     const a = pickAuto; if (!a || a.done || a.v !== v || a.self || pickClosed === v || !document.getElementById('tg-pick')) return;
-    a.done = true; try { vEl.pause(); } catch { /* なし */ }
+    a.done = true; pickClosed = v; try { vEl.pause(); } catch { /* なし */ }
     try { TG.log('次のおすすめ', `選ばれなかったので、1番を再生: ${a.x.t || a.x.v}`); } catch { /* なし */ }
     document.getElementById('tg-pick')?.remove(); goPick(a.x);
   }
   document.addEventListener('ended', e => { const vEl = e.target; if (vEl?.tagName === 'VIDEO' && vEl.closest?.('#movie_player') && !document.querySelector('#movie_player.ad-showing')) autoPick(vEl, curVid()); }, true);
+  // TubeFolio2 の連続再生の並び(視聴の「ぴったり再生」「就寝時間まで」「ランダム再生」。content.js が次へ進める)。この並びの動画には、次のおすすめを出さない
+  let tfqIds = new Set();
+  chrome.storage.local.get('tfQueue').then(r => { tfqIds = new Set(((r.tfQueue || {}).ids) || []); }).catch(() => {});
+  chrome.storage.onChanged?.addListener(ch => { if (ch.tfQueue) tfqIds = new Set(((ch.tfQueue.newValue || {}).ids) || []); });
   document.addEventListener('timeupdate', e => {
     const vEl = e.target;
     if (vEl.tagName !== 'VIDEO' || pickMode === 'off') return;
+    if (tfqIds.size && tfqIds.has(curVid())) { if (pickFor) { document.getElementById('tg-pick')?.remove(); pickFor = null; } pickAuto = null; return; } // 連続再生の並びの途中: 次は並びが決める
     if (!vEl.closest('#movie_player') || document.querySelector('#movie_player.ad-showing')) return;
     const v = curVid();
     closePickIfMoved(v);
@@ -520,6 +525,8 @@ const TGX = (() => {
       if (!b) return;
       const x = out[+b.dataset.k];
       if (pickAuto && pickAuto.v === v) pickAuto.done = true; // 選んだので、自動では移らない
+      pickClosed = v; // この動画では、もう出さない(次の動画へ移り終わるまでの間に、選び直したおすすめを出し直さない)
+      try { const ve = document.querySelector('#movie_player video'); if (ve) ve.pause(); } catch { /* なし */ }
       box.remove(); goPick(x);
     });
     player.appendChild(box);

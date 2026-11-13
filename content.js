@@ -486,10 +486,10 @@
     root.setAttribute('data-tf-fit', '');
   }
   // 各ボタン → 空のページ(後で中身を作る)。キーとタイトル
-  const HBAR_PAGES = { later: '視聴', rec: '検索', bm: 'ブックマーク', hist: '視聴履歴', histd: '🧪 履歴' };
+  const HBAR_PAGES = { later: '視聴', rec: '検索', bm: 'ブックマーク', hist: '視聴履歴', histd: '🧪 履歴', rec2: '検索2' };
   // ツールバーの置き方(試験用)。ボタン「配置」で順に切り替える
   const HBAR_MODES = [['home', '標準'], ['fixed', '固定バー'], ['bottom', '下バー']];
-  const HBAR_ICONS = { rec: '🔎', later: '🕒', bm: '🔖', hist: '📊', histd: '🧪' };
+  const HBAR_ICONS = { rec: '🔎', later: '🕒', bm: '🔖', hist: '📊', histd: '🧪', rec2: '🔍' };
   function openPg(p) { document.documentElement.setAttribute('data-tf-pgk', p); openView('page.html', '&p=' + encodeURIComponent(p) + '&t=' + encodeURIComponent(HBAR_PAGES[p] || '')); document.documentElement.setAttribute('data-tf-pgk', p); }
   // ツール(旧ハブの機能)。上のバーの右側のボタンを押すと、その下にメニューが開く
   function showBarFly(it) {
@@ -978,12 +978,27 @@
     const vid = document.querySelector('video');
     if (!vid) { if (tries < 10) setTimeout(() => queueSync(tries + 1), 800); return; }
     if (vid._tfQ === v) return; vid._tfQ = v;
-    toast(`連続再生 ${i + 1} / ${q.ids.length} 本目`, 4000);
-    vid.addEventListener('ended', () => {
+    const name = q.name || '連続再生';
+    toast(`${name} ${i + 1} / ${q.ids.length} 本目`, 4000);
+    // 独自の並び(TubeFolio2 の連続再生)として、終わる直前に次の動画へ移る。広告の間は数えない。
+    //   「次のおすすめ動画」は、この並びで再生している間は出さない(extras.js)。最後の動画は、終わる直前で止めて、YouTube が別の動画を流さないようにする
+    const ad = () => !!document.querySelector('#movie_player.ad-showing');
+    const curV = () => new URLSearchParams(location.search).get('v');
+    let done = false;
+    const off = () => { vid.removeEventListener('timeupdate', near); vid.removeEventListener('ended', go); };
+    const go = () => {
+      if (done || ad()) return;
+      if (curV() !== v) { off(); return; } // 別の動画へ移った(同じ video の部品が使い回される)
+      done = true; off();
       const next = q.ids[i + 1];
-      if (!next) { chrome.storage.local.remove('tfQueue'); toast('連続再生が終わりました'); return; }
+      try { vid.pause(); } catch (e) { /* なし */ }
+      if (!next) { chrome.storage.local.remove('tfQueue'); toast(`${name}が終わりました(${q.ids.length}本)`, 6000); return; }
       window.postMessage({ tfGo: { type: 'watch', id: next, url: '/watch?v=' + next } }, '*');
-    }, { once: true });
+      setTimeout(() => { if (curV() === v) location.assign('/watch?v=' + next); }, 1500); // 移れなかったときは、ページごと開く
+    };
+    const near = () => { if (curV() !== v) { off(); return; } const d = vid.duration, left = d - vid.currentTime; if (d > 1 && isFinite(left) && left <= 0.6 && !vid.paused) go(); };
+    vid.addEventListener('timeupdate', near);
+    vid.addEventListener('ended', go);
   }
 
   // ---------- 一覧(ホーム・検索・登録チャンネル・チャンネルのページ)のサムネの左下の「🕒」: 再生リスト「TubeFolio2 後で見る」へ、ワンクリックで追加 ----------

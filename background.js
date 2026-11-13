@@ -549,6 +549,58 @@ async function trendDay(date) {
   return v;
 }
 
+// ---- 🎵 急上昇の音楽を、再生リスト「🎵 音楽🎵」へ自動で入れる(storage の autoMusic。Drive同期の対象) ----
+//   決まり:
+//   ・ブラウザを開いたときと、3時間ごと。前回の実行(どのPCでも。lastRun を Drive で共有)から3時間たっていなければ、何もしない(複数のPCで重ねて動かない)
+//   ・急上昇(日本・1日ごと。youtube-trending.info。今日の分が無ければ昨日)のうち、カテゴリが Music の動画を入れる。すでに入っている動画は入れない
+//   ・前回の中身(snap)にあって、今回無い動画 = 削除した、とみなして、10日間は入れない(removed)
+//   ・自動で入れた動画(added)は、30日たったら、古い順に外す。📌 取り置き(keep)の動画と、自分で入れた動画は外さない
+//   ・再生リストの中身を最後まで読めなかった回(1200本以上)は、削除の判定をしない(読めなかった分を、削除と取り違えないため)
+//   autoMusic = { on, name: 再生リストの名前, listId, added: { 動画ID: 入れた時刻 }, removed: { 動画ID: 削除に気づいた時刻 }, keep: { 動画ID: 印を付けた時刻 }, snap: [前回の中身], lastRun, last: { 結果 } }
+const AM_DEF = { on: true, name: '🎵 音楽🎵' }, AM_GAP = 3 * 3600e3, AM_BLOCK = 10 * 864e5, AM_KEEP = 30 * 864e5;
+const amNorm = s => String(s || '').normalize('NFKC').replace(/\s+/g, '');
+const amYmd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+let amBusy = null;
+function musicAuto(force) {
+  return amBusy || (amBusy = (async () => {
+    const st = { ...AM_DEF, ...((await chrome.storage.local.get('autoMusic')).autoMusic || {}) };
+    if (!st.on && !force) return { off: true };
+    if (!force && st.lastRun && Date.now() - st.lastRun < AM_GAP - 5 * 60e3) return { skipped: true };
+    const now = Date.now();
+    // 入れる先の再生リスト(前回の ID → 名前で探す)
+    const lists = await plLists(), hit = lists.find(l => l.id === st.listId) || lists.find(l => amNorm(l.title) === amNorm(st.name));
+    if (!hit) throw new Error(`再生リスト「${st.name}」が見つかりません`);
+    const listId = hit.id;
+    // 急上昇の音楽
+    let vids; try { vids = await trendDay(amYmd(new Date())); } catch (e) { vids = await trendDay(amYmd(new Date(now - 864e5))); }
+    const music = [...new Set(vids.filter(v => /music|音楽/i.test(v.cat || '')).map(v => v.id).filter(id => /^[\w-]{11}$/.test(id || '')))];
+    // 今の中身
+    const cur = (await plVideos(listId)).items.map(x => x.id), full = cur.length < 1200, has = new Set(cur);
+    const added = { ...(st.added || {}) }, removed = { ...(st.removed || {}) }, keep = { ...(st.keep || {}) };
+    // 削除に気づく(前回と同じ再生リストで、中身を最後まで読めたときだけ)
+    let gone = 0;
+    if (full && st.listId === listId) (st.snap || []).forEach(id => { if (!has.has(id) && !removed[id]) { removed[id] = now; delete added[id]; delete keep[id]; gone++; } });
+    Object.keys(removed).forEach(id => { if (now - removed[id] > AM_BLOCK) delete removed[id]; }); // 10日たったら、また入れてよい
+    // 30日たった自動追加を、古い順に外す(取り置きは外さない)
+    const old = Object.entries(added).filter(([id, t]) => now - t > AM_KEEP && !keep[id] && has.has(id)).sort((a, b) => a[1] - b[1]).map(([id]) => id);
+    for (let i = 0; i < old.length; i += 50) await plEdit(listId, old.slice(i, i + 50).map(id => ({ action: 'ACTION_REMOVE_VIDEO_BY_VIDEO_ID', removedVideoId: id })));
+    old.forEach(id => { delete added[id]; has.delete(id); });
+    if (full) Object.keys(added).forEach(id => { if (!has.has(id)) delete added[id]; }); // 再生リストに無い記録は消す
+    // 入れる(入っているもの・10日以内に削除したものは入れない)
+    const want = music.filter(id => !has.has(id) && !removed[id]);
+    for (let i = 0; i < want.length; i += 50) await plEdit(listId, want.slice(i, i + 50).map(id => ({ action: 'ACTION_ADD_VIDEO', addedVideoId: id, dedupeOption: 'DEDUPE_OPTION_SKIP' })));
+    want.forEach(id => { added[id] = now; has.add(id); });
+    const last = { at: now, music: music.length, add: want.length, del: old.length, gone, total: has.size, title: hit.title };
+    await chrome.storage.local.set({ autoMusic: { ...st, listId, added, removed, keep, snap: full ? [...has] : (st.snap || []), lastRun: now, last } });
+    bgLog('🎵 音楽', `急上昇の音楽 ${music.length}本のうち ${want.length}本を「${hit.title}」に追加・30日たった ${old.length}本を外しました` + (gone ? `・削除に気づいた ${gone}本は10日間追加しません` : '') + (full ? '' : '(1200本以上あるため、削除の判定はしませんでした)'));
+    if (want.length || old.length) chrome.storage.local.set({ plAddedAt: Date.now() }).catch(() => {}); // 「視聴」ページが一覧を取り直す合図
+    return { ok: true, ...last };
+  })().catch(e => { try { bgLog('🎵 音楽', '自動追加に失敗: ' + String(e.message || e), 'warn'); } catch (e2) { /* なし */ } return { error: String(e.message || e) }; }).finally(() => { amBusy = null; }));
+}
+chrome.alarms.get('tf-music').then(a => { if (!a) chrome.alarms.create('tf-music', { periodInMinutes: 180, delayInMinutes: 5 }); }).catch(() => {});
+chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tf-music') musicAuto(false); });
+chrome.runtime.onStartup.addListener(() => { setTimeout(() => musicAuto(false), 60e3); }); // 起動の1分後(Drive の同期で、ほかのPCの実行時刻を受け取ってから)
+
 chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
   if (m.type === 'feedAll') { logged('新着', feedAll(m.days || 4, !!m.force, m.kind), '新着一覧(' + (m.kind || 'v') + ')を取得').then(send).catch(e => send({ error: String(e) })); return true; }
@@ -592,6 +644,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
     return true;
   }
   if (m.type === 'trendApi') { trendApi(String(m.key || ''), m.region).then(v => send({ videos: v })).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'musicAuto') { musicAuto(true).then(send); return true; } // 🎵 今すぐ実行(検索2の急上昇)
   if (m.type === 'trendDay') { trendDay(m.date).then(v => send({ videos: v })).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'chText') { limit(() => chText(m.key)).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'chVideos') { // チャンネルの最新動画(RSS・最大15件)

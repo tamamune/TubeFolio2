@@ -2,20 +2,25 @@
 //  対象: 登録チャンネル(新着一覧から、キーワードで絞る) / 非登録チャンネル / すべて(YouTubeの検索)
 //  種類: 動画 / ライブ・配信 / ショート
 //  結果の動画: 🕒 =「TubeFolio2 後で見る」へ直接追加、「⋮」= 再生リストを選んで追加
-function recPage() {
+function recPage(opts = {}) {
+  // opts.trend = true: 「検索2」。種類に「📈 急上昇」を足し、操作の部分を1つの枠にまとめて並べる(種類は tfRec2Kind に覚える。「検索」とは別)
+  const T = !!opts.trend, KK = T ? 'tfRec2Kind' : 'tfRecKind';
   const main = document.querySelector('main');
   const E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const ls = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
   const lset = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   const SCOPES = [['reg', '登録チャンネル'], ['non', '非登録チャンネル'], ['all', 'すべて']];
-  const KINDS = [['v', '動画'], ['l', 'ライブ・配信'], ['s', 'ショート']];
-  let scope = ls('tfRecScope', 'reg'), kind = ls('tfRecKind', 'v'), q = ls('tfRecQ', ''), busy = 0, token = null, shown = 0;
+  const KINDS = [['v', '動画'], ['l', 'ライブ・配信'], ['s', 'ショート'], ...(T ? [['t', '📈 急上昇']] : [])];
+  let scope = ls('tfRecScope', 'reg'), kind = ls(KK, 'v'), q = ls('tfRecQ', ''), busy = 0, token = null, shown = 0;
   if (!SCOPES.some(x => x[0] === scope)) scope = 'reg'; if (!KINDS.some(x => x[0] === kind)) kind = 'v';
   const seg = (arr, cur, a) => `<span class="rseg">${arr.map(([k, t]) => `<button data-${a}="${k}" class="${k === cur ? 'on' : ''}">${t}</button>`).join('')}</span>`;
-  main.innerHTML = `<div class="head"><h1>検索</h1><span class="sp"></span><span id="st"></span><button id="rclr" class="rclr" title="検索で取得したデータ(新着の一覧・ショートの投稿日・結果)を空にします。表示の速さを調べるときに使います">🗑 検索データを空にする</button></div>
-    <div class="rrow"><span class="rl">対象</span><span id="rs">${seg(SCOPES, scope, 's')}</span><span class="rl">種類</span><span id="rk">${seg(KINDS, kind, 'k')}</span></div>
-    <div id="rfold" class="rfold"></div><form id="rf" class="rform"><span class="rqw"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button type="button" id="rclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span class="rrg"><button type="button" id="rrand" class="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button><span class="rrn" id="rrn" title="選ぶタグの数。2つ以上は「a | b | c」(どれかを含む)でまとめて探す"></span></span></form>
-    <div id="rres"></div><div class="rmore"><button id="rmore" class="rgo" hidden>もっと見る</button></div><div id="rsent" style="height:1px"></div>`;
+  const HEAD = `<div class="head"><h1>${T ? '検索2' : '検索'}</h1><span class="sp"></span><span id="st"></span><button id="rclr" class="rclr" title="検索で取得したデータ(新着の一覧・ショートの投稿日・結果)を空にします。表示の速さを調べるときに使います">🗑 検索データを空にする</button></div>`;
+  const ROW = `<div class="rrow"><span class="rgrp" id="rsg"><span class="rl">対象</span><span id="rs">${seg(SCOPES, scope, 's')}</span></span><span class="rgrp"><span class="rl">種類</span><span id="rk">${seg(KINDS, kind, 'k')}</span></span></div>`;
+  const FORM = `<form id="rf" class="rform"><span class="rqw"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button type="button" id="rclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span class="rrg"><button type="button" id="rrand" class="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button><span class="rrn" id="rrn" title="選ぶタグの数。2つ以上は「a | b | c」(どれかを含む)でまとめて探す"></span></span></form>`;
+  const TNAV = T ? `<div id="rtnav" class="rtnav" hidden><span class="rl">📅 日付</span><button type="button" id="rt-prev" title="前の日">◀</button><input type="date" id="rt-date" min="2024-01-01"><button type="button" id="rt-next" title="次の日">▶</button><button type="button" id="rt-now" title="今日の急上昇">今日</button><span class="rl rt-gap">カテゴリ</span><select id="rt-cat"><option value="">すべて</option></select><span class="rl rt-src">日本・1日ごと(データ: youtube-trending.info)</span><div class="rt-am" id="rt-am"></div></div>` : '';
+  const REST = `<div id="rres"></div><div class="rmore"><button id="rmore" class="rgo" hidden>もっと見る</button></div><div id="rsent" style="height:1px"></div>`;
+  main.innerHTML = T ? HEAD + `<div class="rpanel" id="rpanel">${FORM}${ROW}${TNAV}<div id="rfold" class="rfold"></div></div>` + REST
+    : HEAD + ROW + '<div id="rfold" class="rfold"></div>' + FORM + REST;
   const $ = s => main.querySelector(s), box = $('#rres'), st = $('#st');
   // サムネが無い(404 / YouTubeの灰色の代用画像=小さい)ときは、別の画像に順に差し替える。拡張機能のページはインラインの onerror が使えないので、まとめて監視する
   const THUMBS = ['oardefault', 'hq2', 'mqdefault', 'hqdefault'];
@@ -94,10 +99,44 @@ function recPage() {
     secs.forEach(s => s.remove());
     shown = regItems.length; foldNote();
   }
+  // ---- 📈 急上昇(検索2の種類): 日本の急上昇(1日ごと。データ: youtube-trending.info。background.js の trendDay)。日付を1日ずつさかのぼれる。
+  //   キーワード(スペース=すべて含む / | =どれかを含む)とカテゴリで絞り込む。カードは、ほかの結果と同じ(🕒・⋮ が使える)。順位と、前の日からの上がり下がりを、サムネに出す
+  const tYmd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const tToday = () => tYmd(new Date()), tAdd = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return tYmd(d); };
+  const tLabel = s => { const d = new Date(s + 'T00:00:00'); return `${d.getMonth() + 1}月${d.getDate()}日(${'日月火水木金土'[d.getDay()]})`; };
+  let tDate = tToday(), tVids = null, tFor = '', tShown = 60, tCat = '', tTried = false;
+  const trCard = v => cardOf({ id: v.id, title: v.title, ch: v.ch, chId: v.chId || '', len: v.len, views: v.views ? v.views + ' 回視聴' : '', when: typeof trdAgo === 'function' ? trdAgo(v.pub) : '', kind: 'v' })
+    .replace('<a class="card rc"', `<a class="card rc${v.rank <= 3 ? ' rtop' : ''}"`).replace('<div class="th">', `<div class="th"><span class="tr-rk">${+v.rank || ''}</span>${typeof trdChg === 'function' ? trdChg(v.chg) : ''}`);
+  const paintTNav = () => { const i = $('#rt-date'); if (!i) return; i.max = tToday(); i.value = tDate; $('#rt-next').disabled = tDate >= tToday(); };
+  const tCats = () => { const sel = $('#rt-cat'), cs = [...new Set((tVids || []).map(v => v.cat).filter(Boolean))].sort(); if (tCat && !cs.includes(tCat)) tCat = ''; sel.innerHTML = '<option value="">すべて</option>' + cs.map(c => `<option value="${E(c)}"${c === tCat ? ' selected' : ''}>${E(c)}</option>`).join(''); };
+  function drawTrend() {
+    paintTNav();
+    const all = tVids || [], ors = q.toLowerCase().split('|').map(s => s.split(/\s+/).filter(Boolean)).filter(w => w.length);
+    const hit = all.filter(v => (!tCat || v.cat === tCat) && (!ors.length || ors.some(w => w.every(k => (v.title + ' ' + v.ch).toLowerCase().includes(k)))));
+    st.textContent = `${tLabel(tFor || tDate)} ・ ${hit.length} / ${all.length}本`;
+    const mb = $('#rmore');
+    if (!hit.length) { mb.hidden = true; return note(all.length ? '該当する動画がありません' : 'この日の急上昇がありません'); }
+    box.innerHTML = '<div class="grid">' + hit.slice(0, tShown).map(trCard).join('') + '</div>'; shown = Math.min(hit.length, tShown);
+    mb.hidden = hit.length <= tShown; if (!mb.hidden) mb.textContent = `もっと見る(残り ${hit.length - tShown}本)`;
+  }
+  async function runTrend(more, my) {
+    if (more) { tShown += 60; return drawTrend(); }
+    tShown = 60; paintTNav();
+    if (tVids && tFor === tDate) return drawTrend(); // 同じ日: 絞り込みだけ(取り直さない)
+    st.textContent = '取得中…'; note('読み込み中…');
+    const d = tDate, r = await send({ type: 'trendDay', date: d });
+    if (my !== gen) return;
+    if (!r || r.error) {
+      if (d === tToday() && !tTried) { tTried = true; tDate = tAdd(d, -1); return runTrend(false, my); } // 今日の分が、まだ無いときは、昨日
+      tVids = null; tFor = ''; st.textContent = ''; paintTNav(); return note(`${(r && r.error) || '読み込めませんでした'}(${tLabel(d)})`);
+    }
+    tVids = r.videos || []; tFor = d; tCats(); drawTrend();
+  }
   async function run(more) {
     if (more && busy) return; const my = ++gen; busy = 1; const moreBtn = $('#rmore');
     q = $('#rq').value.trim(); lset('tfRecQ', q);
-    if (!more) { box.innerHTML = ''; shown = 0; seen = new Set(); token = null; regItems = []; moreBtn.hidden = true; }
+    if (!more) { box.innerHTML = ''; shown = 0; seen = new Set(); token = null; regItems = []; moreBtn.hidden = true; moreBtn.textContent = 'もっと見る'; }
+    if (T && kind === 't') { try { await runTrend(more, my); } finally { if (my === gen) busy = 0; } return; } // 📈 急上昇(検索2)
     await loadReg();
     try {
       if (scope === 'reg') {
@@ -110,10 +149,12 @@ function recPage() {
           regItems.forEach(x => { x.when = x.published ? '投稿 ' + hm(new Date(x.published)) : ''; x.kind = kind; x.chId = ''; });
           if (regItems.length) drawReg();
         };
-        let last = -1; const poll = setInterval(async () => {
+        // 集めている途中は、並べない(取れた分を毎回並べ直すと、新しい動画が上に割り込んでカードがずれ続け、押せなかった)。進み具合だけを出し、そろってから一度に並べる
+        const prog = (done, total, n) => { const t = total ? `取得中… ${done} / ${total} チャンネル ・ ${n}件(そろったら、まとめて表示します)` : '取得中…'; st.textContent = total ? `取得中… ${done}/${total}チャンネル` : '取得中…'; if (!box.querySelector('section.day')) { let e = box.querySelector('.rprog'); if (!e) { box.innerHTML = '<div class="empty rprog"><span></span><i><b></b></i></div>'; e = box.querySelector('.rprog'); } e.firstChild.textContent = t; e.querySelector('b').style.width = (total ? Math.round(done / total * 100) : 0) + '%'; } };
+        prog(0, 0, 0);
+        const poll = setInterval(async () => {
           const p = await send({ type: 'feedStatus', kind }); if (my !== gen || !p || !p.running) return;
-          const it = p.items || []; st.textContent = `取得中… ${p.done}/${p.total}チャンネル ・ ${it.length}件`;
-          if (it.length !== last) { last = it.length; apply(it.slice()); }
+          prog(p.done, p.total, (p.items || []).length);
         }, 400);
         let r; try { r = await send({ type: 'feedAll', days: DAYS, kind }); } finally { clearInterval(poll); }
         if (my !== gen) return;
@@ -139,7 +180,7 @@ function recPage() {
     } finally { if (my === gen) busy = 0; }
   }
   // 下までスクロールしたら、続きを足す(おすすめ・検索)
-  { const se = $('#rsent'); if (se && 'IntersectionObserver' in window) new IntersectionObserver(es => { if (es.some(x => x.isIntersecting) && token && !busy && scope !== 'reg') run(true); }, { rootMargin: '600px' }).observe(se); }
+  { const se = $('#rsent'); if (se && 'IntersectionObserver' in window) new IntersectionObserver(es => { if (es.some(x => x.isIntersecting) && !busy && ((T && kind === 't') ? !$('#rmore').hidden : (token && scope !== 'reg'))) run(true); }, { rootMargin: '600px' }).observe(se); }
   $('#rclr').addEventListener('click', async () => { // 検索データを空にする(新着の一覧・ショートの投稿日・結果の表示)
     await send({ type: 'feedClear' }); myCache = null; seen = new Set(); regItems = []; token = null; shown = 0; box.innerHTML = ''; $('#rmore').hidden = true; st.textContent = '';
     toast('検索データを空にしました。もう一度「検索」を押すと、取得し直します');
@@ -186,7 +227,38 @@ function recPage() {
   });
   $('#rmore').addEventListener('click', () => run(true));
   $('#rs').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (!b) return; scope = b.dataset.s; lset('tfRecScope', scope); $('#rs').innerHTML = seg(SCOPES, scope, 's'); run(false); });
-  $('#rk').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; kind = b.dataset.k; lset('tfRecKind', kind); $('#rk').innerHTML = seg(KINDS, kind, 'k'); run(false); });
+  const PH = $('#rq').placeholder;
+  const syncMode = () => { if (!T) return; const tm = kind === 't'; $('#rsg').classList.toggle('off', tm); $('#rtnav').hidden = !tm; $('#rpanel').classList.toggle('tmode', tm); $('#rq').placeholder = tm ? '急上昇の中から絞り込み(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む。空欄=全部)' : PH; };
+  $('#rk').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; kind = b.dataset.k; lset(KK, kind); $('#rk').innerHTML = seg(KINDS, kind, 'k'); syncMode(); run(false); });
+  syncMode();
+  if (T) { // 🎵 急上昇の音楽を「🎵 音楽🎵」へ自動で入れる(background.js の musicAuto)。状態・オン/オフ・今すぐ実行
+    const amBox = $('#rt-am');
+    const amPaint = a => {
+      a = { on: true, name: '🎵 音楽🎵', ...(a || {}) }; const l = a.last, keepN = Object.keys(a.keep || {}).length, blockN = Object.keys(a.removed || {}).length;
+      const when = l ? new Date(l.at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      amBox.innerHTML = `<span class="rl">🎵 急上昇の音楽を「${E(a.name)}」へ自動で追加(3時間ごと・30日で外す・10日以内に削除した動画は入れない)</span>`
+        + `<b class="${a.on ? 'on' : ''}">${a.on ? 'オン' : 'オフ'}</b>`
+        + (l ? `<span class="rl">最後 ${E(when)} ・ +${l.add}本 / 外した ${l.del}本 ・ 全${l.total}本 ・ 📌 取り置き ${keepN}本 ・ 削除して入れない ${blockN}本</span>` : '<span class="rl">まだ実行していません</span>')
+        + `<button type="button" data-am="tog">${a.on ? 'オフにする' : 'オンにする'}</button><button type="button" data-am="run">今すぐ実行</button>`;
+    };
+    chrome.storage.local.get('autoMusic').then(r => amPaint(r.autoMusic));
+    chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.autoMusic) amPaint(ch.autoMusic.newValue); });
+    amBox.addEventListener('click', async e => {
+      const b = e.target.closest('[data-am]'); if (!b) return;
+      if (b.dataset.am === 'tog') { const { autoMusic: a = {} } = await chrome.storage.local.get('autoMusic'); await chrome.storage.local.set({ autoMusic: { ...a, on: a.on === false } }); return; }
+      b.disabled = true; b.textContent = '実行中…';
+      const r = await send({ type: 'musicAuto' }); b.disabled = false; b.textContent = '今すぐ実行';
+      toast(r && r.ok ? `「${r.title}」に ${r.add}本 追加・${r.del}本 外しました` : '実行できませんでした: ' + ((r && r.error) || '不明'), 6000);
+    });
+  }
+  if (T) { // 急上昇の日付・カテゴリ
+    const go = d => { tDate = d > tToday() ? tToday() : d; run(false); };
+    $('#rt-prev').addEventListener('click', () => go(tAdd(tFor || tDate, -1)));
+    $('#rt-next').addEventListener('click', () => { const b = tFor || tDate; if (b < tToday()) go(tAdd(b, 1)); });
+    $('#rt-now').addEventListener('click', () => { tTried = false; go(tToday()); });
+    $('#rt-date').addEventListener('change', e => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) go(e.target.value); });
+    $('#rt-cat').addEventListener('change', e => { tCat = e.target.value; tShown = 60; drawTrend(); });
+  }
 
   // ---- 🕒 と「⋮」(再生リストへ追加) ----
   const toast = (t, ms = 3500) => { let e = document.getElementById('ptoast'); if (!e) { e = document.createElement('div'); e.id = 'ptoast'; document.body.appendChild(e); } e.textContent = t; e.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => e.classList.remove('on'), ms); };
@@ -232,6 +304,6 @@ function recPage() {
 
   Promise.all([loadReg(), loadFold(), chrome.storage.local.get('recOpen')]).then(([, , ro]) => {
     const o = ro && ro.recOpen; // ホームでフォルダを押して開いたとき: 登録チャンネル・動画に切り替えて、キーワードは空にする
-    if (o) { scope = o.scope || 'reg'; kind = o.kind || 'v'; q = ''; lset('tfRecScope', scope); lset('tfRecKind', kind); lset('tfRecQ', ''); const rq = $('#rq'); if (rq) rq.value = ''; updClear(); $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); chrome.storage.local.remove('recOpen'); }
-    foldNote(); if (o || scope === 'reg' || q) run(false); else note('キーワードを入れて、検索してください'); });
+    if (o) { scope = o.scope || 'reg'; kind = o.kind || 'v'; q = ''; lset('tfRecScope', scope); lset(KK, kind); lset('tfRecQ', ''); const rq = $('#rq'); if (rq) rq.value = ''; updClear(); $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); chrome.storage.local.remove('recOpen'); }
+    foldNote(); if (o || scope === 'reg' || q || (T && kind === 't')) run(false); else note('キーワードを入れて、検索してください'); });
 }

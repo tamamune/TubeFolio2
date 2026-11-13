@@ -293,7 +293,7 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 
 /* 視聴: 見出し・検索・件数を、1行にまとめる(狭いときは、検索が次の行へ回る) */
 .vhead { align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 12px; }
-.vhead .rform { flex: 1 1 360px; min-width: 0; margin: 0; flex-wrap: nowrap; }
+.vhead .rform { flex: 0 1 560px; min-width: 260px; margin: 0 0 0 auto; flex-wrap: nowrap; } /* キーワード欄と「検索」は右端。数の表示との間は空ける */
 .vhead #st { white-space: nowrap; }
 
 /* ---------- 視聴履歴ダッシュボード(試作。histdash.js) ----------
@@ -415,3 +415,68 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .tr-t { font-size: 14px; font-weight: 500; line-height: 20px; }
 .tr-c { display: block; margin-top: 4px; font-size: 12px; line-height: 18px; } .tr-c a { color: var(--sub); } .tr-c a:hover { color: var(--fg); text-decoration: none; }
 .tr-m { color: var(--sub); font-size: 12px; line-height: 18px; } .tr-m2 { color: var(--sub); font-size: 11px; line-height: 16px; opacity: .85; }
+/* 検索2: 操作をひとつの枠にまとめる(1段目: キーワード・検索・ランダムタグ / 2段目: 対象・種類 / 3段目(急上昇のとき): 日付・カテゴリ) */
+.rpanel { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--chip); }
+.rpanel .rform { margin: 0; }
+.rpanel .rform input { background: var(--bg); }
+.rpanel .rrow { margin: 0; gap: 8px 22px; }
+.rpanel .rfold { margin: 0; }
+.rpanel.tmode .rfold { display: none; } /* 急上昇には、フォルダの絞り込みは効かない */
+.rgrp { display: inline-flex; align-items: center; gap: 8px; }
+.rgrp.off { opacity: .35; pointer-events: none; } /* 急上昇のときは「対象」を使わない */
+.rpanel .rseg { background: var(--bg); }
+.rtnav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.rtnav[hidden] { display: none; }
+.rtnav button, .rtnav input[type="date"], .rtnav select { height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--fg); font-family: inherit; font-size: 13px; color-scheme: light dark; }
+.rtnav button { min-width: 32px; cursor: pointer; }
+.rtnav button:hover:not(:disabled) { background: var(--chip2); }
+.rtnav button:disabled { opacity: .4; cursor: default; }
+.rtnav select option { background: var(--bg); color: var(--fg); }
+.rtnav .rt-gap { margin-left: 10px; }
+.rtnav .rt-src { margin-left: auto; font-size: 11px; }
+/* 急上昇のカード: 左上に順位、その右に前の日からの上がり下がり(右上は低評価率の印があるので避ける) */
+.rc .tr-rk { z-index: 3; } .rc.rtop .tr-rk { background: #f5b301; color: #1a1300; }
+.rc .tr-chg { z-index: 3; left: 44px; right: auto; }
+@media (max-width: 600px) { .rpanel { padding: 12px; } .rtnav .rt-src { margin-left: 0; flex-basis: 100%; } }
+/* 検索(登録チャンネル): 新着を集めている間の進み具合 */
+.rprog { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.rprog i { display: block; width: min(360px, 80%); height: 6px; border-radius: 3px; background: var(--chip2); overflow: hidden; }
+.rprog b { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--fg); transition: width .3s; }
+/* 検索2の急上昇: 🎵 音楽の自動追加の状態 */
+.rt-am { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 8px; margin-top: 2px; border-top: 1px dashed var(--line); }
+.rt-am b { padding: 2px 10px; border-radius: 10px; background: var(--chip2); color: var(--sub); font-size: 12px; }
+.rt-am b.on { background: var(--fg); color: var(--bg); }
+/* 視聴: 「🎵 音楽🎵」のカードの 📌 取り置き(30日たっても、自動では外さない) */
+.th .vkeep { position: absolute; left: 38px; bottom: 6px; z-index: 6; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.72); color: #fff; font: 14px/26px sans-serif; text-align: center; cursor: pointer; opacity: .55; filter: grayscale(1); }
+.th .vkeep:hover { opacity: 1; }
+.th .vkeep.on { opacity: 1; filter: none; background: #f5b301; }
+/* 視聴の「🎞 おすすめ10本」のボタン */
+.vreel { flex: none; height: 32px; padding: 0 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--chip); color: var(--fg); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.vreel:hover { background: var(--chip2); }
+/* おすすめ10本: 画面の上に浮かべるパネル。中のカードが、横に流れ続ける(乗せると止まる) */
+#reel { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; }
+#reel .rl-bg { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(3px); }
+#reel .rl-pan { position: relative; width: min(1100px, calc(100vw - 32px)); padding: 16px 0 12px; border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--bg) 92%, var(--fg)); color: var(--fg); box-shadow: 0 18px 60px rgba(0,0,0,.45); animation: rl-in .25s ease; }
+@keyframes rl-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+#reel .rl-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 18px 12px; }
+#reel .rl-h b { font-size: 17px; }
+#reel .rl-n { color: var(--sub); font-size: 12px; }
+#reel .rl-sp { flex: 1; }
+#reel .rl-h button { height: 32px; padding: 0 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--chip); color: var(--fg); font-family: inherit; font-size: 13px; cursor: pointer; }
+#reel .rl-h button:hover { background: var(--chip2); }
+#reel .rl-x { width: 32px; padding: 0 !important; }
+#reel .rl-view { overflow: hidden; cursor: ew-resize; -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+#reel .rl-track { display: flex; gap: 14px; width: max-content; padding: 4px 18px; }
+#reel .rl-track { will-change: transform; } /* 流れる位置は reel.js が動かす(ホイールでも動かせる) */
+#reel .rl-msg { margin: 30px 0; padding: 0 18px; color: var(--sub); }
+#reel .rl-c { flex: none; width: 240px; display: flex; flex-direction: column; gap: 4px; color: inherit; text-decoration: none; border-radius: 14px; padding: 6px; transition: background .15s, transform .15s; }
+#reel .rl-c:hover { background: var(--chip); transform: translateY(-3px); }
+#reel .rl-th { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--chip); }
+#reel .rl-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#reel .rl-src, #reel .rl-len { position: absolute; padding: 1px 7px; border-radius: 6px; background: rgba(0,0,0,.75); color: #fff; font: 600 11px/18px Roboto, Arial, "Noto Sans JP", sans-serif; font-style: normal; }
+#reel .rl-src { left: 6px; top: 6px; } #reel .rl-len { right: 6px; bottom: 6px; }
+#reel .rl-src.rl-later { background: rgba(26,115,232,.9); } #reel .rl-src.rl-non { background: rgba(229,50,45,.9); } #reel .rl-src.rl-trd { background: rgba(245,179,1,.95); color: #1a1300; }
+#reel .rl-c b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 13.5px; line-height: 19px; }
+#reel .rl-c small { color: var(--sub); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#reel .rl-f { padding: 8px 18px 0; color: var(--sub); font-size: 11px; text-align: right; }
+@media (max-width: 600px) { #reel .rl-c { width: 190px; } }
