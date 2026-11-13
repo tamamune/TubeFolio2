@@ -297,7 +297,7 @@ html.tg-tbm .tg-c-btn.tg-c-inbar, html.tg-tbm .tg-px-tool, html.tg-tbm .tg-px-su
 /* 終了画面カード(動画の最後にかぶさる動画・チャンネルのカード)を隠す。次のおすすめは TubeFolio2 が出す */
 html.tg-noend .ytp-ce-element, html.tg-noend .ytp-ce-covering-overlay, html.tg-noend .ytp-ce-shadow, html.tg-noend .html5-endscreen, html.tg-noend .ytp-endscreen-content, html.tg-noend .ytp-endscreen-previous, html.tg-noend .ytp-endscreen-next { display: none !important; }
 /* YouTube 標準のコメント欄を出さない(再生画面の横で流れるコメントは、そのまま使える) */
-html.tg-nocmt ytd-watch-flexy ytd-comments#comments, html.tg-nocmt ytd-watch-flexy #comments.ytd-watch-flexy { display: none !important; }
+html.tg-nocmt ytd-watch-flexy ytd-comments#comments, html.tg-nocmt ytd-watch-flexy #comments.ytd-watch-flexy, html.tg-lazy-cmt ytd-watch-flexy ytd-comments#comments, html.tg-lazy-cmt ytd-watch-flexy #comments.ytd-watch-flexy { display: none !important; }
 /* ホームのショートを隠す */
 html.tg-noshorts ytd-browse[page-subtype="home"] ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]),
 html.tg-noshorts ytd-browse[page-subtype="home"] ytd-rich-section-renderer:has(ytm-shorts-lockup-view-model),

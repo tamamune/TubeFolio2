@@ -6,7 +6,7 @@
 (() => {
   if (window.__tgPerf) return;
   window.__tgPerf = true;
-  const DEF = { h264: false, qLock: false, qRes: 'hd1080', wheelVol: true, pvNoHist: true, noEndCard: true, origAudio: true, noNativeCmt: false, hideShortsHome: false, lazyRel: false, relSec: 10, extPlayer: 'mpv', extTpl: '' };
+  const DEF = { h264: false, qLock: false, qRes: 'hd1080', wheelVol: true, pvNoHist: true, noEndCard: true, origAudio: true, noNativeCmt: false, hideShortsHome: false, lazyRel: false, relSec: 10, cmtSec: 0, extPlayer: 'mpv', extTpl: '' };
   let cfg = { ...DEF };
   const root = document.documentElement;
   const curV = () => (location.pathname === '/watch' ? new URLSearchParams(location.search).get('v') || '' : '');
@@ -19,25 +19,29 @@
     root.classList.toggle('tg-nocmt', !!cfg.noNativeCmt);
     root.classList.toggle('tg-noshorts', !!cfg.hideShortsHome);
     if (!cfg.lazyRel) root.classList.remove('tg-lazy-rel');
-    else if (lazyFor !== curV()) startLazy();
+    if (!(+cfg.cmtSec > 0) || cfg.noNativeCmt) root.classList.remove('tg-lazy-cmt');
+    if ((cfg.lazyRel || +cfg.cmtSec > 0) && lazyFor !== curV()) startLazy();
   }
   const load = () => chrome.storage.local.get('px').then(r => { cfg = { ...DEF, ...(r.px || {}) }; apply(); });
   load();
   chrome.storage.onChanged.addListener(ch => { if (ch.px) load(); });
 
-  // ---- 関連動画を遅れて出す ----
+  // ---- 関連動画・YouTube標準のコメント欄を、再生して少したってから出す(それぞれ、5秒・10秒などを選べる) ----
   let lazyFor = null, playedSec = 0, navAt = 0;
   function startLazy() {
     lazyFor = curV(); playedSec = 0; navAt = Date.now();
     root.classList.toggle('tg-lazy-rel', !!(cfg.lazyRel && lazyFor));
+    root.classList.toggle('tg-lazy-cmt', !!(+cfg.cmtSec > 0 && !cfg.noNativeCmt && lazyFor));
   }
-  document.addEventListener('yt-navigate-finish', () => { if (cfg.lazyRel) startLazy(); else lazyFor = null; });
+  document.addEventListener('yt-navigate-finish', () => { if (cfg.lazyRel || +cfg.cmtSec > 0) startLazy(); else { lazyFor = null; root.classList.remove('tg-lazy-rel', 'tg-lazy-cmt'); } });
   setInterval(() => {
-    if (!cfg.lazyRel || !lazyFor || !root.classList.contains('tg-lazy-rel')) return;
+    if (!lazyFor || !(root.classList.contains('tg-lazy-rel') || root.classList.contains('tg-lazy-cmt'))) return;
     if (lazyFor !== curV()) { startLazy(); return; }
     const v = document.querySelector('#movie_player video');
     if (v && !v.paused && v.currentTime > 0) playedSec++;
-    if (playedSec >= (+cfg.relSec || 10) || Date.now() - navAt > 60000) root.classList.remove('tg-lazy-rel'); // 再生して10秒(止めたままでも1分で)出す
+    const late = Date.now() - navAt > 60000; // 止めたままでも、1分たてば出す
+    if (playedSec >= (+cfg.relSec || 10) || late) root.classList.remove('tg-lazy-rel');
+    if (playedSec >= (+cfg.cmtSec || 10) || late) root.classList.remove('tg-lazy-cmt');
   }, 1000);
 
   // ---- 外部プレイヤー(mpv / VLC など)で開く ----
