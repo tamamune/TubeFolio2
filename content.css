@@ -1055,6 +1055,6 @@ ytd-rich-item-renderer #metadata-line { flex-wrap: wrap !important; }
 #tf-set .tf-tab { font-size: 12px; padding: 8px 4px; }
 #tf-set .tf-grp { padding: 8px 12px 10px; }
 
-/* 「登録チャンネル」などのページ(#tf-view)は、上のガラスバーの下から始める(バーが、ページの先頭の行に重なって、フォルダの行が隠れていた)。
-   バーをたたんだとき(--tf-hbot-h = 0)は、ヘッダーのすぐ下から */
-html[data-tf-view] #tf-view, html[data-tf-pg] #tf-view { top: calc(var(--tf-mh, 56px) + var(--tf-hbot-h, 56px)) !important; }
+/* 「登録チャンネル」などのページ(#tf-view)は、ヘッダーのすぐ下から全面を覆い(後ろの YouTube の画面が、バーの下の隙間から見えないように)、
+   中身(iframe)だけを、上のガラスバーの高さぶん下げる。バーをたたんだとき(--tf-hbot-h = 0)は、下げない */
+html[data-tf-view] #tf-view, html[data-tf-pg] #tf-view { box-sizing: border-box; padding-top: var(--tf-hbot-h, 56px); }
