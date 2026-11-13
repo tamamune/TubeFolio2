@@ -1046,3 +1046,11 @@ ytd-rich-item-renderer ytd-channel-name, ytd-rich-item-renderer ytd-channel-name
 ytd-rich-item-renderer ytd-channel-name yt-formatted-string, ytd-rich-item-renderer ytd-channel-name a,
 ytd-rich-item-renderer #metadata-line, ytd-rich-item-renderer #metadata-line span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; max-height: none !important; -webkit-line-clamp: unset !important; }
 ytd-rich-item-renderer #metadata-line { flex-wrap: wrap !important; }
+
+/* ---------- 設定画面: 幅を広げて、文字・ボタンを少し大きく(見やすく)。色は変えない(ライト/ダークは、これまでの変数のまま) ---------- */
+#tf-set, #tf-set.tf-glass { width: 600px; max-width: calc(100vw - 16px); font-size: 14px; line-height: 1.45; }
+#tf-set .tf-ghd { font-size: 14px; }
+#tf-set .tf-ssub, #tf-set .tf-grp .tf-ssub { font-size: 12.5px; line-height: 1.55; }
+#tf-set .tf-seg button { padding: 6px 13px; font-size: 13px; }
+#tf-set .tf-tab { font-size: 12px; padding: 8px 4px; }
+#tf-set .tf-grp { padding: 8px 12px 10px; }
