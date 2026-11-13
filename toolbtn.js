@@ -56,8 +56,9 @@
   function tick() {
     const p = player();
     const root = document.documentElement;
-    const on = merge && !!p && /^\/watch/.test(location.pathname);
-    root.classList.toggle('tg-tbm', on);
+    const onW = merge && /^\/watch/.test(location.pathname);
+    root.classList.toggle('tg-tbm', onW); // 個別のボタン(コメント・ツール・字幕・読み上げ・チャンネル)を隠す印は、プレイヤーを待たず、再生画面を開いた瞬間に付ける(個別のボタンが先に見えてから、まとまるのを防ぐ)
+    const on = onW && !!p;
     const ctr = bar(p);
     let b = p?.querySelector('.tg-tb-btn');
     if (!on || !ctr) { b?.remove(); closeMenu(); if (!on) return; if (!ctr) return; }
@@ -97,5 +98,8 @@
     e.stopPropagation(); if (e.cancelable) e.preventDefault(); // ブラウザが作るクリック(二重になる)は止めて、こちらで1回だけ起こす
     c.b.click();
   }, { capture: true, passive: false });
-  setInterval(() => { if (!(window.tfQuiet && window.tfQuiet())) tick(); }, 500);
+  // まとめボタンの用意は軽い(要素を数回探すだけ)ので、再生直後の静かな間(tfQuiet)も止めない。個別のボタンが先に見えるのを防ぐ
+  setInterval(tick, 300);
+  document.addEventListener('yt-navigate-finish', tick);
+  document.addEventListener('yt-navigate-start', () => { if (merge && /^\/watch/.test(String(location.pathname))) tick(); });
 })();
