@@ -506,6 +506,34 @@ function trdParse(html) {
   });
   return out;
 }
+// ---- 急上昇動画(日本・今): YouTube Data API v3 の videos.list?chart=mostPopular(実験)。APIキーは、ユーザー自身のもの(storage の ytApiKey。この端末だけ)----
+//   50本ずつ最大4回(= 約200本。1回1ユニット)。キーは、URLではなくヘッダー(x-goog-api-key)で送る。結果は、メモリに10分だけ覚える
+const trApiMem = { at: 0, region: '', v: null };
+const trCompact = n => { n = +n; if (!isFinite(n)) return ''; if (n >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '億'; if (n >= 1e4) return (n / 1e4).toFixed(1).replace(/\.0$/, '') + '万'; return String(n); };
+const trDur = iso => { const m = String(iso || '').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/); if (!m) return ''; const h = +m[1] || 0, mi = +m[2] || 0, s = +m[3] || 0; return (h ? h + ':' + String(mi).padStart(2, '0') : mi) + ':' + String(s).padStart(2, '0'); };
+async function trendApi(key, region) {
+  region = /^[A-Z]{2}$/.test(region) ? region : 'JP';
+  if (trApiMem.v && trApiMem.region === region && Date.now() - trApiMem.at < 10 * 60000) return trApiMem.v;
+  const call = async (path, q) => {
+    const r = await fetch('https://www.googleapis.com/youtube/v3/' + path + '?' + new URLSearchParams(q), { headers: { 'x-goog-api-key': key } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = j && j.error || {}, why = (e.errors && e.errors[0] && e.errors[0].reason) || ''; throw new Error(why === 'keyInvalid' || /API key not valid/i.test(e.message || '') ? 'APIキーが正しくありません' : why === 'quotaExceeded' ? '今日の API の上限に達しました(明日また使えます)' : (e.message || ('API ' + r.status)).slice(0, 200)); }
+    return j;
+  };
+  const cats = {}; try { ((await call('videoCategories', { part: 'snippet', regionCode: region, hl: 'ja' })).items || []).forEach(c => { cats[c.id] = c.snippet && c.snippet.title; }); } catch (e) { if (/キー|上限/.test(e.message)) throw e; }
+  const out = []; let token = '';
+  for (let i = 0; i < 4; i++) {
+    const j = await call('videos', { part: 'snippet,statistics,contentDetails', chart: 'mostPopular', regionCode: region, maxResults: '50', ...(token ? { pageToken: token } : {}) });
+    (j.items || []).forEach(v => out.push({
+      rank: out.length + 1, chg: '', id: v.id, title: (v.snippet || {}).title || '', views: trCompact((v.statistics || {}).viewCount), likes: trCompact((v.statistics || {}).likeCount), comments: trCompact((v.statistics || {}).commentCount),
+      len: trDur((v.contentDetails || {}).duration), pub: String((v.snippet || {}).publishedAt || '').slice(0, 10), cat: cats[(v.snippet || {}).categoryId] || '', chId: (v.snippet || {}).channelId || '', ch: (v.snippet || {}).channelTitle || ''
+    }));
+    token = j.nextPageToken || ''; if (!token) break;
+  }
+  if (!out.length) throw new Error('急上昇の動画が返りませんでした');
+  trApiMem.at = Date.now(); trApiMem.region = region; trApiMem.v = out;
+  return out;
+}
 async function trendDay(date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('日付の形が正しくありません');
   const t = new Date(); const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
@@ -563,6 +591,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
     }))).then(a => send({ owners: Object.fromEntries(a) }));
     return true;
   }
+  if (m.type === 'trendApi') { trendApi(String(m.key || ''), m.region).then(v => send({ videos: v })).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'trendDay') { trendDay(m.date).then(v => send({ videos: v })).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'chText') { limit(() => chText(m.key)).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'chVideos') { // チャンネルの最新動画(RSS・最大15件)
