@@ -371,3 +371,26 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .hd-hh input:focus { border-color: var(--hd-acc); }
 .hd-dh { display: flex; align-items: baseline; gap: 10px; margin: 12px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--hd-line); font-size: 12.5px; font-weight: 600; } .hd-dh small { color: var(--hd-sub); font-weight: 400; }
 .hd-more { display: block; width: 100%; height: 36px; margin-top: 10px; border: 0; border-radius: 18px; background: var(--hd-chip); color: var(--hd-fg); font: inherit; font-size: 13px; cursor: pointer; } .hd-more:hover { background: var(--hd-l1); }
+
+/* ---------- 急上昇動画(日付別・実験。trdpage.js) ----------
+   色は変数(--bg --fg --sub --line --chip)で持つ。サムネの上の文字は、暗い背景つきなので、ライト/ダークとも読める */
+.tr-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 14px; }
+.tr-nav button { height: 34px; min-width: 34px; padding: 0 12px; border: 0; border-radius: 17px; background: var(--chip); color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; }
+.tr-nav button:hover:not(:disabled) { background: var(--chip2); } .tr-nav button:disabled { opacity: .4; cursor: default; }
+.tr-nav input, .tr-nav select { height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 17px; background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; outline: none; color-scheme: light dark; }
+.tr-nav select option { background: var(--bg); color: var(--fg); }
+.tr-nav input[type=search] { min-width: 200px; flex: 1 1 200px; max-width: 320px; }
+.tr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.tr-card { border-radius: 12px; overflow: hidden; background: var(--chip); }
+.tr-card.top { outline: 2px solid #f5b301; outline-offset: -2px; }
+.tr-th { position: relative; display: block; aspect-ratio: 16 / 9; background: #000; }
+.tr-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tr-rk, .tr-chg, .tr-len { position: absolute; padding: 1px 7px; border-radius: 6px; background: rgba(0,0,0,.78); color: #fff; font: 700 12px/18px Roboto, Arial, "Noto Sans JP", sans-serif; }
+.tr-rk { left: 6px; top: 6px; font-size: 14px; } .tr-card.top .tr-rk { background: #f5b301; color: #1a1300; }
+.tr-chg { right: 6px; top: 6px; } .tr-chg.new { background: #e5322d; } .tr-chg.up { color: #7ee2a0; } .tr-chg.dn { color: #ff9a9a; } .tr-chg.eq { color: #ddd; }
+.tr-len { right: 6px; bottom: 6px; font-weight: 600; }
+.tr-b { padding: 8px 10px 10px; }
+.tr-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--fg); text-decoration: none; font-weight: 600; font-size: 13px; line-height: 1.4; }
+.tr-s { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 4px; color: var(--sub); font-size: 12px; }
+.tr-c { display: flex; flex-direction: column; gap: 1px; font-size: 12px; } .tr-c a { color: var(--fg); text-decoration: none; } .tr-c a:hover, .tr-t:hover { text-decoration: underline; } .tr-c small { color: var(--sub); }
+.tr-more { display: block; width: 100%; height: 38px; margin-top: 14px; border: 0; border-radius: 19px; background: var(--chip); color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; } .tr-more:hover { background: var(--chip2); }

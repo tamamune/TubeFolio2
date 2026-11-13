@@ -87,6 +87,7 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
 } else if (P === 'rec') { recPage(); // 検索
 } else if (P === 'bm') { bmPage(); // ブックマーク
 } else if (P === 'hist') { histPage(); // 視聴履歴(histpage.js)
+} else if (P === 'trd') { trdPage(); // 急上昇動画(日付別・実験。trdpage.js)
 } else if (P === 'histd') { histDash(); // 視聴履歴ダッシュボード(試作。histdash.js)
 } else { // まだ中身のないページ
   main.innerHTML = `<h1>${esc(TITLE)}</h1><p class="empty">このページは、まだ中身がありません。</p>`;

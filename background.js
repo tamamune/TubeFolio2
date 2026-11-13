@@ -482,6 +482,45 @@ async function chText(key) {
   return { t: vids.map(x => x.title).filter(Boolean), cd: String(cd || '').replace(/https?:\/\/\S+/g, ' ').replace(/\s+/g, ' ').slice(0, 3000) };
 }
 const shortsOwnerCache = new Map();
+// ---- 急上昇動画(日本・日付別・最大約200本): youtube-trending.info の日別ページ(実験) ----
+//   https://youtube-trending.info/video_list?date=YYYY-MM-DD&contry_code=JP を、HTMLのまま読んで取り出す(通信には、日付と国コードだけを使う)
+//   過去の日付は変わらないので、storage に覚える(trdc_日付。取り直せるキャッシュなので、Drive同期の対象外)。今日の分は、30分だけメモリに覚える
+const trdMem = new Map();
+const trdDecode = t => String(t || '').replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos);/gi, (m, e) => {
+  e = e.toLowerCase(); if (e === 'amp') return '&'; if (e === 'lt') return '<'; if (e === 'gt') return '>'; if (e === 'quot') return '"'; if (e === 'apos') return "'";
+  const n = e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); try { return String.fromCodePoint(n); } catch (x) { return ''; }
+});
+function trdParse(html) {
+  const out = [];
+  html.split('<div class="card ').slice(1).forEach(b => {
+    const h = b.match(/class="card-header">#(\d+)\s*\(([^)]*)\)/), id = (b.match(/data-video-id="([\w-]{11})"/) || [])[1];
+    if (!h || !id) return;
+    const num = re => { const m = b.match(re); return m ? trdDecode(m[1]).trim() : ''; };
+    const ch = b.match(/channel_id=([\w-]+)">([^<]*)<\/a>/);
+    out.push({
+      rank: +h[1], chg: h[2], id, title: trdDecode((b.match(/data-title="([^"]*)"/) || [])[1] || ''),
+      views: num(/fa-eye"><\/i>\s*([^<]*?)\s*<\/span>/), likes: num(/fa-thumbs-up"><\/i>\s*([^<]*?)\s*<\/span>/), comments: num(/fa-comment"><\/i>\s*([^<]*?)\s*<\/span>/),
+      len: num(/fa-clock"><\/i>\s*([\d:]+)/), pub: num(/Published_at:(\d{4}-\d\d-\d\d)/), cat: num(/Category:([^<]*)</),
+      chId: ch ? ch[1] : '', ch: ch ? trdDecode(ch[2]).trim() : ''
+    });
+  });
+  return out;
+}
+async function trendDay(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('日付の形が正しくありません');
+  const t = new Date(); const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  const mem = trdMem.get(date); if (mem && Date.now() - mem.at < 30 * 60000) return mem.v;
+  const key = 'trdc_' + date;
+  if (date < today) { const c = (await chrome.storage.local.get(key))[key]; if (c && c.length) { trdMem.set(date, { at: Date.now(), v: c }); return c; } }
+  const r = await fetch('https://youtube-trending.info/video_list?date=' + date + '&contry_code=JP');
+  if (!r.ok) throw new Error('youtube-trending.info ' + r.status);
+  const v = trdParse(await r.text());
+  if (!v.length) throw new Error('この日のデータが見つかりません');
+  trdMem.set(date, { at: Date.now(), v });
+  if (date < today) chrome.storage.local.set({ [key]: v }).catch(() => {});
+  return v;
+}
+
 chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
   if (m.type === 'feedAll') { logged('新着', feedAll(m.days || 4, !!m.force, m.kind), '新着一覧(' + (m.kind || 'v') + ')を取得').then(send).catch(e => send({ error: String(e) })); return true; }
@@ -524,6 +563,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
     }))).then(a => send({ owners: Object.fromEntries(a) }));
     return true;
   }
+  if (m.type === 'trendDay') { trendDay(m.date).then(v => send({ videos: v })).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'chText') { limit(() => chText(m.key)).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'chVideos') { // チャンネルの最新動画(RSS・最大15件)
     limit(async () => { const r = await resolve(m.key); return { videos: r.id ? await videos(r.id) : [] }; }).then(send).catch(e => send({ error: String(e) }));
