@@ -348,3 +348,16 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .hd-none { color: var(--hd-sub); font-size: 12.5px; }
 @media (max-width: 900px) { .hd-a, .hd-cal, .hd-s { grid-column: span 6; } .hd-hero { grid-column: span 12; } .hd-hero-t { max-width: 100%; } .hd-two { grid-template-columns: 1fr; } }
 @media (prefers-color-scheme: dark) { :root:not([data-theme]) { --hd-bg: #0f0d17; --hd-card: #1a1726; --hd-line: #2a2540; --hd-fg: #f1eefc; --hd-sub: #9a94b3; --hd-acc: #9d7bff; --hd-acc2: #c9b8ff; --hd-chip: #262037; --hd-l0: #221e33; --hd-l1: #3a2f66; --hd-l2: #5a47a8; --hd-l3: #7d62d6; --hd-l4: #a98cff; --hd-l4fg: #120d22; } }
+
+/* ダッシュボード: 1時間ごとのヒートマップ・追加の数字・分布 */
+.hd-hm { grid-template-columns: 22px repeat(24, minmax(0, 1fr)); gap: 3px; }
+.hd-hm i { height: 22px; border-radius: 4px; } .hd-hm small { font-size: 10px; }
+.hd-six { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.hd-six .hd-s .hd-n { font-size: 22px; }
+.hd-daily { margin-top: 12px; }
+.hd-bars { display: flex; align-items: flex-end; gap: 3px; height: 90px; }
+.hd-bars i { flex: 1; min-width: 2px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, var(--hd-l4), var(--hd-l2)); } .hd-bars i.z { background: var(--hd-l0); }
+.hd-bl { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10.5px; color: var(--hd-sub); }
+.hd-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+@media (max-width: 900px) { .hd-six { grid-template-columns: repeat(3, minmax(0, 1fr)); } .hd-three { grid-template-columns: 1fr; } }
+.hd-six .hd-s { grid-column: auto; }
