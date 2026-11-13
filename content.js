@@ -374,7 +374,7 @@
   // ---------- 右下のガラス調サイドバー(ハブ): 普段はロゴだけの丸。マウスを乗せると開き、各項目に乗せるとさらに中身が開く ----------
   const HUB_ITEMS = [['folder', '▤', 'フォルダ'], ['cols', '▦', '列数'], ['sync', '☁', '同期'], ['imp', '⟳', '取り込み'], ['mgr', '❖', '管理'], ['set', '⚙', '設定']];
   // 急上昇ワード / 急上昇動画のパネルが開いている間は、下バーのボタン(🔥 / 📈)を押した状態に見せる
-  document.addEventListener('tg-trend-state', e => { const d = e.detail || {}, x = document.getElementById(d.k === 'words' ? 'tfh-trw' : 'tfh-trv'); if (x) x.classList.toggle('on', !!d.open); });
+  document.addEventListener('tg-trend-state', e => { const d = e.detail || {}, x = document.getElementById('tfh-trw'); if (x && d.k === 'words') x.classList.toggle('on', !!d.open); });
   function closeFly() { const f = $('#tf-gsb-fly'); if (f) f.remove(); const b = $('#tf-gsb-root .gs-bulge'); if (b) b.classList.remove('on'); document.querySelectorAll('#tf-gsb-root .gs-it.act').forEach(x => x.classList.remove('act')); }
   // 新着動画の件数(フォルダ内のチャンネルだけ取得。10分ごと/期間やチャンネル構成が変わったとき更新)
   let newCounts = {}, newSig = '', newT = 0, newBusy = false;
@@ -529,7 +529,7 @@
     if (skip || (!chips && !fixed && !floatMode)) { html.removeAttribute('data-tf-hbot'); if (b) b.remove(); html.removeAttribute('data-tf-hbar'); html.removeAttribute('data-tf-hfix'); return; }
     if (!b) {
       b = el('div'); b.id = 'tf-hbar';
-      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-sep" data-only="later" hidden></span><button data-a="hub" data-k="vtool" data-only="later" class="tfh-vt" title="視聴のツール" hidden>ツール ▾</button><span class="tfh-grp">${['cols', 'folder'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="hub" data-k="lab" id="tfh-lab" class="tfh-t" data-ic="🧪" title="実験(負荷軽減・画質・操作のオン/オフ)">🧪</button><button data-a="hub" data-k="disp" id="tfh-disp" class="tfh-t" data-ic="👁" title="表示の切り替え(視聴済み・低評価率・メンバー限定)">👁</button><button data-a="trw" id="tfh-trw" class="tfh-t" data-ic="🔥" title="急上昇ワード">🔥</button><button data-a="trv" id="tfh-trv" class="tfh-t" data-ic="📈" title="急上昇動画">📈</button><button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
+      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-sep" data-only="later" hidden></span><button data-a="hub" data-k="vtool" data-only="later" class="tfh-vt" title="視聴のツール" hidden>ツール ▾</button><span class="tfh-grp">${['cols', 'folder'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="hub" data-k="lab" id="tfh-lab" class="tfh-t" data-ic="🧪" title="実験(負荷軽減・画質・操作のオン/オフ)">🧪</button><button data-a="hub" data-k="disp" id="tfh-disp" class="tfh-t" data-ic="👁" title="表示の切り替え(視聴済み・低評価率・メンバー限定)">👁</button><button data-a="trw" id="tfh-trw" class="tfh-t" data-ic="🔥" title="急上昇ワード">🔥</button><button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
       b.addEventListener('wheel', e => { if (b.scrollWidth > b.clientWidth + 1 && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { b.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false }); // マウスのホイールでも、横に動かせる
       b.addEventListener('scroll', () => closeFly(), { passive: true });
       b.addEventListener('click', e => {
@@ -537,7 +537,7 @@
         const a = x.dataset.a;
         if (a === 'min') TF.mutate(s => { s.settings.hbarMin = !s.settings.hbarMin; });
         else if (a === 'pos') { const cur = HBAR_MODES.findIndex(m => m[0] === (S.settings.hbarPos || 'home')), nx = HBAR_MODES[(cur + 1) % HBAR_MODES.length][0]; TF.mutate(s => { s.settings.hbarPos = nx; }); }
-        else if (a === 'trw' || a === 'trv') document.dispatchEvent(new CustomEvent('tg-trend-toggle', { detail: a === 'trw' ? 'words' : 'tv' })); // 急上昇ワード / 急上昇動画のパネルを開く・閉じる(trends.js / trendvid.js)
+        else if (a === 'trw') document.dispatchEvent(new CustomEvent('tg-trend-toggle', { detail: 'words' })); // 急上昇ワード / 急上昇動画のパネルを開く・閉じる(trends.js / trendvid.js)
         else if (a === 'gear') { closeFly(); $('#tf-set') ? closeSettings() : openSettings(x); }
         else if (a === 'hub') { const f0 = $('#tf-gsb-fly'); const same = f0 && f0.dataset.k === x.dataset.k; closeFly(); if (!same) showBarFly(x); }
         else if (a === 'pg') openPg(x.dataset.p);
