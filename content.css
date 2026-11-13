@@ -1058,3 +1058,7 @@ ytd-rich-item-renderer #metadata-line { flex-wrap: wrap !important; }
 /* 「登録チャンネル」(管理画面。#tf-view。data-tf-view)は、上のガラスバーの高さぶん、中身を下げる(ヘッダーのすぐ下から全面を覆うので、後ろの画面は見えない)。
    視聴・検索・ブックマーク・視聴履歴(page.html。data-tf-pg)は、ページの中で、バーの下に余白をとっているので、ここでは何もしない(二重になって空白が長くなっていた) */
 html[data-tf-view] #tf-view { box-sizing: border-box; padding-top: max(0px, calc(var(--tf-hbot-h, 56px) - 8px)); }
+
+/* フォルダのメニュー: 「フォルダ設定(管理画面)を開く」は、一覧の下ではなく、上に置く(下までスクロールしなくて済む) */
+#tf-gsb-fly button.sep2 { margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.2); border-radius: 14px 14px 0 0; }
+html:not([dark]) #tf-gsb-fly.tf-barfly button.sep2 { border-bottom-color: rgba(0,0,0,.15); }

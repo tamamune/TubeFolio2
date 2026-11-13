@@ -389,7 +389,7 @@
     if (key === 'folder') {
       refreshNew();
       const rows = TF.flat(S.groups).map(({ g, depth }) => { const sub = TF.subtree(S.groups, g.id); const n = Object.values(S.channels).reduce((a, c) => a + (c.groups.some(id => sub.has(id)) ? (newCounts[c.key] || 0) : 0), 0); return `<button data-a="grp" data-g="${g.id}" class="${curGrp() === g.id ? 'act' : ''}" style="padding-left:${12 + depth * 14}px">${TF.iconHtml(g.icon)} ${esc(g.name)}<i>${n}</i></button>`; }).join('');
-      return `<div class="fh">フォルダ ・ 新着動画(${S.settings.newDays || 3}日以内)</div><button data-a="grp" data-g="all" class="${curGrp() === 'all' ? 'act' : ''}">すべて</button>${rows}<button data-a="view" class="sep">📂 フォルダ設定(管理画面)を開く</button>`;
+      return `<div class="fh">フォルダ ・ 新着動画(${S.settings.newDays || 3}日以内)</div><button data-a="view" class="sep2">📂 フォルダ設定(管理画面)を開く</button><button data-a="grp" data-g="all" class="${curGrp() === 'all' ? 'act' : ''}">すべて</button>${rows}`;
     }
     if (key === 'cols') {
       const seg = k => `<div class="fseg">${[0, 3, 4, 5, 6, 7, 8].map(n => `<button data-a="col" data-k="${k}" data-n="${n}" class="${colNow(k) === n ? 'act' : ''}">${n || '標準'}</button>`).join('')}</div>`;
