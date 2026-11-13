@@ -6,7 +6,7 @@
 //   設定 px: { seek, seekSec, mini, brk（分・0＝オフ）, bed }、sleepWin: { on, from, to }（視聴パターンの就寝時間と共通）
 const TGPlayerX = (() => {
   const esc = TG.esc;
-  const DEF = { seek: true, seekSec: 10, mini: true, brk: 60, bed: true, autoJa: true, jaOff: true, seekOp: 40, frameBtn: true, alwaysProg: false, alwaysCtl: false, adFast: true, saver: false, exact: true, tags: true, nth: true, echo: true, bedExt: 30 };
+  const DEF = { seek: true, seekSec: 10, mini: true, brk: 60, bed: true, autoJa: true, jaOff: true, seekOp: 40, frameBtn: true, alwaysProg: false, alwaysCtl: false, adFast: true, saver: false, qLock: false, qRes: 'hd1080', h264: false, lazyRel: false, noNativeCmt: false, noEndCard: true, wheelVol: true, pvNoHist: true, extPlayer: 'mpv', exact: true, tags: true, nth: true, echo: true, bedExt: 30 };
   let cfg = { ...DEF }, rates = {}, sleep = { on: true, from: '23:00', to: '07:00' }, D = null;
   let chSet = {}; // チャンネル別：{ キー: { s: 冒頭スキップ秒, e: 最後スキップ秒, mid: サムネを途中の画面に, name } }
 
@@ -535,6 +535,15 @@ const TGPlayerX = (() => {
         <div class="seg"><button data-ab="a">A：ここから</button><button data-ab="b">B：ここまで</button><button data-ab="clear">解除</button></div>
         <div class="row"><span>📷 スクリーンショット</span><button data-c="shot">保存（S キー）</button></div>
         <div class="row"><span>🎧 省データ（144p・映像を隠す）</span><button data-c="saver" class="${cfg.saver ? 'on' : ''}">${cfg.saver ? 'オン' : 'オフ'}</button></div>
+        <div class="hd">⚙ 画質・負荷軽減</div>
+        <div class="row"><span>📌 画質を固定</span><span><select data-pxs="qRes">${[['hd2160', '2160p'], ['hd1440', '1440p'], ['hd1080', '1080p'], ['hd720', '720p'], ['large', '480p'], ['medium', '360p']].map(([k, l]) => `<option value="${k}"${cfg.qRes === k ? ' selected' : ''}>${l}</option>`).join('')}</select> <button data-px="qLock" class="${cfg.qLock ? 'on' : ''}">${cfg.qLock ? 'オン' : 'オフ'}</button></span></div>
+        <div class="row"><span>🪶 H.264で再生（軽い・次の読み込みから）</span><button data-px="h264" class="${cfg.h264 ? 'on' : ''}">${cfg.h264 ? 'オン' : 'オフ'}</button></div>
+        <div class="row"><span>⏳ 関連動画は再生10秒後に出す</span><button data-px="lazyRel" class="${cfg.lazyRel ? 'on' : ''}">${cfg.lazyRel ? 'オン' : 'オフ'}</button></div>
+        <div class="row"><span>🚫 YouTube標準のコメント欄を出さない</span><button data-px="noNativeCmt" class="${cfg.noNativeCmt ? 'on' : ''}">${cfg.noNativeCmt ? 'オン' : 'オフ'}</button></div>
+        <div class="row"><span>🎬 終了画面カードを隠す</span><button data-px="noEndCard" class="${cfg.noEndCard !== false ? 'on' : ''}">${cfg.noEndCard !== false ? 'オン' : 'オフ'}</button></div>
+        <div class="row"><span>🖱 ホイールで音量</span><button data-px="wheelVol" class="${cfg.wheelVol !== false ? 'on' : ''}">${cfg.wheelVol !== false ? 'オン' : 'オフ'}</button></div>
+        <div class="row"><span>🙈 プレビューを視聴履歴に入れない</span><button data-px="pvNoHist" class="${cfg.pvNoHist !== false ? 'on' : ''}">${cfg.pvNoHist !== false ? 'オン' : 'オフ'}</button></div>
+        <div class="row"><span>▶ 外部プレイヤー</span><span><select data-pxs="extPlayer">${[['mpv', 'mpv'], ['vlc', 'VLC']].map(([k, l]) => `<option value="${k}"${cfg.extPlayer === k ? ' selected' : ''}>${l}</option>`).join('')}</select> <button data-c="ext">で開く</button></span></div>
         ${sl('vol', '🔊 音量', 100, 300)}${sl('br', '☀ 明るさ', 50, 200)}${sl('ct', '◐ コントラスト', 50, 200)}${sl('sat', '🎨 彩度', 0, 200)}
         <div class="row"><span></span><button data-c="reset">音量・画質を元に戻す</button></div>`;
     }
@@ -545,6 +554,8 @@ const TGPlayerX = (() => {
       if (t.dataset.c === 'x') { pop.remove(); return; }
       if (t.dataset.sub) { await setSub(t.dataset.sub); pop.remove(); return; }
       if (t.dataset.ab) { abSet(t.dataset.ab); pop.remove(); togglePop('tool'); return; }
+      if (t.dataset.px) { const k = t.dataset.px, { px = {} } = await chrome.storage.local.get('px'), cur = px[k] === undefined ? !!DEF[k] : !!px[k], nv = !cur; await chrome.storage.local.set({ px: { ...px, [k]: nv }, prefsAt: Date.now() }); await load(); pop.remove(); togglePop('tool'); if (k === 'h264') flash(nv ? 'H.264：オン（次に読み込む動画から。今の動画は再読み込みで）' : 'H.264：オフ'); return; }
+      if (t.dataset.c === 'ext') { window.TGPerf?.openExternal(); pop.remove(); return; }
       if (t.dataset.c === 'shot') shot();
       if (t.dataset.c === 'saver') { const { px = {} } = await chrome.storage.local.get('px'); await chrome.storage.local.set({ px: { ...px, saver: !cfg.saver }, prefsAt: Date.now() }); pop.remove(); flash(!cfg.saver ? '🎧 省データモード：オン' : '🎧 省データモード：オフ'); }
       if (t.dataset.c === 'reset') { Object.assign(adj, { vol: 100, br: 100, ct: 100, sat: 100 }); applyVol(); applyFilter(); pop.remove(); togglePop('tool'); }
@@ -557,6 +568,8 @@ const TGPlayerX = (() => {
       if (i.dataset.adj === 'vol') applyVol(); else applyFilter();
     });
     pop.addEventListener('change', e => {
+      const sk = e.target.dataset?.pxs;
+      if (sk) { chrome.storage.local.get('px').then(({ px = {} }) => chrome.storage.local.set({ px: { ...px, [sk]: e.target.value }, prefsAt: Date.now() })); return; }
       if (e.target.dataset.c === 'autoJa' || e.target.dataset.c === 'jaOff') { const k = e.target.dataset.c; chrome.storage.local.get('px').then(({ px = {} }) => chrome.storage.local.set({ px: { ...px, [k]: e.target.checked }, prefsAt: Date.now() })); }
     });
     p.appendChild(pop);

@@ -395,7 +395,7 @@
     }
     if (key === 'disp') { // 表示の切り替え(以前は「視聴済み」と「低評価率」で、ボタンが2つだった)。押すたびに、その場で切り替わる(メニューは開いたまま)
       const row = (a, on, ic, t, note) => `<button data-a="${a}" class="${on ? 'act' : ''}" title="${note}">${ic} ${t} ${on ? '✓' : ''}</button>`;
-      return `<div class="fh">表示の切り替え</div>${row('hw', !!S.settings.hideWatched, '🙈', '視聴済みを隠す', '登録チャンネルの一覧と、個々のチャンネルのページで、8割以上見た動画を隠します')}${row('dis', pxDis, '👎', '低評価率を表示', '一覧のサムネに、低評価の割合を出します')}${row('mem', hideMem, '👑', 'メンバー限定の動画を隠す', 'ホーム・検索・登録チャンネル・チャンネルのページで、メンバー限定の動画を隠します')}`;
+      return `<div class="fh">表示の切り替え</div>${row('hw', !!S.settings.hideWatched, '🙈', '視聴済みを隠す', '登録チャンネルの一覧と、個々のチャンネルのページで、8割以上見た動画を隠します')}${row('dis', pxDis, '👎', '低評価率を表示', '一覧のサムネに、低評価の割合を出します')}${row('mem', hideMem, '👑', 'メンバー限定の動画を隠す', 'ホーム・検索・登録チャンネル・チャンネルのページで、メンバー限定の動画を隠します')}${row('shr', hideSh, '🩳', 'ホームのショートを隠す', 'ホームの一覧に出るショート(棚・単体)を隠します')}`;
     }
     if (key === 'vtool') return `<div class="fh">再生リスト</div><button data-a="plnew">＋ 再生リストを新しく作る</button><button data-a="pldel">🗑 再生リストを削除</button>`;
     if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button><div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
@@ -452,6 +452,7 @@
     else if (a === 'sync') { hubSt = '同期中…'; const e = $('#tf-fly-st'); if (e) e.textContent = hubSt; chrome.runtime.sendMessage({ type: 'syncNow', interactive: true }, r => { hubSt = r && r.ok ? '☁ 同期しました' : '⚠ ' + ((r && r.error) || '失敗'); const x = $('#tf-fly-st'); if (x) x.textContent = hubSt; }); }
     else if (a === 'hw') TF.mutate(s => { s.settings.hideWatched = !s.settings.hideWatched; });
     else if (a === 'dis') { chrome.storage.local.get('px').then(r => { const px = r.px || {}; px.disBadge = px.disBadge === false; return chrome.storage.local.set({ px }); }); }
+    else if (a === 'shr') { chrome.storage.local.get('px').then(r => { const px = r.px || {}; px.hideShortsHome = !px.hideShortsHome; return chrome.storage.local.set({ px, prefsAt: Date.now() }); }); } // perf.js が、この設定を見てホームのショートを隠す
     else if (a === 'mem') chrome.storage.local.set({ hideMembers: !hideMem }); // memhide.js が、この設定を見て隠す(Drive同期の対象)
     else if (a === 'hm') TF.mutate(s => { s.settings.hideMix = !s.settings.hideMix; });
     else if (a === 'hbh') TF.mutate(s => { s.settings.hbarHome = s.settings.hbarHome === 'closed' ? 'open' : 'closed'; });
@@ -491,11 +492,11 @@
   window.addEventListener('blur', () => setTimeout(() => { if (document.activeElement && document.activeElement.tagName === 'IFRAME') closeAllMenus(); }, 0)); // iframeへフォーカスが移ったとき
   document.addEventListener('mousedown', e => { if ($('#tf-gsb-fly.tf-barfly') && !e.target.closest('#tf-gsb-fly') && !e.target.closest('#tf-hbar [data-a="hub"]')) closeFly(); }, true);
   // 一覧のサムネの低評価率(xtra.js の設定 px.disBadge)の状態。ボタンの見た目に使う
-  let pxDis = true, hideMem = false; // hideMem: メンバー限定の動画を隠す(storage の hideMembers。memhide.js が隠す)
+  let pxDis = true, hideMem = false, hideSh = false; // hideMem: メンバー限定の動画を隠す(storage の hideMembers。memhide.js が隠す)
   chrome.storage.local.get('hideMembers').then(r => { hideMem = !!r.hideMembers; try { renderHBar(); } catch (e) { /* 無視 */ } });
   chrome.storage.onChanged.addListener(ch => { if (ch.hideMembers) { hideMem = !!ch.hideMembers.newValue; try { renderHBar(); } catch (e) { /* 無視 */ } } });
-  chrome.storage.local.get('px').then(r => { pxDis = !r.px || r.px.disBadge !== false; try { renderHBar(); } catch (e) { /* 無視 */ } });
-  chrome.storage.onChanged.addListener(ch => { if (ch.px) { pxDis = !ch.px.newValue || ch.px.newValue.disBadge !== false; try { renderHBar(); } catch (e) { /* 無視 */ } } });
+  chrome.storage.local.get('px').then(r => { pxDis = !r.px || r.px.disBadge !== false; hideSh = !!(r.px && r.px.hideShortsHome); try { renderHBar(); } catch (e) { /* 無視 */ } });
+  chrome.storage.onChanged.addListener(ch => { if (ch.px) { pxDis = !ch.px.newValue || ch.px.newValue.disBadge !== false; hideSh = !!(ch.px.newValue && ch.px.newValue.hideShortsHome); try { renderHBar(); } catch (e) { /* 無視 */ } } });
   // 再生画面からホームへ戻る途中(ロゴを押した直後)は、ホームの左メニュー等がまだ無く、バーの位置が決まらず左端から伸びて見えるので、移動が終わるまで出さない
   let navHold = false;
   const isChPage = () => /^\/(@[^\/]+|channel\/UC[\w-]+|c\/[^\/]+|user\/[^\/]+)(\/|$)/.test(location.pathname);
@@ -530,8 +531,8 @@
       });
     }
     { const bg = pageBg(); if (bg) html.style.setProperty('--tf-pagebg', bg); }
-    { const dp = $('#tfh-disp', b); if (dp) { const hid = !!S.settings.hideWatched || hideMem, tx = hid ? '🙈' : '👁'; dp.classList.toggle('on', hid); if (dp.textContent !== tx) dp.textContent = tx; // 何かを隠しているときは 🙈
-      dp.title = '表示の切り替え: ' + [S.settings.hideWatched ? '視聴済みを隠している' : '視聴済みを表示', pxDis ? '低評価率を表示' : '低評価率を隠している', hideMem ? 'メンバー限定を隠している' : 'メンバー限定を表示'].join(' ・ '); } }
+    { const dp = $('#tfh-disp', b); if (dp) { const hid = !!S.settings.hideWatched || hideMem || hideSh, tx = hid ? '🙈' : '👁'; dp.classList.toggle('on', hid); if (dp.textContent !== tx) dp.textContent = tx; // 何かを隠しているときは 🙈
+      dp.title = '表示の切り替え: ' + [S.settings.hideWatched ? '視聴済みを隠している' : '視聴済みを表示', pxDis ? '低評価率を表示' : '低評価率を隠している', hideMem ? 'メンバー限定を隠している' : 'メンバー限定を表示', hideSh ? 'ホームのショートを隠している' : 'ホームのショートを表示'].join(' ・ '); } }
     { const on = document.documentElement.getAttribute('data-tf-pgk') === 'later' && document.documentElement.hasAttribute('data-tf-pg'); b.querySelectorAll('[data-only="later"]').forEach(n => { if (n.hidden === on) n.hidden = !on; }); }
     { const pb = $('#tfh-pos', b), nm = (HBAR_MODES.find(m => m[0] === mode) || HBAR_MODES[0])[1]; if (pb) { const t = '配置:' + nm; if (pb.textContent !== t) pb.textContent = t; pb.title = 'ボタンの置き方を切り替える(今: ' + nm + ')'; } }
     { const f = $('#tf-gsb-fly.tf-barfly'); if (f && f.dataset.k) { const h = hubFlyHtml(f.dataset.k); if (f._h !== h) { const keep = f.scrollTop; f._h = h; f.innerHTML = h; f.scrollTop = keep; } } }

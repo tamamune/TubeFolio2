@@ -1,0 +1,11 @@
+Windows Registry Editor Version 5.00
+
+; VLC で YouTube を開くための受け口(vlc://URL の「vlc://」を外して VLC に渡す)
+; 使い方: ①VLC を入れる ②下の vlc.exe の場所が違えば直す ③ダブルクリックして登録
+; 取り消し: HKEY_CURRENT_USER\Software\Classes\vlc を削除
+[HKEY_CURRENT_USER\Software\Classes\vlc]
+@="URL:vlc Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\vlc\shell\open\command]
+@="powershell.exe -NoProfile -WindowStyle Hidden -Command \"& 'C:\Program Files\VideoLAN\VLC\vlc.exe' ('%1' -replace '^vlc://','')\""

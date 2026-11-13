@@ -85,7 +85,7 @@ html:not([dark]) #tg-cardmenu { background: #fff; color: #0f0f0f; }
 .tg-px-chbtn { display: inline-flex !important; align-items: center; justify-content: center; vertical-align: top; }
 .tg-px-chbtn svg { width: 24px; height: 24px; fill: #fff; }
 .tg-px-chbtn.on svg { fill: #ffd54f; }
-.tg-px-chpop { position: absolute; right: 12px; bottom: 64px; z-index: 66; width: min(380px, 90%); padding: 12px 14px; border-radius: 12px; background: rgba(20,20,20,.94); color: #fff; font: 13px/1.5 Roboto, Arial, "Noto Sans JP", sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+.tg-px-chpop { max-height: calc(100% - 90px); overflow-y: auto; position: absolute; right: 12px; bottom: 64px; z-index: 66; width: min(380px, 90%); padding: 12px 14px; border-radius: 12px; background: rgba(20,20,20,.94); color: #fff; font: 13px/1.5 Roboto, Arial, "Noto Sans JP", sans-serif; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
 .tg-px-chpop .h { display: flex; align-items: center; font-weight: 700; margin-bottom: 8px; }
 .tg-px-chpop .h button { margin-left: auto; border: none; background: none; color: #fff; cursor: pointer; opacity: .7; }
 .tg-px-chpop label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; }
@@ -292,3 +292,28 @@ html.tg-tbm .tg-c-btn.tg-c-inbar, html.tg-tbm .tg-px-tool, html.tg-tbm .tg-px-su
 /* プレイヤーが小さいとき(スマホ): ツールのメニューを、画面に固定して真ん中に(プレイヤーの中だと、はみ出して切れる) */
 .tg-tb-menu.tg-tb-fix { position: fixed; left: 50%; right: auto; top: 50%; bottom: auto; transform: translate(-50%, -50%); max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; box-shadow: 0 8px 28px rgba(0,0,0,.5); }
 @media (pointer: coarse) { .tg-tb-btn { min-width: 40px; } }
+
+/* ===== 負荷軽減・操作(perf.js / perf-main.js) ===== */
+/* 終了画面カード(動画の最後にかぶさる動画・チャンネルのカード)を隠す。次のおすすめは TubeFolio2 が出す */
+html.tg-noend .ytp-ce-element, html.tg-noend .ytp-ce-covering-overlay, html.tg-noend .ytp-ce-shadow, html.tg-noend .html5-endscreen, html.tg-noend .ytp-endscreen-content, html.tg-noend .ytp-endscreen-previous, html.tg-noend .ytp-endscreen-next { display: none !important; }
+/* YouTube 標準のコメント欄を出さない(再生画面の横で流れるコメントは、そのまま使える) */
+html.tg-nocmt ytd-watch-flexy ytd-comments#comments, html.tg-nocmt ytd-watch-flexy #comments.ytd-watch-flexy { display: none !important; }
+/* ホームのショートを隠す */
+html.tg-noshorts ytd-browse[page-subtype="home"] ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]),
+html.tg-noshorts ytd-browse[page-subtype="home"] ytd-rich-section-renderer:has(ytm-shorts-lockup-view-model),
+html.tg-noshorts ytd-browse[page-subtype="home"] ytd-rich-section-renderer:has(ytm-shorts-lockup-view-model-v2),
+html.tg-noshorts ytd-browse[page-subtype="home"] ytd-reel-shelf-renderer,
+html.tg-noshorts ytd-browse[page-subtype="home"] ytd-rich-item-renderer:has(ytm-shorts-lockup-view-model),
+html.tg-noshorts ytd-browse[page-subtype="home"] ytd-rich-item-renderer:has(ytm-shorts-lockup-view-model-v2),
+html.tg-noshorts ytd-browse[page-subtype="home"] ytd-rich-item-renderer:has(a[href^="/shorts/"]) { display: none !important; }
+/* 関連動画を、再生して少したってから出す(TubeFolio2 のツールパネルは、そのまま出す) */
+html.tg-lazy-rel ytd-watch-flexy #related > *:not(#tg-tools), html.tg-lazy-rel ytd-watch-flexy #secondary-inner > *:not(#tg-tools):not(#related) { display: none !important; }
+/* ホイールで音量: 画面の音量の表示(暗い背景に白い文字なので、ライト・ダークどちらの動画でも読める) */
+.tg-volhud { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); z-index: 76; padding: 8px 18px; border-radius: 20px; background: rgba(0,0,0,.78); color: #fff; font: 700 18px Roboto, Arial, "Noto Sans JP", sans-serif; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.tg-volhud.on { opacity: 1; }
+/* ツール画面の選択(画質・外部プレイヤー): 背景色と文字色を明示(片方のモードで読めなくならないように) */
+.tg-px-pop select { background: #222; color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 8px; padding: 4px 6px; font: 600 12px Roboto, Arial, "Noto Sans JP", sans-serif; }
+.tg-px-pop select option { background: #222; color: #fff; }
+.tg-px-pop .row button.on { background: #fff; color: #000; }
+.tg-px-pop .hd { margin: 10px 0 2px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.18); font: 700 12px Roboto, Arial, "Noto Sans JP", sans-serif; color: #ffd54f; }
+.tg-px-pop .row.sm span { font-size: 12px; }

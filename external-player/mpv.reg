@@ -1,0 +1,11 @@
+Windows Registry Editor Version 5.00
+
+; mpv で YouTube を開くための受け口(ytdl:// を mpv に渡す)
+; 使い方: ①mpv と yt-dlp を入れる ②下の mpv.exe の場所を、自分のものに直す ③ダブルクリックして登録
+; 取り消し: HKEY_CURRENT_USER\Software\Classes\ytdl を削除
+[HKEY_CURRENT_USER\Software\Classes\ytdl]
+@="URL:ytdl Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\ytdl\shell\open\command]
+@="\"C:\Program Files\mpv\mpv.exe\" \"%1\""
