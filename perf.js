@@ -6,13 +6,15 @@
 (() => {
   if (window.__tgPerf) return;
   window.__tgPerf = true;
-  const DEF = { h264: false, qLock: false, qRes: 'hd1080', wheelVol: true, pvNoHist: true, noEndCard: true, noNativeCmt: false, hideShortsHome: false, lazyRel: false, relSec: 10, extPlayer: 'mpv', extTpl: '' };
+  const DEF = { h264: false, qLock: false, qRes: 'hd1080', wheelVol: true, pvNoHist: true, noEndCard: true, origAudio: true, noNativeCmt: false, hideShortsHome: false, lazyRel: false, relSec: 10, extPlayer: 'mpv', extTpl: '' };
   let cfg = { ...DEF };
   const root = document.documentElement;
   const curV = () => (location.pathname === '/watch' ? new URLSearchParams(location.search).get('v') || '' : '');
 
+  let prevQ = '';
   function apply() {
-    try { localStorage.setItem('tgPerf', JSON.stringify({ h264: !!cfg.h264, qLock: !!cfg.qLock, qRes: cfg.qRes, wheelVol: cfg.wheelVol !== false, pvNoHist: cfg.pvNoHist !== false, saver: !!cfg.saver })); } catch { /* なし */ }
+    try { localStorage.setItem('tgPerf', JSON.stringify({ h264: !!cfg.h264, qLock: !!cfg.qLock, qRes: cfg.qRes, wheelVol: cfg.wheelVol !== false, pvNoHist: cfg.pvNoHist !== false, saver: !!cfg.saver, origAudio: cfg.origAudio !== false }));
+    if (prevQ !== cfg.qLock + '|' + cfg.qRes) { prevQ = cfg.qLock + '|' + cfg.qRes; window.dispatchEvent(new Event('tgperf-quality')); } } catch { /* なし */ }
     root.classList.toggle('tg-noend', cfg.noEndCard !== false);
     root.classList.toggle('tg-nocmt', !!cfg.noNativeCmt);
     root.classList.toggle('tg-noshorts', !!cfg.hideShortsHome);

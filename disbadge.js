@@ -31,6 +31,6 @@
   }
   const io = new IntersectionObserver(es => { es.forEach(e => { if (!e.isIntersecting) return; io.unobserve(e.target); const v = vidOf(e.target); if (!v) return; if (mem.has(v)) paint(e.target, v); else { q.push({ card: e.target, v }); pump(); } }); }, { rootMargin: '600px' });
   function scan() { document.querySelectorAll('a.card[href*="watch?v="]:not([data-tgdis])').forEach(c => { c.dataset.tgdis = '1'; io.observe(c); }); }
-  new MutationObserver(() => { if (!scanT) scanT = setTimeout(() => { scanT = 0; if (on) scan(); }, 300); }).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(() => { if (!scanT && !/^\/(watch|shorts)/.test(location.pathname)) scanT = setTimeout(() => { scanT = 0; if (on) scan(); }, 300); }).observe(document.body, { childList: true, subtree: true });
   scan();
 })();

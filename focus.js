@@ -125,7 +125,7 @@
     });
   }
   function sweep() { try { isExt ? sweepExt() : sweepYt(); } catch (e) { /* なし */ } }
-  let t0 = 0; const later = () => { clearTimeout(t0); t0 = setTimeout(sweep, 300); };
+  let t0 = 0; const later = () => { if (window.tfQuiet && window.tfQuiet()) return; clearTimeout(t0); t0 = setTimeout(sweep, 300); }; // 再生画面を開いた直後は、DOM変更のたびに動かない(1.5秒ごとの見回りに任せる)
   new MutationObserver(later).observe(document.documentElement, { childList: true, subtree: true });
   window.addEventListener('yt-navigate-finish', later);
   setInterval(() => { if (!document.hidden && !(window.tfQuiet && window.tfQuiet())) { const s = state(F); if (s.active !== ST.active) { ST = s; } sweep(); } }, 1500);

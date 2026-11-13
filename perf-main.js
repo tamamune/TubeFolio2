@@ -32,11 +32,14 @@
   } catch { /* なし */ }
 
   // ---- 画質の固定 ----
+  //   タイマーで見張り続けない(YouTube が元へ戻す → こちらが戻す、の綱引きでバッファが切れるため)。
+  //   動画の読み込み・再生開始のイベントで、少し間をおいて最大3回だけ合わせる
   const RANK = ['highres', 'hd2880', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny'];
   const player = () => document.querySelector('#movie_player');
-  setInterval(() => {
+  let qTries = 0, qFor = '', qT = 0;
+  function fitQuality() {
     const c = cfg();
-    if (!c.qLock || c.saver || !/^\/(watch|live)/.test(location.pathname) || document.hidden) return;
+    if (!c.qLock || c.saver || !/^\/(watch|live)/.test(location.pathname)) return;
     const p = player();
     if (!p || !p.getAvailableQualityLevels || p.classList.contains('ad-showing')) return;
     const want = RANK.includes(c.qRes) ? c.qRes : 'hd1080';
@@ -45,7 +48,48 @@
     const best = av.find(q => RANK.indexOf(q) >= RANK.indexOf(want)) || av[av.length - 1]; // 選んだ画質(無ければ、それより低い中で一番高いもの)
     if (p.getPlaybackQuality && p.getPlaybackQuality() === best) return;
     try { p.setPlaybackQualityRange && p.setPlaybackQualityRange(best, best); p.setPlaybackQuality && p.setPlaybackQuality(best); } catch { /* なし */ }
-  }, 1500);
+  }
+  function qualityEvent(e) {
+    if (!(e.target instanceof HTMLVideoElement) || !e.target.closest('#movie_player')) return;
+    const v = new URLSearchParams(location.search).get('v') || '';
+    if (v !== qFor) { qFor = v; qTries = 0; }
+    if (qTries >= 3) return;
+    qTries++; clearTimeout(qT); qT = setTimeout(fitQuality, qTries === 1 ? 300 : 1500);
+  }
+  document.addEventListener('loadedmetadata', qualityEvent, true);
+  document.addEventListener('playing', qualityEvent, true);
+  window.addEventListener('tgperf-quality', () => { qTries = 0; fitQuality(); }); // 設定を変えたときは、すぐ1回合わせる
+
+  // ---- 音声: 最初から元の言語の音声を既定にする(自動吹き替えの動画)。プレイヤーに渡す前に、データの既定の印を書き換える ----
+  function origAudio(pr) {
+    try {
+      if (cfg().origAudio === false) return;
+      const fm = pr && pr.streamingData && pr.streamingData.adaptiveFormats;
+      if (!fm) return;
+      const au = fm.filter(f => f.audioTrack);
+      const orig = au.find(f => /original|オリジナル|元の/i.test(f.audioTrack.displayName || ''));
+      if (!orig || new Set(au.map(f => f.audioTrack.id)).size < 2) return;
+      au.forEach(f => { f.audioTrack.audioIsDefault = f.audioTrack.id === orig.audioTrack.id; });
+    } catch { /* なし */ }
+  }
+  try { // 最初の読み込み(ページに埋め込まれた情報)
+    let v = window.ytInitialPlayerResponse;
+    Object.defineProperty(window, 'ytInitialPlayerResponse', { configurable: true, get: () => v, set: x => { origAudio(x); v = x; } });
+  } catch { /* なし */ }
+  try { // 動画を移ったあと(/youtubei/v1/player の応答)
+    const f2 = window.fetch;
+    window.fetch = async function (input, ...a) {
+      const r = await f2.call(this, input, ...a);
+      try {
+        const u = typeof input === 'string' ? input : input && input.url;
+        if (cfg().origAudio !== false && /\/youtubei\/v1\/player(\?|$)/.test(String(u))) {
+          const j = await r.clone().json(); origAudio(j);
+          return new Response(JSON.stringify(j), { status: r.status, statusText: r.statusText, headers: r.headers });
+        }
+      } catch { /* なし */ }
+      return r;
+    };
+  } catch { /* なし */ }
 
   // ---- ホイールで音量 ----
   let hud = null, hudT = 0;
