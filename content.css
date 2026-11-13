@@ -1055,6 +1055,6 @@ ytd-rich-item-renderer #metadata-line { flex-wrap: wrap !important; }
 #tf-set .tf-tab { font-size: 12px; padding: 8px 4px; }
 #tf-set .tf-grp { padding: 8px 12px 10px; }
 
-/* 「登録チャンネル」などのページ(#tf-view)は、ヘッダーのすぐ下から全面を覆い(後ろの YouTube の画面が、バーの下の隙間から見えないように)、
-   中身(iframe)だけを、上のガラスバーの高さぶん下げる。バーをたたんだとき(--tf-hbot-h = 0)は、下げない */
-html[data-tf-view] #tf-view, html[data-tf-pg] #tf-view { box-sizing: border-box; padding-top: var(--tf-hbot-h, 56px); }
+/* 「登録チャンネル」(管理画面。#tf-view。data-tf-view)は、上のガラスバーの高さぶん、中身を下げる(ヘッダーのすぐ下から全面を覆うので、後ろの画面は見えない)。
+   視聴・検索・ブックマーク・視聴履歴(page.html。data-tf-pg)は、ページの中で、バーの下に余白をとっているので、ここでは何もしない(二重になって空白が長くなっていた) */
+html[data-tf-view] #tf-view { box-sizing: border-box; padding-top: max(0px, calc(var(--tf-hbot-h, 56px) - 8px)); }
