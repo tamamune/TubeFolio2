@@ -9,6 +9,7 @@ html[dark] {
   --tf-keep: #ffb300; --tf-keep-bg: rgba(255,179,0,.16);
 }
 .tf-hide { display: none !important; }
+.tf-hide-x { display: none !important; } /* JSの style.display ではなく、CSSで隠す(棚の行・バー・置き換えた項目) */
 
 /* 登録フィードのバー */
 #tf-bar {

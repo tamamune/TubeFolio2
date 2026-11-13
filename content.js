@@ -154,7 +154,7 @@
       if (mine) { // 下のボタン: 列数より多く読み込めたときだけ出し、文字を今の状態に合わせる(同じ文言のボタンが複数あっても、すべてに適用)
         [...sh.querySelectorAll('button')].filter(x => !x.closest('ytd-rich-item-renderer') && (SH_MORE.test(shLbl(x)) || SH_LESS.test(shLbl(x)))).forEach(bt => {
           const c = bt.closest('ytd-button-renderer') || bt.parentElement;
-          if (c) { if (items.length > eff) c.style.removeProperty('display'); else c.style.setProperty('display', 'none', 'important'); }
+          if (c) c.classList.toggle('tf-hide-x', items.length <= eff);
           // 文字は、ボタンの中に自前のラベルを重ねて表示する(YouTube側の文字・矢印は透明にして隠す。DOMの作りに依存しない)
           let lb = bt.querySelector(':scope > .tf-lbl'); if (!lb) { lb = document.createElement('span'); lb.className = 'tf-lbl'; bt.appendChild(lb); bt.classList.add('tf-lblbtn'); }
           const lk = all ? 'less' : 'more'; if (lb.dataset.k !== lk) { lb.dataset.k = lk; lb.innerHTML = '<span>' + (all ? '一部を表示' : 'もっと見る') + '</span><i class="tf-chv"></i>'; } // 矢印は文字ではなくCSSで描く(上下の位置を中央にそろえるため)
@@ -506,7 +506,7 @@
     let b = $('#tf-hbar');
     const watchShown = !!document.querySelector('ytd-watch-flexy:not([hidden])') || !!document.querySelector('ytd-shorts:not([hidden])'); // 動画の画面がまだ見えている間は、URLがホームになっていても出さない
     const skip = navHold || watchShown || S.settings.hbar === false || location.pathname.startsWith('/shorts') || location.pathname.startsWith('/watch') || /^\/(account|paid_memberships|reporthistory|premium|signin|logout)/.test(location.pathname) || isChPage(); // 個別のチャンネルのページ(/@名前・/channel/UC… など)でも出さない。ショートと再生画面と、YouTubeの設定のページ(通知など。レイアウトが違うので)では出さない
-    if (b && !skip && b.style.display === 'none') b.style.removeProperty('display'); // 再生画面へ移るときに隠したバーを、ほかのページでは元に戻す
+    if (b && !skip) b.classList.remove('tf-hide-x'); // 再生画面へ移るときに隠したバーを、ほかのページでは元に戻す
     const inView = html.hasAttribute('data-tf-view');
     const mode = 'bottom'; // 下バーだけを使う(他の置き方は外した)
     { const atHome = isHome(); if (atHome !== renderHBar._home) { renderHBar._home = atHome; if (atHome && !skip) { const want = S.settings.hbarHome === 'closed'; if (!!S.settings.hbarMin !== want) TF.mutate(st => { st.settings.hbarMin = want; }); } } } // ホームを開いたときは、設定どおり(開く/閉じる)にそろえる。そのあとの手動の開閉は、次にホームへ来るまで保つ
@@ -1080,7 +1080,7 @@
       row.addEventListener('mouseenter', () => { clearTimeout(plHide); const v = card && videoId(card); if (v) showPlFly(row, v); });
       row.addEventListener('mouseleave', () => { plHide = setTimeout(closePlFly, 400); });
       row.addEventListener('click', go, true); row.addEventListener('keydown', e => { if (e.key === 'Enter') go(e); }, true);
-      src.after(row); src.style.display = 'none'; return; // 「再生リストに保存」は、この項目に置き換える
+      src.after(row); src.classList.add('tf-hide-x'); return; // 「再生リストに保存」は、この項目に置き換える
     }
     if (tries > 0) setTimeout(() => addMenuRow(tries - 1), 80);
   }
@@ -1112,7 +1112,7 @@
       closeView();
       if (/^\/(watch|shorts)/.test(location.pathname) || document.querySelector('ytd-watch-flexy:not([hidden]), ytd-shorts:not([hidden])')) { navHold = true; renderHBar(); }
       const d = e.detail || {}, u = d.url || (d.endpoint && d.endpoint.commandMetadata && d.endpoint.commandMetadata.webCommandMetadata && d.endpoint.commandMetadata.webCommandMetadata.url) || '';
-      if (/^\/(watch|shorts)/.test(String(u).replace(/^https?:\/\/[^\/]+/, ''))) { const b = $('#tf-hbar'); if (b) b.style.display = 'none'; document.documentElement.removeAttribute('data-tf-hbot'); }
+      if (/^\/(watch|shorts)/.test(String(u).replace(/^https?:\/\/[^\/]+/, ''))) { const b = $('#tf-hbar'); if (b) b.classList.add('tf-hide-x'); document.documentElement.removeAttribute('data-tf-hbot'); }
     });
     window.addEventListener('yt-navigate-finish', () => { schedule(); checkImport(); queueSync(); if (navHold) setTimeout(() => { navHold = false; schedule(); }, 600); });
     window.addEventListener('resize', () => { if (onList()) schedule(); });
