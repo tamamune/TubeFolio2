@@ -535,15 +535,7 @@ const TGPlayerX = (() => {
         <div class="seg"><button data-ab="a">A：ここから</button><button data-ab="b">B：ここまで</button><button data-ab="clear">解除</button></div>
         <div class="row"><span>📷 スクリーンショット</span><button data-c="shot">保存（S キー）</button></div>
         <div class="row"><span>🎧 省データ（144p・映像を隠す）</span><button data-c="saver" class="${cfg.saver ? 'on' : ''}">${cfg.saver ? 'オン' : 'オフ'}</button></div>
-        <div class="hd">⚙ 画質・負荷軽減</div>
-        <div class="row"><span>📌 画質を固定</span><span><select data-pxs="qRes">${[['hd2160', '2160p'], ['hd1440', '1440p'], ['hd1080', '1080p'], ['hd720', '720p'], ['large', '480p'], ['medium', '360p']].map(([k, l]) => `<option value="${k}"${cfg.qRes === k ? ' selected' : ''}>${l}</option>`).join('')}</select> <button data-px="qLock" class="${cfg.qLock ? 'on' : ''}">${cfg.qLock ? 'オン' : 'オフ'}</button></span></div>
-        <div class="row"><span>🪶 H.264で再生（軽い・次の読み込みから）</span><button data-px="h264" class="${cfg.h264 ? 'on' : ''}">${cfg.h264 ? 'オン' : 'オフ'}</button></div>
-        <div class="row"><span>⏳ 関連動画は再生10秒後に出す</span><button data-px="lazyRel" class="${cfg.lazyRel ? 'on' : ''}">${cfg.lazyRel ? 'オン' : 'オフ'}</button></div>
-        <div class="row"><span>🚫 YouTube標準のコメント欄を出さない</span><button data-px="noNativeCmt" class="${cfg.noNativeCmt ? 'on' : ''}">${cfg.noNativeCmt ? 'オン' : 'オフ'}</button></div>
-        <div class="row"><span>🎬 終了画面カードを隠す</span><button data-px="noEndCard" class="${cfg.noEndCard !== false ? 'on' : ''}">${cfg.noEndCard !== false ? 'オン' : 'オフ'}</button></div>
-        <div class="row"><span>🖱 ホイールで音量</span><button data-px="wheelVol" class="${cfg.wheelVol !== false ? 'on' : ''}">${cfg.wheelVol !== false ? 'オン' : 'オフ'}</button></div>
-        <div class="row"><span>🙈 プレビューを視聴履歴に入れない</span><button data-px="pvNoHist" class="${cfg.pvNoHist !== false ? 'on' : ''}">${cfg.pvNoHist !== false ? 'オン' : 'オフ'}</button></div>
-        <div class="row"><span>▶ 外部プレイヤー</span><span><select data-pxs="extPlayer">${[['mpv', 'mpv'], ['vlc', 'VLC']].map(([k, l]) => `<option value="${k}"${cfg.extPlayer === k ? ' selected' : ''}>${l}</option>`).join('')}</select> <button data-c="ext">で開く</button></span></div>
+        <div class="row"><span>▶ 外部プレイヤー（mpv / VLC）</span><button data-c="ext">で開く</button></div>
         ${sl('vol', '🔊 音量', 100, 300)}${sl('br', '☀ 明るさ', 50, 200)}${sl('ct', '◐ コントラスト', 50, 200)}${sl('sat', '🎨 彩度', 0, 200)}
         <div class="row"><span></span><button data-c="reset">音量・画質を元に戻す</button></div>`;
     }
