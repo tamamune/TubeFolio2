@@ -11,6 +11,8 @@
   // リロード時に、前のスクロール位置へ戻さない(戻すと、上のガラスバーの下に一覧の先頭が隠れた位置から始まってしまう)
   if (hideMain) { try { history.scrollRestoration = 'manual'; } catch (e) {} }
   if (hideMain) { root.setAttribute('data-tf-boot', ''); setTimeout(() => root.removeAttribute('data-tf-boot'), 1200); }
+  // 下のガラスバーの幅・位置は、前回の値を最初に反映する(YouTube が描く前に。後から JS が決めると、全幅から縮む動きが見えてしまう)
+  try { const v = JSON.parse(localStorage.getItem('tfHbotVars') || '[]'); if (Array.isArray(v)) v.forEach(([k, x]) => { if (/^--tf-[\w-]+$/.test(k) && /^[\d.]+(px|vw)$/.test(x)) root.style.setProperty(k, x); }); } catch (e) {}
   const THUMBS = ['cols', 'scols'];
   try {
     chrome.storage.local.get('settings').then(r => {
