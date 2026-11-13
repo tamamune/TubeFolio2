@@ -146,8 +146,7 @@ document.addEventListener('click', e => {
 // ---------- 視聴: 再生リスト。「ライブラリに保存」した再生リスト(ミックスリストなど)は「ライブラリ」ひとつにまとめ、中はサムネのカードで並べる。
 // 自分の再生リスト(後で見る・高く評価した動画を含む)は、細い行で1つずつ。行・カードは、ドラッグで順番を変えられる(順番は設定 plOrder に保存 = Drive同期の対象)。 ----------
 function viewPage() {
-  main.innerHTML = `<div class="head"><h1>${esc(TITLE)}</h1><span class="sub">再生リスト(ドラッグで順番を変えられます)</span><span id="plf" class="sub"></span><span class="sp"></span><span id="st"></span></div>
-    <form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form>
+  main.innerHTML = `<div class="head vhead"><h1 title="再生リスト(ドラッグで順番を変えられます)">${esc(TITLE)}</h1><form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form><span id="plf" class="sub"></span><span id="st"></span></div>
     <div id="pls"><p class="empty">読み込み中…</p></div>`;
   const loaded = new Set();
   // ---- 登録チャンネルの目印: サムネに色の線(フォルダ登録=フォルダの色 / 登録のみ=青 / 未登録=赤)。チャンネルは、表示名で照らし合わせる ----

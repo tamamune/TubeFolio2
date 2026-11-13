@@ -290,3 +290,8 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .card .tx > .fch > i::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--sub)); }
 /* ぴったり再生・就寝時間まで: 収まる動画が無いときの知らせ(ダーク / ライトとも、背景と文字の変数で読める色) */
 .plctl .fmsg.warn { color: var(--fg); background: color-mix(in srgb, #e5322d 22%, transparent); border: 1px solid color-mix(in srgb, #e5322d 60%, transparent); border-radius: 10px; padding: 4px 10px; font-weight: 600; }
+
+/* 視聴: 見出し・検索・件数を、1行にまとめる(狭いときは、検索が次の行へ回る) */
+.vhead { align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 12px; }
+.vhead .rform { flex: 1 1 360px; min-width: 0; margin: 0; flex-wrap: nowrap; }
+.vhead #st { white-space: nowrap; }
