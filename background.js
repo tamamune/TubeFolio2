@@ -615,6 +615,7 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (m.type === 'related') { relatedOf(m.videoId).then(items => send({ items })).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plCreate') { plCreate(m.title, m.privacy).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plDelete') { plDelete(m.id).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'ytResume') { ytResume(m.pages || 3).then(items => send({ items })).catch(e => send({ error: String(e.message || e) })); return true; } // ▶ 続きから(おすすめ10本)
   if (m.type === 'ytHome') { ytHome(m.kind, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'ytSearch') { ytSearch(m.q, m.kind, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'plTargetInfo') { plTarget().then(id => send({ id })).catch(() => send({})); return true; }
@@ -694,6 +695,39 @@ const txt = o => !o ? '' : (o.simpleText || o.content || (o.runs || []).map(x =>
 const lastThumb = t => t && t.thumbnails && t.thumbnails.length ? t.thumbnails[t.thumbnails.length - 1].url : '';
 // 投稿者の欄から、チャンネルID(UC…)と @ハンドルを取る(一覧のチャンネルアイコンを、登録チャンネルの情報から引くため)
 const bylineIds = o => { const be = o && o.runs && o.runs[0] && o.runs[0].navigationEndpoint && o.runs[0].navigationEndpoint.browseEndpoint, h = be && be.canonicalBaseUrl && /\/(@[^\/?#]+)/.exec(decodeURIComponent(be.canonicalBaseUrl)); return { chId: (be && be.browseId) || '', handle: h ? decodeURIComponent(h[1]).toLowerCase() : '' }; };
+// ---- ▶ 続きから(おすすめ10本・テスト): YouTube の再生履歴(どの端末で見た分も。新しい順)から、途中まで見た動画を拾う ----
+//   何％見たかは、サムネの下の赤い線と同じ値(古い形 percentDurationWatched / 新しい形 progressBar の startPercent)。位置(秒)は分からない(YouTube が開いたときに続きから再生する)
+//   最初の数ページ(おおむね最近の数日〜数週間)だけを見る。返す形: [{ id, title, ch, len, thumb, pct, order: 履歴の並び(0 が最新) }]
+async function ytResume(pages = 3) {
+  const out = [], seen = new Set(); let tok = null;
+  const pctIn = node => { const s = JSON.stringify(node); const m = s.match(/"percentDurationWatched":(\d+)/) || s.match(/"startPercent":(\d+(?:\.\d+)?)/); return m ? +m[1] : 0; };
+  for (let i = 0; i < pages; i++) {
+    const j = tok ? await authBrowse(null, tok) : await authBrowse('FEhistory'); tok = null;
+    (function walk(o) {
+      if (!o || typeof o !== 'object') return;
+      if (o.continuationItemRenderer && !tok) { (function f(x) { if (!x || typeof x !== 'object' || tok) return; if (x.continuationCommand && x.continuationCommand.token) { tok = x.continuationCommand.token; return; } Object.values(x).forEach(f); })(o.continuationItemRenderer); return; }
+      const v = o.videoRenderer;
+      if (v && v.videoId) { if (!seen.has(v.videoId)) { seen.add(v.videoId); out.push({ id: v.videoId, title: txt(v.title), ch: txt(v.ownerText) || txt(v.shortBylineText), len: txt(v.lengthText), thumb: lastThumb(v.thumbnail), pct: pctIn(v.thumbnailOverlays || []), live: !!(v.badges || []).some(b => /LIVE/.test(JSON.stringify(b))), order: out.length }); } return; }
+      const vw = o.videoWithContextRenderer;
+      if (vw && vw.videoId) { if (!seen.has(vw.videoId)) { seen.add(vw.videoId); const it = vwcItem(vw); out.push({ id: it.id, title: it.title, ch: it.ch, len: it.len, thumb: it.thumb, pct: pctIn(vw.thumbnailOverlays || []), order: out.length }); } return; }
+      const lv = o.lockupViewModel;
+      if (lv && /VIDEO/.test(lv.contentType || '') && lv.contentId) {
+        if (!seen.has(lv.contentId)) {
+          seen.add(lv.contentId);
+          const m = lv.metadata && lv.metadata.lockupMetadataViewModel, im = lv.contentImage && lv.contentImage.thumbnailViewModel && lv.contentImage.thumbnailViewModel.image;
+          const rows = (m && m.metadata && m.metadata.contentMetadataViewModel && m.metadata.contentMetadataViewModel.metadataRows) || [];
+          const lenM = JSON.stringify(lv.contentImage || {}).match(/"text":"(\d{1,2}(?::\d{2}){1,2})"/);
+          out.push({ id: lv.contentId, title: m ? txt(m.title) : '', ch: rows[0] && rows[0].metadataParts && rows[0].metadataParts[0] ? txt(rows[0].metadataParts[0].text) : '', len: lenM ? lenM[1] : '', thumb: im && im.sources && im.sources.length ? im.sources[im.sources.length - 1].url : '', pct: pctIn(lv.contentImage || {}), order: out.length });
+        }
+        return;
+      }
+      if (o.reelShelfRenderer || o.shortsLockupViewModel) return; // ショートは除く
+      Object.values(o).forEach(walk);
+    })(j);
+    if (!tok) break;
+  }
+  return out;
+}
 // 再生リスト「TubeFolio2 後で見る」へ動画を追加(ホームのサムネの「＋」ボタンから)。再生リストのIDは、見つかったら覚えておく
 // 追加先: 再生リスト「TubeFolio2 後で見る」。同じ名前に近いリストが複数あるとき(古いもの・名前違い)は、名前が完全に同じものを選ぶ。
 // 覚えてあるIDが、今も同じ名前のリストを指していなければ、選び直す。候補が複数あるときは、動作ログに残す。

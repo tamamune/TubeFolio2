@@ -480,3 +480,7 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 #reel .rl-c small { color: var(--sub); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #reel .rl-f { padding: 8px 18px 0; color: var(--sub); font-size: 11px; text-align: right; }
 @media (max-width: 600px) { #reel .rl-c { width: 190px; } }
+/* おすすめ10本の ▶ 続きから: 見た割合の赤い線(YouTube と同じ) */
+#reel .rl-src.rl-resume { background: rgba(204,0,0,.92); }
+#reel .rl-pb { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.35); }
+#reel .rl-pb i { display: block; height: 100%; background: #f00; }
