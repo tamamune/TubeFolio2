@@ -45,7 +45,12 @@ async function driveToken(interactive) {
   return v;
 }
 async function dapi(tok, path, opt = {}) {
-  const r = await fetch(DRIVE + path, { ...opt, headers: { Authorization: 'Bearer ' + tok, ...(opt.headers || {}) } });
+  const go = t => fetch(DRIVE + path, { ...opt, headers: { Authorization: 'Bearer ' + t, ...(opt.headers || {}) } });
+  let r = await go(tok);
+  if (r.status === 401) { // 保存してあるトークンが、期限内なのに Google 側で無効になっている: 捨てて、無言で取り直して1回だけやり直す
+    await chrome.storage.local.remove('driveTok');
+    r = await go(await driveToken(false));
+  }
   if (!r.ok) throw new Error('Drive ' + r.status);
   return r;
 }
@@ -124,10 +129,13 @@ const baseOf = data => { const o = {}; for (const k of SYNC_KEYS) if (!MERGE[k] 
 
 let syncP = null, applying = false;
 const applySet = async set => { applying = true; try { await chrome.storage.local.set(set); } finally { setTimeout(() => { applying = false; }, 500); } };
+let failUntil = 0; // 失敗が続いたとき、自動の同期を1分あけて、エラーを連打しない(「☁ 同期」ボタンは、いつでも動く)
 function syncNow(interactive) {
+  if (!interactive && Date.now() < failUntil) return Promise.resolve({ error: '前回の失敗から1分あけています' });
   return syncP || (syncP = (async () => {
     try {
       await setStatus('syncing');
+      failUntil = 0;
       const tok = await driveToken(interactive);
       const id = await findFile(tok);
       const local = await chrome.storage.local.get([...SYNC_KEYS, 'syncMeta', 'syncBase']);
@@ -168,6 +176,7 @@ function syncNow(interactive) {
     } catch (e) {
       const msg = /interaction_required|user interaction|did not approve/i.test(String(e.message || e)) ? "ログインが必要です。「☁ 同期」ボタンを押してください(" + String(e.message || e).slice(0, 60) + ")" : String(e.message || e);
       console.warn("[TubeFolio2 sync]", e);
+      failUntil = Date.now() + 60000;
       await setStatus('error', msg);
       return { error: msg };
     }
