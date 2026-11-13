@@ -5,11 +5,15 @@
 //   どちらも読み取り専用。動画・チャンネルは、押すと YouTube で開く
 const TRD_WD = '日月火水木金土';
 const trdChg = c => { c = String(c || ''); if (!c) return ''; const cls = c === 'NEW' ? 'new' : /^\+/.test(c) ? 'up' : /^-/.test(c) ? 'dn' : 'eq'; return `<span class="tr-chg ${cls}">${c === 'NEW' ? 'NEW' : c === '=' ? '＝' : /^\+/.test(c) ? '▲' + c.slice(1) : /^-/.test(c) ? '▼' + c.slice(1) : esc(c)}</span>`; };
+// 投稿日 → 「2日前」「1 週間前」のような、YouTube のホームと同じ言い方
+const trdAgo = ymd => { if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd || '')) return ''; const d = Math.floor((Date.now() - new Date(ymd + 'T00:00:00').getTime()) / 864e5); if (d < 1) return '今日'; if (d < 7) return d + '日前'; if (d < 30) return Math.floor(d / 7) + ' 週間前'; if (d < 365) return Math.floor(d / 30) + ' か月前'; return Math.floor(d / 365) + ' 年前'; };
+// YouTube のホームの見た目: 枠なしのカード・角丸のサムネ・右下に長さ・下にタイトル(2行)・チャンネル名・「〇回視聴 ・ 〇日前」
 const trdCard = v => `<div class="tr-card${v.rank <= 3 ? ' top' : ''}">
-  <a class="tr-th" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_top" title="${esc(v.title)}"><img loading="lazy" src="https://i.ytimg.com/vi/${esc(v.id)}/mqdefault.jpg" alt=""><span class="tr-rk">#${v.rank}</span>${trdChg(v.chg)}<span class="tr-len">${esc(v.len)}</span></a>
-  <div class="tr-b"><a class="tr-t" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_top">${esc(v.title)}</a>
-    <div class="tr-s"><span title="再生回数">👁 ${esc(v.views)}</span>${v.likes ? `<span title="高評価">👍 ${esc(v.likes)}</span>` : ''}${v.comments ? `<span title="コメント">💬 ${esc(v.comments)}</span>` : ''}</div>
-    <div class="tr-c">${v.chId ? `<a href="https://www.youtube.com/channel/${esc(v.chId)}" target="_top">${esc(v.ch)}</a>` : esc(v.ch)}<small>${esc(v.cat)}${v.pub ? ' ・ 投稿 ' + esc(v.pub) : ''}</small></div></div></div>`;
+  <a class="tr-th" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_top" title="${esc(v.title)}"><img loading="lazy" src="https://i.ytimg.com/vi/${esc(v.id)}/mqdefault.jpg" alt=""><span class="tr-rk">${v.rank}</span>${trdChg(v.chg)}<span class="tr-len">${esc(v.len)}</span></a>
+  <div class="tr-b"><a class="tr-t" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_top" title="${esc(v.title)}">${esc(v.title)}</a>
+    <div class="tr-c">${v.chId ? `<a href="https://www.youtube.com/channel/${esc(v.chId)}" target="_top">${esc(v.ch)}</a>` : esc(v.ch)}</div>
+    <div class="tr-m">${esc(v.views)} 回視聴${v.pub ? ' ・ ' + esc(trdAgo(v.pub)) : ''}</div>
+    <div class="tr-m2">${v.likes ? `👍 ${esc(v.likes)}` : ''}${v.comments ? ` 💬 ${esc(v.comments)}` : ''}${v.cat ? ` ・ ${esc(v.cat)}` : ''}</div></div></div>`;
 // 一覧(絞り込み・カテゴリ・もっと見る)の共通部分
 function trdList(box, nEl, getVids) {
   let cat = '', q = '', shown = 60;

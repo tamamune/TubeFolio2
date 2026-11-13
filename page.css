@@ -402,3 +402,16 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .tr-keyrow input { flex: 1 1 260px; height: 34px; padding: 0 14px; border: 1px solid var(--line); border-radius: 17px; background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; outline: none; }
 .tr-keyrow button { height: 34px; padding: 0 14px; border: 0; border-radius: 17px; background: var(--chip2); color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; }
 .tr-nav .sp { flex: 1; }
+
+/* 急上昇(日付別・公式API): YouTube のホームの見た目に合わせる(枠なし・角丸12pxのサムネ・文字は --fg / --sub。ライト/ダークとも、そのまま読める) */
+.tr-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 24px 16px; }
+.tr-card { background: transparent; border-radius: 0; overflow: visible; }
+.tr-card.top { outline: none; }
+.tr-th { border-radius: 12px; overflow: hidden; }
+.tr-th img { transition: transform .2s; } .tr-card:hover .tr-th img { transform: scale(1.03); }
+.tr-rk { left: 8px; top: 8px; padding: 0 7px; font-size: 12px; background: rgba(0,0,0,.72); } .tr-card.top .tr-rk { background: #f5b301; color: #1a1300; }
+.tr-chg { right: 8px; top: 8px; font-size: 11px; } .tr-len { right: 8px; bottom: 8px; font-size: 12px; }
+.tr-b { padding: 10px 2px 0; }
+.tr-t { font-size: 14px; font-weight: 500; line-height: 20px; }
+.tr-c { display: block; margin-top: 4px; font-size: 12px; line-height: 18px; } .tr-c a { color: var(--sub); } .tr-c a:hover { color: var(--fg); text-decoration: none; }
+.tr-m { color: var(--sub); font-size: 12px; line-height: 18px; } .tr-m2 { color: var(--sub); font-size: 11px; line-height: 16px; opacity: .85; }
