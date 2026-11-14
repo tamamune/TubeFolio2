@@ -359,6 +359,7 @@ function viewPage() {
   const plData = new Map();
   const modeOf = id => (plSort[id] === 'old' ? 'old' : 'new'); // 並び: 追加日の 新しい順(初期) / 古い順
   // 「▶ 続きから」: 途中まで見た動画(YouTube の再生履歴と TubeFolio2 の視聴履歴。1%〜80%・30日以内)。ほかの再生リストと同じ行・カードで出す(reel.js の reelGather)
+  let resumeMax = 30; chrome.storage.local.get('px').then(r => { const v = (r.px || {}).resumeMax; resumeMax = v === undefined ? 30 : +v || 0; }).catch(() => {});
   const fetchResume = () => (typeof reelGather === 'function' ? reelGather(true) : Promise.resolve({ resume: [] })).then(p => ({ items: (p && p.resume) || [], ordered: true })).catch(e => ({ error: String((e && e.message) || e) }));
   const fetchPl = (id, order) => { const k = id + '|' + (order || ''); if (id === 'resume') { if (!plData.has(k)) plData.set(k, fetchResume().then(r => { if (r.error) plData.delete(k); return r; })); return plData.get(k); } if (!plData.has(k)) plData.set(k, new Promise(res => chrome.runtime.sendMessage({ type: 'plVideos', ids: [id], order }, res)).then(r => { if (!r || r.error) plData.delete(k); return r; })); return plData.get(k); };
   const sortItems = (items, mode) => mode === 'new' || mode === 'old' ? items.map((x, i) => [x, i]).sort((a, b) => { const pa = a[0].pub || 0, pb = b[0].pub || 0; if (!pa && !pb) return a[1] - b[1]; if (!pa) return 1; if (!pb) return -1; return (mode === 'new' ? pb - pa : pa - pb) || a[1] - b[1]; }).map(x => x[0]) : items.slice();
@@ -370,7 +371,11 @@ function viewPage() {
     cache.set(id, items);
     const sum = sumOf(items);
     sums.set(id, sum);
-    if (id === 'resume') return items.length ? `<div class="grid">${items.map(x => vcard(x, id)).join('')}</div>` : '<p class="none">途中まで見た動画はありません。</p>'; // ぴったり再生・ランダム再生などのツールは出さない
+    if (id === 'resume') { // ぴったり再生・ランダム再生などのツールは出さない。表示する件数は、リストで選ぶ(px.resumeMax。0 = すべて)
+      const shownN = resumeMax ? items.slice(0, resumeMax) : items;
+      return (items.length ? `<div class="rsmax"><label>表示する件数 <select class="rsel" title="表示する件数(新しい順の先頭から)">${[[10, '10件'], [20, '20件'], [30, '30件'], [50, '50件'], [100, '100件'], [0, 'すべて']].map(([n, t]) => `<option value="${n}"${n === resumeMax ? ' selected' : ''}>${t}</option>`).join('')}</select></label><small>${shownN.length} / ${items.length}本を表示</small></div>` : '')
+        + (items.length ? `<div class="grid">${shownN.map(x => vcard(x, id)).join('')}</div>` : '<p class="none">途中まで見た動画はありません。</p>');
+    }
     return `<div class="pltools" data-id="${esc(id)}">
       <div class="plctl"><span>⏱ 空き時間</span><select class="fmin" title="空き時間(この時間に収まるように動画を選びます)">${minOpts()}</select><button data-a="fit" class="b1">▶ ぴったり再生</button><button data-a="bed" class="b2">🌙 就寝時間まで</button><span class="fmsg"></span><span class="sp"></span>${sortSeg(id)}<button data-a="all" class="b3">▶ 連続再生</button><button data-a="rnd" class="b4">🔀 ランダム再生</button></div></div>`
       + (items.length ? `<div class="grid">${items.map(x => vcard(x, id)).join('')}</div>` : '<p class="none">動画がありません。</p>');
@@ -454,6 +459,11 @@ function viewPage() {
     // 「最初から開く」に設定された再生リストは、開いた状態で始める
     box.querySelectorAll('.pl:not(.lib)').forEach(s => { const x = mine.find(m => m.id === s.dataset.id); if (x && defOpen(x.id, x.title)) { const b = s.querySelector(':scope > .plb'); b.hidden = false; s.classList.add('open'); load(x.id, b, x.title || ''); } });
     if (kwOrs.length) { openForKw(); applyFolder(); } // 読み込む前にキーワードで探していたとき
+  });
+  $('#pls').addEventListener('change', async e => { // 「▶ 続きから」の表示件数
+    if (!(e.target.matches && e.target.matches('.rsel'))) return;
+    resumeMax = +e.target.value || 0; const { px = {} } = await chrome.storage.local.get('px'); await chrome.storage.local.set({ px: { ...px, resumeMax }, prefsAt: Date.now() });
+    const sec = e.target.closest('.pl'), b = sec && sec.querySelector(':scope > .plb'); if (b) { loaded.delete('resume'); load('resume', b, '▶ 続きから'); }
   });
   $('#pls').addEventListener('change', e => { if (e.target.matches && e.target.matches('.fmin')) { freeMin = +e.target.value || 30; saveSet('freeMin', freeMin); } });
   // ---- 動画ごとのツール: 別の再生リストへ「移動」「コピー」。押す/マウスを乗せると、再生リスト一覧を隣に出す ----
