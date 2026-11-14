@@ -14,9 +14,9 @@ function recPage(opts = {}) {
   let scope = ls('tfRecScope', 'reg'), kind = ls(KK, 'v'), q = ls('tfRecQ', ''), busy = 0, token = null, shown = 0;
   if (!SCOPES.some(x => x[0] === scope)) scope = 'reg'; if (!KINDS.some(x => x[0] === kind)) kind = 'v';
   const seg = (arr, cur, a) => `<span class="rseg">${arr.map(([k, t]) => `<button data-${a}="${k}" class="${k === cur ? 'on' : ''}">${t}</button>`).join('')}</span>`;
-  const HEAD = `<div class="head"><h1>検索</h1><span class="sp"></span><span id="st"></span><button id="rclr" class="rclr" title="検索で取得したデータ(新着の一覧・ショートの投稿日・結果)を空にします。表示の速さを調べるときに使います">🗑 検索データを空にする</button></div>`;
+  const HEAD = `<div class="head"><h1>検索</h1><span class="sp"></span><span id="st"></span></div>`;
   const ROW = `<div class="rrow"><span class="rgrp" id="rsg"><span class="rl">対象</span><span id="rs">${seg(SCOPES, scope, 's')}</span></span><span class="rgrp"><span class="rl">種類</span><span id="rk">${seg(KINDS, kind, 'k')}</span></span></div>`;
-  const FORM = `<form id="rf" class="rform"><span class="rqw"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button type="button" id="rclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span class="rrg"><button type="button" id="rrand" class="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button><span class="rrn" id="rrn" title="選ぶタグの数。2つ以上は「a | b | c」(どれかを含む)でまとめて探す"></span></span></form>`;
+  const FORM = `<form id="rf" class="rform"><span class="rqw"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button type="button" id="rclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><button type="button" id="rreset" class="rclr" title="キーワードを空にして、対象を「すべて」、種類を「動画」に戻します">クリア</button><span class="rrg"><button type="button" id="rrand" class="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button><span class="rrn" id="rrn" title="選ぶタグの数。2つ以上は「a | b | c」(どれかを含む)でまとめて探す"></span></span></form>`;
   const TNAV = T ? `<div id="rtnav" class="rtnav" hidden><span class="rl">📅 日付</span><button type="button" id="rt-prev" title="前の日">◀</button><input type="date" id="rt-date" min="2024-01-01"><button type="button" id="rt-next" title="次の日">▶</button><button type="button" id="rt-now" title="今日の急上昇">今日</button><span class="rl rt-gap">カテゴリ</span><select id="rt-cat"><option value="">すべて</option></select><span class="rl rt-src">日本・1日ごと(データ: youtube-trending.info)</span></div>` : '';
   const REST = `<div id="rres"></div><div class="rmore"><button id="rmore" class="rgo" hidden>もっと見る</button></div><div id="rsent" style="height:1px"></div>`;
   main.innerHTML = T ? HEAD + `<div class="rpanel" id="rpanel">${FORM}${ROW}${TNAV}<div id="rfold" class="rfold"></div></div>` + REST
@@ -185,9 +185,11 @@ function recPage(opts = {}) {
   }
   // 下までスクロールしたら、続きを足す(おすすめ・検索)
   { const se = $('#rsent'); if (se && 'IntersectionObserver' in window) new IntersectionObserver(es => { if (es.some(x => x.isIntersecting) && !busy && ((T && kind === 't') ? !$('#rmore').hidden : (token && scope !== 'reg'))) run(true); }, { rootMargin: '600px' }).observe(se); }
-  $('#rclr').addEventListener('click', async () => { // 検索データを空にする(新着の一覧・ショートの投稿日・結果の表示)
-    await send({ type: 'feedClear' }); myCache = null; seen = new Set(); regItems = []; token = null; shown = 0; box.innerHTML = ''; $('#rmore').hidden = true; st.textContent = '';
-    toast('検索データを空にしました。もう一度「検索」を押すと、取得し直します');
+  $('#rreset').addEventListener('click', async () => { // クリア: キーワードを空・対象 = すべて・種類 = 動画に戻して、探し直す
+    $('#rq').value = ''; lset('tfRecQ', ''); scope = 'all'; kind = 'v'; lset('tfRecScope', scope); lset(KK, kind);
+    $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); if (typeof syncMode === 'function') syncMode();
+    if (fold !== 'all') { await TF.mutate(s => { s.settings.plFolder = 'all'; }); fold = 'all'; foldNames = null; foldNote(); }
+    updClear(); run(false);
   });
   $('#rf').addEventListener('submit', e => { e.preventDefault(); run(false); });
   // 🎲 ランダムタグ: 溜まったタグ(playedTags)から、回数の多いものほど選ばれやすく選んで、キーワードに入れて探す
