@@ -540,7 +540,7 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .card.hidw, #rres section.day[hidden] { display: none !important; } /* 検索: 視聴済みを隠す(🙈) */
 
 /* 視聴の「🎵 音楽🎵」: 自動追加のツール(状態・取り置き・削除した動画) */
-#pls .amtool { margin: 4px 0 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--chip); color: var(--fg); font-size: 13px; }
+#pls .amtool { margin: 4px 0 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--fg); font-size: 13px; }
 #pls .pl:not(.open) > .amtool { display: none; }
 .amtool .am-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0; }
 .amtool .am-st { padding: 1px 10px; border-radius: 10px; background: var(--chip2); color: var(--sub); font-weight: 600; } .amtool .am-st.on { background: var(--fg); color: var(--bg); }
