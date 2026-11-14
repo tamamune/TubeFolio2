@@ -150,12 +150,11 @@ document.addEventListener('click', e => {
 // ---------- 視聴: 再生リスト。「ライブラリに保存」した再生リスト(ミックスリストなど)は「ライブラリ」ひとつにまとめ、中はサムネのカードで並べる。
 // 自分の再生リスト(後で見る・高く評価した動画を含む)は、細い行で1つずつ。行・カードは、ドラッグで順番を変えられる(順番は設定 plOrder に保存 = Drive同期の対象)。 ----------
 function viewPage() {
-  main.innerHTML = `<div class="head vhead"><h1 title="再生リスト(ドラッグで順番を変えられます)">${esc(TITLE)}</h1><span id="st"></span><span id="plf" class="sub"></span><button type="button" id="vreel" class="vreel" title="TubeFolio2 後で見る・非登録チャンネル・急上昇から10本を選んで、横に流れるリールで出します">🎞 おすすめ10本</button><button type="button" id="vresume" class="vreel" title="途中まで見た動画(この端末・ほかの端末。1%〜80%・30日以内)を、新しい順に出します">▶ 続きから</button><button type="button" id="vai" class="vreel" title="AIが探しているような演出のあと、たくさんのおすすめを、回せる球の形で出します(試作)">✨ AIおすすめ</button><form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form></div>
+  main.innerHTML = `<div class="head vhead"><h1 title="再生リスト(ドラッグで順番を変えられます)">${esc(TITLE)}</h1><span id="st"></span><span id="plf" class="sub"></span><button type="button" id="vresume" class="vreel" title="途中まで見た動画(この端末・ほかの端末。1%〜80%・30日以内)を、新しい順に出します">▶ 続きから</button><button type="button" id="vai" class="vreel" title="AIが探しているような演出のあと、たくさんのおすすめを、回せる球の形で出します(試作)">✨ AIおすすめ</button><form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form></div>
     <div id="pls"><p class="empty">読み込み中…</p></div>`;
   const loaded = new Set();
   // ---- 「🎵 音楽🎵」(急上昇の音楽を自動で入れる再生リスト。background.js の musicAuto)のカードに 📌 取り置き:
   //   印を付けた動画は、30日たっても自動では外さない(autoMusic.keep。Drive同期の対象)。もう一度押すと外す
-  $('#vreel').addEventListener('click', () => { if (typeof openReel === 'function') openReel(); }); // 🎞 おすすめ10本(reel.js)
   $('#vai').addEventListener('click', () => { if (typeof openAiPick === 'function') openAiPick(); }); // ✨ AIおすすめ(試作。aipick.js)
   $('#vresume').addEventListener('click', () => { if (typeof openReel === 'function') openReel({ mode: 'resume' }); }); // ▶ 続きから(reel.js)
   let am = {};
