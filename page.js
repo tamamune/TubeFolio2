@@ -154,13 +154,12 @@ document.addEventListener('click', e => {
 // ---------- 視聴: 再生リスト。「ライブラリに保存」した再生リスト(ミックスリストなど)は「ライブラリ」ひとつにまとめ、中はサムネのカードで並べる。
 // 自分の再生リスト(後で見る・高く評価した動画を含む)は、細い行で1つずつ。行・カードは、ドラッグで順番を変えられる(順番は設定 plOrder に保存 = Drive同期の対象)。 ----------
 function viewPage() {
-  main.innerHTML = `<div class="head vhead"><h1 title="再生リスト(ドラッグで順番を変えられます)">${esc(TITLE)}</h1><span id="st"></span><span id="plf" class="sub"></span><button type="button" id="vresume" class="vreel" title="途中まで見た動画(この端末・ほかの端末。1%〜80%・30日以内)を、新しい順に出します">▶ 続きから</button><button type="button" id="vai" class="vreel" title="AIが探しているような演出のあと、たくさんのおすすめを、回せる球の形で出します(試作)">✨ AIおすすめ</button><form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form></div>
+  main.innerHTML = `<div class="head vhead"><h1 title="再生リスト(ドラッグで順番を変えられます)">${esc(TITLE)}</h1><span id="st"></span><span id="plf" class="sub"></span><button type="button" id="vai" class="vreel" title="AIが探しているような演出のあと、たくさんのおすすめを、回せる球の形で出します(試作)">✨ AIおすすめ</button><form id="vf" class="rform"><span class="rqw"><input id="vq" type="search" placeholder="キーワード(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む)" autocomplete="off"><button type="button" id="vclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span id="vkn" class="sub"></span></form></div>
     <div id="pls"><p class="empty">読み込み中…</p></div>`;
   const loaded = new Set();
   // ---- 「🎵 音楽🎵」(急上昇の音楽を自動で入れる再生リスト。background.js の musicAuto)のカードに 📌 取り置き:
   //   印を付けた動画は、30日たっても自動では外さない(autoMusic.keep。Drive同期の対象)。もう一度押すと外す
   $('#vai').addEventListener('click', () => { if (typeof openAiPick === 'function') openAiPick(); }); // ✨ AIおすすめ(試作。aipick.js)
-  $('#vresume').addEventListener('click', () => { if (typeof openReel === 'function') openReel({ mode: 'resume' }); }); // ▶ 続きから(reel.js)
   let am = {};
   const markKeep = () => {
     const id = am.listId;
@@ -333,7 +332,7 @@ function viewPage() {
   };
   const fmtNum = n => `${Math.floor(n / 10000)}/${Math.floor(n / 100) % 100}/${n % 100}`;
   const dateLine = (x, listId) => { const a = (plSeen[listId] || {})[x.id], parts = []; if (a) parts.push('登録 ' + fmtNum(a)); if (x.pub) { const d = new Date(x.pub); parts.push(`投稿 ${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}頃`); } return parts.length ? `<small class="dt">${esc(parts.join(' ・ '))}</small>` : ''; };
-  const vcard = (x, listId) => `<a class="card" data-pct="${Math.round(x.pct || 0)}" data-ch="${esc(x.ch)}"${x.chId ? ` data-chid="${esc(x.chId)}"` : ''}${x.handle ? ` data-chkey="${esc(x.handle)}"` : ''} href="https://www.youtube.com/watch?v=${esc(x.id)}${listId && !['WL', 'LL'].includes(listId) ? '&list=' + esc(listId) : ''}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${esc(x.thumb || 'https://i.ytimg.com/vi/' + x.id + '/mqdefault.jpg')}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}${delBtn(x, listId)}</div><div class="inf">${avatarHtml(x)}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.ch)}</small>${dateLine(x, listId)}</div>${vtb(x, listId)}</div></a>`;
+  const vcard = (x, listId) => `<a class="card" data-pct="${Math.round(x.pct || 0)}" data-ch="${esc(x.ch)}"${x.chId ? ` data-chid="${esc(x.chId)}"` : ''}${x.handle ? ` data-chkey="${esc(x.handle)}"` : ''} href="https://www.youtube.com/watch?v=${esc(x.id)}${listId && !['WL', 'LL', 'resume'].includes(listId) ? '&list=' + esc(listId) : ''}${listId === 'resume' && x.pos > 5 ? '&t=' + Math.max(0, x.pos - 3) + 's' : ''}" target="_top" title="${esc(x.title)}"><div class="th"><img loading="lazy" src="${esc(x.thumb || 'https://i.ytimg.com/vi/' + x.id + '/mqdefault.jpg')}">${x.len ? `<span class="tm">${esc(x.len)}</span>` : ''}${delBtn(x, listId)}</div><div class="inf">${avatarHtml(x)}<div class="tx"><b>${esc(x.title)}</b><small>${esc(x.ch)}</small>${dateLine(x, listId)}</div>${vtb(x, listId)}</div></a>`;
   // ---- 再生リストの見出し: 本数・合計時間・残り時間、空き時間にぴったり収まる組み合わせの連続再生、就寝時間まで、連続再生、ランダム再生(元のTubeFolioの「後で見る」と同じ) ----
   const cache = new Map(), sums = new Map(); let freeMin = 45, sleepFrom = '23:00', sleepTo = '06:00', plSort = {}; // plSort: 再生リストごとの並び(add 追加順 / new 新しい順 / old 古い順)。設定 plSort。Drive同期の対象
   // 本数・合計時間・残り時間は、一覧の上(行の見出し / ライブラリ内の見出し)に出す
@@ -359,7 +358,9 @@ function viewPage() {
   // 再生リストの動画は、一度だけ取得して使い回す(ページを開いた直後に、閉じているリストの本数・合計時間も出すため)
   const plData = new Map();
   const modeOf = id => (plSort[id] === 'old' ? 'old' : 'new'); // 並び: 追加日の 新しい順(初期) / 古い順
-  const fetchPl = (id, order) => { const k = id + '|' + (order || ''); if (!plData.has(k)) plData.set(k, new Promise(res => chrome.runtime.sendMessage({ type: 'plVideos', ids: [id], order }, res)).then(r => { if (!r || r.error) plData.delete(k); return r; })); return plData.get(k); };
+  // 「▶ 続きから」: 途中まで見た動画(YouTube の再生履歴と TubeFolio2 の視聴履歴。1%〜80%・30日以内)。ほかの再生リストと同じ行・カードで出す(reel.js の reelGather)
+  const fetchResume = () => (typeof reelGather === 'function' ? reelGather(true) : Promise.resolve({ resume: [] })).then(p => ({ items: (p && p.resume) || [], ordered: true })).catch(e => ({ error: String((e && e.message) || e) }));
+  const fetchPl = (id, order) => { const k = id + '|' + (order || ''); if (id === 'resume') { if (!plData.has(k)) plData.set(k, fetchResume().then(r => { if (r.error) plData.delete(k); return r; })); return plData.get(k); } if (!plData.has(k)) plData.set(k, new Promise(res => chrome.runtime.sendMessage({ type: 'plVideos', ids: [id], order }, res)).then(r => { if (!r || r.error) plData.delete(k); return r; })); return plData.get(k); };
   const sortItems = (items, mode) => mode === 'new' || mode === 'old' ? items.map((x, i) => [x, i]).sort((a, b) => { const pa = a[0].pub || 0, pb = b[0].pub || 0; if (!pa && !pb) return a[1] - b[1]; if (!pa) return 1; if (!pb) return -1; return (mode === 'new' ? pb - pa : pa - pb) || a[1] - b[1]; }).map(x => x[0]) : items.slice();
   const sortSeg = id => `<span class="sortseg" data-id="${esc(id)}" title="並び順(再生リストへ追加した日。YouTubeの並べ替えと同じ)">${[['new', '新しい順'], ['old', '古い順']].map(([k, l]) => `<button data-sort="${k}" class="${modeOf(id) === k ? 'on' : ''}">${l}</button>`).join('')}</span>`;
   const vids = (items, id, title, ordered) => {
@@ -369,6 +370,7 @@ function viewPage() {
     cache.set(id, items);
     const sum = sumOf(items);
     sums.set(id, sum);
+    if (id === 'resume') return items.length ? `<div class="grid">${items.map(x => vcard(x, id)).join('')}</div>` : '<p class="none">途中まで見た動画はありません。</p>'; // ぴったり再生・ランダム再生などのツールは出さない
     return `<div class="pltools" data-id="${esc(id)}">
       <div class="plctl"><span>⏱ 空き時間</span><select class="fmin" title="空き時間(この時間に収まるように動画を選びます)">${minOpts()}</select><button data-a="fit" class="b1">▶ ぴったり再生</button><button data-a="bed" class="b2">🌙 就寝時間まで</button><span class="fmsg"></span><span class="sp"></span>${sortSeg(id)}<button data-a="all" class="b3">▶ 連続再生</button><button data-a="rnd" class="b4">🔀 ランダム再生</button></div></div>`
       + (items.length ? `<div class="grid">${items.map(x => vcard(x, id)).join('')}</div>` : '<p class="none">動画がありません。</p>');
@@ -393,7 +395,7 @@ function viewPage() {
     if (loaded.has(id)) return; loaded.add(id); into.innerHTML = '<p class="none">読み込み中…</p>';
     fetchPl(id, modeOf(id)).then(r => {
       if (!r || r.error) { into.innerHTML = `<p class="none">取得できませんでした${r && r.error ? `(${esc(r.error)})` : ''}</p>`; loaded.delete(id); return; }
-      noteSeen(id, r.items); into.innerHTML = vids(r.items, id, title, r.ordered); showSum(into, id); fillAvatars(into);
+      if (id !== 'resume') noteSeen(id, r.items); into.innerHTML = vids(r.items, id, title, r.ordered); showSum(into, id); fillAvatars(into);
     });
   };
   // 「後で見る」ボタン(サムネの🕒)で動画を追加したら、開いている再生リストの一覧・本数・合計時間を、取り直す。
@@ -401,7 +403,7 @@ function viewPage() {
   const refreshLists = () => {
     plData.clear();
     document.querySelectorAll('#pls .pl:not(.lib)').forEach(sec => {
-      const id = sec.dataset.id, b = sec.querySelector(':scope > .plb'); if (!b) return;
+      const id = sec.dataset.id, b = sec.querySelector(':scope > .plb'); if (!b || id === 'resume') return;
       loaded.delete(id);
       if (!b.hidden) load(id, b, (sec.querySelector(':scope > .plh b') || {}).textContent || '');
       else fetchPl(id, modeOf(id)).then(r => { if (r && !r.error) { sums.set(id, sumOf(r.items || [])); showSum(b, id); } });
@@ -439,7 +441,7 @@ function viewPage() {
     const pin = (id, title) => `<button class="pin ${defOpen(id, title) ? 'on' : ''}" data-pin="${esc(id)}" title="このページを開いたとき、最初から開くか閉じるかを切り替えます">${defOpen(id, title) ? '▣ 最初から開く' : '□ 最初は閉じる'}</button>`;
     const libRow = `<section class="pl lib ${defOpen('library') ? 'open' : ''}" draggable="true" data-id="library"><div class="plh"><span class="fd">▾</span><b>ライブラリ</b><small>保存した再生リスト ${saved.length}件</small>${pin('library')}<span class="mv" title="順番を上・下へ動かす(ドラッグでも動かせます)"><button type="button" data-mv="-1">▲</button><button type="button" data-mv="1">▼</button></span></div><div class="plb" ${defOpen('library') ? '' : 'hidden'}>${saved.length ? `<div class="libgrid">${saved.map(card).join('')}</div><div class="libvid" hidden></div>` : '<p class="none">ライブラリに保存した再生リストは、ありません。</p>'}</div></section>`
     const rowOf = x => `<section class="pl" draggable="true" data-id="${esc(x.id)}"><div class="plh"><span class="fd">▾</span><b>${esc(x.title || '(無題)')}</b>${sumCache[x.id] ? `<small class="sm">${esc(sumCache[x.id])}</small>` : ''}${pin(x.id, x.title)}<span class="mv" title="順番を上・下へ動かす(ドラッグでも動かせます)"><button type="button" data-mv="-1">▲</button><button type="button" data-mv="1">▼</button></span></div><div class="plb" hidden></div></section>`;
-    box.innerHTML = byOrd([{ id: 'library' }, ...mine], 'mine').map(x => x.id === 'library' ? libRow : rowOf(x)).join(''); // ライブラリも、ほかの再生リストと同じように、上下に動かせる
+    box.innerHTML = byOrd([{ id: 'library' }, { id: 'resume', title: '▶ 続きから' }, ...mine], 'mine').map(x => x.id === 'library' ? libRow : rowOf(x)).join(''); // ライブラリも、ほかの再生リストと同じように、上下に動かせる
     $('#st').textContent = `再生リスト ${mine.length}件 ・ ライブラリ ${saved.length}件`;
     sortable(box, '.pl', false, saveOrder('mine'));
     const lg = box.querySelector('.libgrid'); if (lg) sortable(lg, '.plc', true, saveOrder('lib'));
