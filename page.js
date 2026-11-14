@@ -184,7 +184,7 @@ function viewPage() {
     return `<div class="am-row"><b>🎵 急上昇の音楽の自動追加</b><span class="am-st ${a.on ? 'on' : ''}">${a.on ? 'オン' : 'オフ'}</span><button type="button" data-am="tog">${a.on ? 'オフにする' : 'オンにする'}</button><button type="button" data-am="run">今すぐ実行</button><span class="am-sub">${gap}時間ごと ・ ${kd ? kd + '日で外す' : '自動では外さない'} ・ ${bd ? '削除した動画は' + bd + '日入れない' : '削除した動画も入れ直す'}(設定: TubeFolio2 設定 → その他)</span></div>`
       + `<div class="am-row"><span class="am-sub">${l ? `最後 ${esc(when)} ・ +${l.add}本 / 外した ${l.del}本 ・ 全${l.total}本` : 'まだ実行していません'}</span></div>`
       + `<details class="am-d"${amOpen.keep ? ' open' : ''} data-d="keep"><summary>📌 取り置き ${kp.length}本(期限がきても外しません)</summary><div class="am-g">${kp.map(([id, t]) => th(id, t, 'unkeep', '解除')).join('') || '<span class="am-sub">なし(下のカードの 📌 で取り置きできます)</span>'}</div></details>`
-      + `<details class="am-d"${amOpen.rm ? ' open' : ''} data-d="rm"><summary>🗑 削除して入れない ${rm.length}本${bd ? '(' + bd + '日)' : ''}</summary><div class="am-g">${rm.sort((x, y) => y[1] - x[1]).map(([id, t]) => th(id, t, 'unblock', '戻す')).join('') || '<span class="am-sub">なし(下のカードの × で削除すると、次の実行のときにここへ入ります)</span>'}</div></details>`;
+      + `<details class="am-d"${amOpen.rm ? ' open' : ''} data-d="rm"><summary>🗑 削除して入れない ${rm.length}本${bd ? '(' + bd + '日)' : ''}</summary><div class="am-g">${rm.sort((x, y) => y[1] - x[1]).map(([id, t]) => th(id, t, 'unblock', '戻す')).join('') || '<span class="am-sub">なし(下のカードの × で削除すると、ここへ入ります)</span>'}</div></details>`;
   };
   const markTool = () => {
     const sec = am.listId ? document.querySelector(`#pls .pl[data-id="${CSS.escape(am.listId)}"]`) : null;
@@ -513,6 +513,10 @@ function viewPage() {
         void chrome.runtime.lastError;
         if (!r || r.error) { dl.disabled = false; dl.textContent = '×'; alert('削除できませんでした: ' + ((r && r.error) || '拡張機能に接続できません(ページを更新してください)')); return; }
         if (card) card.remove();
+        if (am.listId && listId === am.listId) chrome.storage.local.get('autoMusic').then(({ autoMusic: a0 = {} }) => { // 「🎵 音楽🎵」で ×: すぐ「削除して入れない」に記録する
+          const removed = { ...(a0.removed || {}), [vid]: Date.now() }, added = { ...(a0.added || {}) }, keep = { ...(a0.keep || {}) }; delete added[vid]; delete keep[vid];
+          return chrome.storage.local.set({ autoMusic: { ...a0, removed, added, keep, snap: (a0.snap || []).filter(i => i !== vid) } });
+        }).catch(() => {});
         const arr = cache.get(listId); if (arr) { const i = arr.findIndex(y => y.id === vid); if (i >= 0) arr.splice(i, 1); sums.set(listId, sumOf(arr)); const sec = document.querySelector(`#pls .pl[data-id="${CSS.escape(listId)}"]`); if (sec) showSum(sec.querySelector(':scope > .plb') || sec, listId); }
       });
       return;
