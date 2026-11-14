@@ -1063,3 +1063,6 @@ html[data-tf-view] #tf-view { box-sizing: border-box; padding-top: max(0px, calc
 /* フォルダのメニュー: 「フォルダ設定(管理画面)を開く」は、一覧の下ではなく、上に置く(下までスクロールしなくて済む) */
 #tf-gsb-fly button.sep2 { margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.2); border-radius: 14px 14px 0 0; }
 html:not([dark]) #tf-gsb-fly.tf-barfly button.sep2 { border-bottom-color: rgba(0,0,0,.15); }
+
+/* ✨ おすすめ動画を開いている間: TubeFolio2 の画面(#tf-view)を、画面の一番上から下まで(サイドバーは除く)・ガラスバーより前面に広げる */
+html #tf-view.tf-aip, html[data-tf-pg] #tf-view.tf-aip, html[data-tf-hbot] #tf-view.tf-aip, html[data-tf-hbot][data-tf-pg] #tf-view.tf-aip, html[data-tf-hfix] #tf-view.tf-aip { top: 0 !important; bottom: 0 !important; z-index: 2400; padding-top: 0 !important; }

@@ -20,6 +20,7 @@ function openAiPick() {
     <div class="ai-cards" role="list" aria-label="おすすめの動画"></div>
     <div class="ai-hint">周りをクリックで閉じる ・ ドラッグ・矢印キーで回せます ・ ホイールで大きさ ・ カードに乗せると止まります ・ 押すとその動画へ</div>`;
   document.body.appendChild(box);
+  try { parent.postMessage({ tfAip: 1 }, '*'); } catch (e) { /* なし */ } // 親(YouTube 側)に、画面を上から下まで・前面に広げてもらう
   const $b = s => box.querySelector(s);
   const cv = $b('.ai-cv'), cards = $b('.ai-cards'), reBtn = $b('.ai-re');
   const fill = $b('.ai-fill'), head = $b('.ai-head'), pctEl = $b('.ai-pct'), stepEl = $b('.ai-step'), bar = $b('.ai-bar');
@@ -200,7 +201,7 @@ function openAiPick() {
   chrome.storage.onChanged.addListener(onPx);
   const search = (min) => run(typeof reelGather === 'function' ? reelGather() : Promise.resolve(null), min).then(pool => show(pickMany(pool)));
   reBtn.addEventListener('click', () => search(calm ? 600 : 3000));
-  const close = () => { alive = false; clearTimeout(reTimer); chrome.storage.onChanged.removeListener(onPx); cancelAnimationFrame(raf); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); };
+  const close = () => { try { parent.postMessage({ tfAip: 0 }, '*'); } catch (e) { /* なし */ } alive = false; clearTimeout(reTimer); chrome.storage.onChanged.removeListener(onPx); cancelAnimationFrame(raf); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); };
   const onKey = e => {
     if (e.key === 'Escape') { e.preventDefault(); close(); return; }
     if (!box.classList.contains('done')) return;

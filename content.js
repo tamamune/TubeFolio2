@@ -502,7 +502,7 @@
   }
   // 「新着動画」などのページ(iframe)の中をクリックしたときも、開いているメニューを閉じる(iframeの中のクリックは、こちらのページには届かないため)
   const closeAllMenus = () => { closeFly(); closeSettings(); };
-  window.addEventListener('message', e => { if (e.data && e.data.tfClick) closeAllMenus(); });
+  window.addEventListener('message', e => { if (e.data && e.data.tfClick) closeAllMenus(); if (e.data && typeof e.data.tfAip === 'number') { const v = $('#tf-view'); if (v) v.classList.toggle('tf-aip', !!e.data.tfAip); } }); // ✨ おすすめ動画(aipick.js)を開いている間は、TubeFolio2 の画面を、上から下まで(サイドバーは除く)・前面に広げる
   window.addEventListener('message', e => { if (!e.data || typeof e.data.tfToast !== 'string' || !String(e.origin).startsWith('chrome-extension://' + chrome.runtime.id)) return; toast(e.data.tfToast.slice(0, 300), 8000); }); // 埋め込みのページ(視聴など)からのお知らせ
   window.addEventListener('blur', () => setTimeout(() => { if (document.activeElement && document.activeElement.tagName === 'IFRAME') closeAllMenus(); }, 0)); // iframeへフォーカスが移ったとき
   // 急上昇ワード(パネル・地球儀)を、ホーム以外で押したとき: TubeFolio2 の検索画面を開いて、キーワードに入れて探す(対象 = すべて・種類 = 動画)
