@@ -18,7 +18,7 @@ function openAiPick() {
     <div class="ai-txt"><b>検索中<span class="ai-dots"><i>.</i><i>.</i><i>.</i></span></b><small class="ai-step">準備しています</small>
       <div class="ai-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i class="ai-fill"></i><span class="ai-head"></span></div><div class="ai-pct">0%</div></div>
     <div class="ai-cards" role="list" aria-label="おすすめの動画"></div>
-    <div class="ai-hint">ドラッグ・矢印キーで回せます ・ ホイールで大きさ ・ カードに乗せると止まります ・ 押すとその動画へ</div>`;
+    <div class="ai-hint">周りをクリックで閉じる ・ ドラッグ・矢印キーで回せます ・ ホイールで大きさ ・ カードに乗せると止まります ・ 押すとその動画へ</div>`;
   document.body.appendChild(box);
   const $b = s => box.querySelector(s);
   const cv = $b('.ai-cv'), cards = $b('.ai-cards'), reBtn = $b('.ai-re');
@@ -57,12 +57,12 @@ function openAiPick() {
   let morph = 0, morphFrom = 0, morphAt = 0;
   const geo = () => {
     const k = ease(Math.min(1, (performance.now() - morphAt) / 800)), m = morphFrom + ((box.classList.contains('done') ? 1 : 0) - morphFrom) * k; morph = m;
-    const r0 = Math.min(W, H) * 0.27, r1 = Math.min(W * 0.38, H * 0.4) * zoom;
+    const r0 = Math.min(W, H) * 0.27, r1 = Math.min(W * 0.4, H * 0.44) * zoom;
     return { R: r0 + (r1 - r0) * m, cx: W / 2, cy: H * (0.42 + 0.1 * m) };
   };
   // カード(結果)の位置: 球の表面にほぼ均等に
   let CP = [], CPAIR = [], cardH = 0;
-  const cardW = () => Math.max(100, Math.min(170, Math.min(W, H) * 0.2));
+  const cardW = () => Math.max(130, Math.min(240, Math.min(W, H) * 0.28));
   const placeCards = n => {
     CP = []; for (let i = 0; i < n; i++) { const y = 1 - (i + .5) / n * 2, r = Math.sqrt(1 - y * y), th = i * 2.399963; CP.push([Math.cos(th) * r, y, Math.sin(th) * r]); }
     CPAIR = []; CP.forEach((a, i) => { const ds = CP.map((b, j) => [j, (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2]).filter(x => x[0] !== i).sort((p, q) => p[1] - q[1]).slice(0, 2); ds.forEach(([j]) => { if (i < j) CPAIR.push([i, j]); }); });
@@ -107,10 +107,10 @@ function openAiPick() {
   sRaf = requestAnimationFrame(frame);
 
   // ---- ドラッグ・矢印キー・ホイールで回す ----
-  let dragFrom = null, moved = 0, lastMove = 0;
+  let dragFrom = null, moved = 0, lastMove = 0, onCard = false;
   box.addEventListener('pointerdown', e => {
     if (!box.classList.contains('done') || e.button !== 0 || e.target.closest('.ai-top')) return;
-    dragFrom = [e.clientX, e.clientY]; moved = 0; hold = true; vx = vy = 0; lastMove = performance.now();
+    onCard = !!e.target.closest('.ai-c, .ai-msg'); dragFrom = [e.clientX, e.clientY]; moved = 0; hold = true; vx = vy = 0; lastMove = performance.now();
     try { box.setPointerCapture(e.pointerId); } catch (x) { /* なし */ }
   });
   box.addEventListener('pointermove', e => {
@@ -120,7 +120,7 @@ function openAiPick() {
     const k = 1 / Math.max(160, geo().R); turn(-dx * k, dy * k); vx = -dx * k / dt; vy = dy * k / dt; // 手の動きと同じ向きに、手前の面が動く
     if (moved > 6) box.classList.add('drag');
   });
-  const endDrag = () => { if (!dragFrom) return; dragFrom = null; hold = false; setTimeout(() => box.classList.remove('drag'), 0); if (performance.now() - lastMove > 80) vx = vy = 0; };
+  const endDrag = e => { if (!dragFrom) return; if (e && e.type === 'pointerup' && moved <= 6 && !onCard) { close(); return; } dragFrom = null; hold = false; setTimeout(() => box.classList.remove('drag'), 0); if (performance.now() - lastMove > 80) vx = vy = 0; };
   box.addEventListener('pointerup', endDrag); box.addEventListener('pointercancel', endDrag);
   cards.addEventListener('click', e => { if (moved > 6) { e.preventDefault(); e.stopPropagation(); } }, true); // 回したあとの「押した」は、動画を開かない
   cards.addEventListener('mouseover', e => { hoverCard = !!e.target.closest('.ai-c:not(.back)'); });
