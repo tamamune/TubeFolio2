@@ -17,7 +17,7 @@ function recPage(opts = {}) {
   const HEAD = `<div class="head"><h1>検索</h1><span class="sp"></span><span id="st"></span><button id="rclr" class="rclr" title="検索で取得したデータ(新着の一覧・ショートの投稿日・結果)を空にします。表示の速さを調べるときに使います">🗑 検索データを空にする</button></div>`;
   const ROW = `<div class="rrow"><span class="rgrp" id="rsg"><span class="rl">対象</span><span id="rs">${seg(SCOPES, scope, 's')}</span></span><span class="rgrp"><span class="rl">種類</span><span id="rk">${seg(KINDS, kind, 'k')}</span></span></div>`;
   const FORM = `<form id="rf" class="rform"><span class="rqw"><input id="rq" type="search" placeholder="キーワード(空欄: 登録=新着の一覧 / 非登録・すべて=YouTubeのおすすめ)" value="${E(q)}" autocomplete="off"><button type="button" id="rclear" class="rclear" title="クリア(キーワードを消して、フォルダを「すべて」に戻す)" hidden>✕</button></span><button class="rgo" type="submit">検索</button><span class="rrg"><button type="button" id="rrand" class="rrand" title="ランダムなタグを選んで、キーワードに入れて探す(タグは 設定 → 整理・通知 → ランダムタグ)">🎲 ランダムタグ</button><span class="rrn" id="rrn" title="選ぶタグの数。2つ以上は「a | b | c」(どれかを含む)でまとめて探す"></span></span></form>`;
-  const TNAV = T ? `<div id="rtnav" class="rtnav" hidden><span class="rl">📅 日付</span><button type="button" id="rt-prev" title="前の日">◀</button><input type="date" id="rt-date" min="2024-01-01"><button type="button" id="rt-next" title="次の日">▶</button><button type="button" id="rt-now" title="今日の急上昇">今日</button><span class="rl rt-gap">カテゴリ</span><select id="rt-cat"><option value="">すべて</option></select><span class="rl rt-src">日本・1日ごと(データ: youtube-trending.info)</span><div class="rt-am" id="rt-am"></div></div>` : '';
+  const TNAV = T ? `<div id="rtnav" class="rtnav" hidden><span class="rl">📅 日付</span><button type="button" id="rt-prev" title="前の日">◀</button><input type="date" id="rt-date" min="2024-01-01"><button type="button" id="rt-next" title="次の日">▶</button><button type="button" id="rt-now" title="今日の急上昇">今日</button><span class="rl rt-gap">カテゴリ</span><select id="rt-cat"><option value="">すべて</option></select><span class="rl rt-src">日本・1日ごと(データ: youtube-trending.info)</span></div>` : '';
   const REST = `<div id="rres"></div><div class="rmore"><button id="rmore" class="rgo" hidden>もっと見る</button></div><div id="rsent" style="height:1px"></div>`;
   main.innerHTML = T ? HEAD + `<div class="rpanel" id="rpanel">${FORM}${ROW}${TNAV}<div id="rfold" class="rfold"></div></div>` + REST
     : HEAD + ROW + '<div id="rfold" class="rfold"></div>' + FORM + REST;
@@ -235,26 +235,6 @@ function recPage(opts = {}) {
   const syncMode = () => { if (!T) return; const tm = kind === 't'; $('#rsg').classList.toggle('off', tm); $('#rtnav').hidden = !tm; $('#rpanel').classList.toggle('tmode', tm); $('#rq').placeholder = tm ? '急上昇の中から絞り込み(タイトル・チャンネル。スペース=すべて含む / | =どれかを含む。空欄=全部)' : PH; };
   $('#rk').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; kind = b.dataset.k; lset(KK, kind); $('#rk').innerHTML = seg(KINDS, kind, 'k'); syncMode(); run(false); });
   syncMode();
-  if (T) { // 🎵 急上昇の音楽を「🎵 音楽🎵」へ自動で入れる(background.js の musicAuto)。状態・オン/オフ・今すぐ実行
-    const amBox = $('#rt-am');
-    const amPaint = a => {
-      a = { on: true, name: '🎵 音楽🎵', ...(a || {}) }; const l = a.last, keepN = Object.keys(a.keep || {}).length, blockN = Object.keys(a.removed || {}).length;
-      const when = l ? new Date(l.at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-      amBox.innerHTML = `<span class="rl">🎵 急上昇の音楽を「${E(a.name)}」へ自動で追加(間隔・期間は TubeFolio2 設定 → その他。取り置き・削除した動画は 視聴の「🎵 音楽🎵」)</span>`
-        + `<b class="${a.on ? 'on' : ''}">${a.on ? 'オン' : 'オフ'}</b>`
-        + (l ? `<span class="rl">最後 ${E(when)} ・ +${l.add}本 / 外した ${l.del}本 ・ 全${l.total}本 ・ 📌 取り置き ${keepN}本 ・ 削除して入れない ${blockN}本</span>` : '<span class="rl">まだ実行していません</span>')
-        + `<button type="button" data-am="tog">${a.on ? 'オフにする' : 'オンにする'}</button><button type="button" data-am="run">今すぐ実行</button>`;
-    };
-    chrome.storage.local.get('autoMusic').then(r => amPaint(r.autoMusic));
-    chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.autoMusic) amPaint(ch.autoMusic.newValue); });
-    amBox.addEventListener('click', async e => {
-      const b = e.target.closest('[data-am]'); if (!b) return;
-      if (b.dataset.am === 'tog') { const { autoMusic: a = {} } = await chrome.storage.local.get('autoMusic'); await chrome.storage.local.set({ autoMusic: { ...a, on: a.on === false } }); return; }
-      b.disabled = true; b.textContent = '実行中…';
-      const r = await send({ type: 'musicAuto' }); b.disabled = false; b.textContent = '今すぐ実行';
-      toast(r && r.ok ? `「${r.title}」に ${r.add}本 追加・${r.del}本 外しました` : '実行できませんでした: ' + ((r && r.error) || '不明'), 6000);
-    });
-  }
   if (T) { // 急上昇の日付・カテゴリ
     const go = d => { tDate = d > tToday() ? tToday() : d; run(false); };
     $('#rt-prev').addEventListener('click', () => go(tAdd(tFor || tDate, -1)));
