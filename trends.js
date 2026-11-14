@@ -9,15 +9,16 @@
   window.__tgTrends = true;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let cfg = { trendGo: false };
-  let data = null, open = false, hideT = 0, hours = 24;
+  let data = null, open = false, hideT = 0, hours = 24, cat = 0;
   const onWatch = () => /^\/(watch|shorts)(\/|$)/.test(location.pathname);
-  try { chrome.storage.local.get('trendHours').then(r => { if (r.trendHours === 4) { hours = 4; syncHours(); } }); } catch { /* なし */ }
+  try { chrome.storage.local.get(['trendHours', 'trendCat']).then(r => { if (r.trendHours === 4 || r.trendHours === 48) hours = r.trendHours; cat = +r.trendCat || 0; syncHours(); }); } catch { /* なし */ }
 
   // ---- 画面 ----
   // 開くのは下バーの 🔥 ボタンから(右端のタブは無し)
   const panel = document.createElement('div');
   panel.id = 'tg-trend';
-  panel.innerHTML = '<div class="tgt-h"><b>🔥 急上昇ワード<small>Google トレンド・日本</small></b><button class="tgt-g" title="地球儀で見る(色 = 検索ボリューム・ニュース・カテゴリ・48時間)">🌐</button><button class="tgt-r" title="取り直す">↻</button><button class="tgt-x" title="閉じる">✕</button></div><div class="tgt-h2"><span class="tgt-hs"><button data-hr="4">過去4時間</button><button data-hr="24">過去24時間</button></span></div><div class="tgt-l"><div class="tgt-m">読み込み中…</div></div>';
+  const CATS = [[0, 'すべてのカテゴリ'], [4, 'エンタメ'], [17, 'スポーツ'], [14, '政治'], [3, 'ビジネス・金融'], [18, 'テクノロジー'], [6, 'ゲーム'], [15, '科学'], [7, '健康'], [2, 'ファッション・美容'], [5, '食べ物'], [19, '旅行・交通'], [1, '自動車'], [8, '趣味・レジャー'], [9, '仕事・教育'], [10, '法律・行政'], [13, 'ペット'], [16, 'ショッピング'], [20, '気候'], [11, 'その他']];
+  panel.innerHTML = `<div class="tgt-h"><b>🔥 急上昇ワード<small>Google トレンド・日本</small></b><button class="tgt-g" title="地球儀で見る(色 = 検索ボリューム・ニュース・カテゴリ・48時間)">🌐</button><button class="tgt-r" title="取り直す">↻</button><button class="tgt-x" title="閉じる">✕</button></div><div class="tgt-h2"><span class="tgt-hs"><button data-hr="4">4時間</button><button data-hr="24">24時間</button><button data-hr="48">48時間</button></span><select class="tgt-cat" title="カテゴリ(Google トレンド)">${CATS.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select><span class="tgt-leg" title="色 = 検索ボリューム(赤 = 多い / 青 = 少ない)"><i></i>検索 少 → 多</span></div><div class="tgt-l"><div class="tgt-m">読み込み中…</div></div>`;
   const news = document.createElement('div');
   news.id = 'tg-trend-news';
   document.documentElement.append(panel, news);
@@ -40,25 +41,31 @@
 
   // ---- データ ----
   const byHours = {};
-  function syncHours() { panel.querySelectorAll('[data-hr]').forEach(b => b.classList.toggle('on', +b.dataset.hr === hours)); }
+  function syncHours() { panel.querySelectorAll('[data-hr]').forEach(b => b.classList.toggle('on', +b.dataset.hr === hours)); const sc = panel.querySelector('.tgt-cat'); if (sc) sc.value = String(cat); }
   panel.querySelectorAll('[data-hr]').forEach(b => b.addEventListener('click', () => {
     const h = +b.dataset.hr; if (h === hours) return;
     hours = h; syncHours(); news.style.display = 'none';
     try { chrome.storage.local.set({ trendHours: h }); } catch { /* なし */ }
-    data = byHours[h] || null;
+    data = byHours[h + '_' + cat] || null;
     if (data) draw(); else load();
   }));
+  panel.querySelector('.tgt-cat').addEventListener('change', e => { // カテゴリ(Google トレンドのカテゴリ。0 = すべて)
+    cat = +e.target.value || 0; news.style.display = 'none';
+    try { chrome.storage.local.set({ trendCat: cat }); } catch { /* なし */ }
+    data = byHours[hours + '_' + cat] || null;
+    if (data) draw(); else load();
+  });
   syncHours();
   function load(force) {
-    const h = hours;
+    const h = hours, c = cat;
     list.innerHTML = '<div class="tgt-m">読み込み中…</div>';
-    chrome.runtime.sendMessage({ type: 'tg-trends', force: !!force, hours: h }, r => {
-      if (h !== hours) return; // 読み込み中に切り替えられた
+    chrome.runtime.sendMessage({ type: 'tg-trends', force: !!force, hours: h, cat }, r => {
+      if (h !== hours || c !== cat) return; // 読み込み中に切り替えられた
       if (chrome.runtime.lastError || !r || r.error || !r.items) {
         list.innerHTML = `<div class="tgt-m">取得できませんでした:${esc(chrome.runtime.lastError?.message || r?.error || '')}</div>`;
         return;
       }
-      data = byHours[h] = r; draw();
+      data = byHours[h + '_' + c] = r; draw();
     });
   }
   // 数字・時間の見せ方
@@ -67,9 +74,11 @@
   function draw() {
     list.textContent = '';
     if (!data.items.length) { list.innerHTML = '<div class="tgt-m">急上昇ワードがありません</div>'; return; }
+    const volN = it => { let n = +it.vol || 0; if (!n) { const m = /([\d,.]+)\s*(万)?/.exec(String(it.traffic || '')); if (m) n = parseFloat(m[1].replace(/,/g, '')) * (m[2] ? 10000 : 1); } return n || 0; };
+    const lgs = data.items.map(it => Math.log10(Math.max(1, volN(it)))), lmax = Math.max(...lgs, 1), lmin = Math.min(...lgs, lmax);
     data.items.forEach((it, i) => {
       const b = document.createElement('button');
-      b.className = 'tgt-i';
+      b.className = 'tgt-i'; b.style.setProperty('--hue', String(Math.round(220 - (lmax === lmin ? .5 : (lgs[i] - lmin) / (lmax - lmin)) * 220))); // 色 = 検索ボリューム(青 220 → 赤 0)
       const vol = it.traffic || fmtVol(it.vol), pct = it.pctText || (it.pct ? it.pct.toLocaleString('en-US') + '%' : ''), ago = it.agoText || fmtAgo(it.start);
       const sub = [vol && `検索 ${esc(vol)}`, pct && `<span class="up">▲${esc(pct)}</span>`, esc(ago), it.end ? '終了' : ''].filter(Boolean).join(' ・ ');
       b.innerHTML = `<span class="tgt-n">${i + 1}</span><span class="tgt-b"><span class="tgt-t">${esc(it.title)}</span>${sub ? `<span class="tgt-s">${sub}</span>` : ''}${it.related?.length ? `<span class="tgt-s">${esc(it.related.slice(0, 4).join('　'))}</span>` : ''}</span>`;

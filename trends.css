@@ -34,6 +34,12 @@ html[dark] {
 #tg-trend .tgt-hs button:hover { background: var(--tgt-hov); }
 #tg-trend .tgt-hs button.on { background: var(--tgt-acc); color: var(--tgt-acc-fg); font-weight: 700; }
 #tg-trend .tgt-hs button.on::before { content: '✓ '; }
+#tg-trend .tgt-h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#tg-trend .tgt-cat { height: 28px; padding: 0 8px; border: 1px solid var(--tgt-line); border-radius: 14px; background: var(--tgt-bg); color: var(--tgt-fg); font: inherit; font-size: 12px; cursor: pointer; max-width: 150px; } #tg-trend .tgt-cat option { background: var(--tgt-bg); color: var(--tgt-fg); }
+#tg-trend .tgt-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--tgt-sub); } #tg-trend .tgt-leg i { width: 46px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, hsl(220 75% 50%), hsl(110 75% 45%), hsl(0 75% 50%)); }
+/* 色 = 検索ボリューム: 左に色の線、順位の数字も同じ色(青 = 少ない → 赤 = 多い) */
+#tg-trend .tgt-i { box-shadow: inset 4px 0 0 hsl(var(--hue, 220) 75% 50%); }
+#tg-trend .tgt-i .tgt-n { color: hsl(var(--hue, 220) 75% 50%); font-weight: 700; }
 #tg-trend .tgt-l { overflow: auto; flex: 1; padding: 4px 0; }
 #tg-trend .tgt-i { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; }
 #tg-trend .tgt-i:hover { background: var(--tgt-hov); }
