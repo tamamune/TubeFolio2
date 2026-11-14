@@ -7,6 +7,10 @@ window.addEventListener('error', e => { const m = document.querySelector('main')
 //   それ以外は、まだ中身のない空のページ。
 // 一覧は4日分を、日付(年月日)ごとに分けて表示し、日付ごとに「新しい順 / 古い順」を切り替えられる。
 const qp = new URLSearchParams(location.search);
+// 画面全体の大きさ(設定 px.pgFont。初期 85%)。Drive同期の対象
+{ const setZoom = px => { const v = +(px || {}).pgFont || 85; document.documentElement.style.zoom = String(Math.max(50, Math.min(150, v)) / 100); };
+  chrome.storage.local.get('px').then(r => setZoom(r.px)).catch(() => setZoom(null)); setZoom(null);
+  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.px) setZoom(ch.px.newValue); }); }
 const P = qp.get('p') || '', TITLE = qp.get('t') || 'ページ';
 document.title = TITLE + ' - TubeFolio2';
 const $ = s => document.querySelector(s);
