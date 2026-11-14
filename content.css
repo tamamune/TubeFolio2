@@ -1066,3 +1066,7 @@ html:not([dark]) #tf-gsb-fly.tf-barfly button.sep2 { border-bottom-color: rgba(0
 
 /* ✨ おすすめ動画を開いている間: TubeFolio2 の画面(#tf-view)を、画面の一番上から下まで(サイドバーは除く)・ガラスバーより前面に広げる */
 html #tf-view.tf-aip, html[data-tf-pg] #tf-view.tf-aip, html[data-tf-hbot] #tf-view.tf-aip, html[data-tf-hbot][data-tf-pg] #tf-view.tf-aip, html[data-tf-hfix] #tf-view.tf-aip { top: 0 !important; bottom: 0 !important; z-index: 2400; padding-top: 0 !important; }
+
+/* ショートの 🕒: 下には再生回数・メニューがあるので、左上に出す。サムネの枠に位置を合わせる */
+.tf-lbtn.sh { top: 8px; bottom: auto; }
+.shortsLockupViewModelHostThumbnailContainer:has(> .tf-lbtn) { position: relative; }

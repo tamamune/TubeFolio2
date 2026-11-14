@@ -1010,17 +1010,18 @@
   // ---------- 一覧(ホーム・検索・登録チャンネル・チャンネルのページ)のサムネの左下の「🕒」: 再生リスト「TubeFolio2 後で見る」へ、ワンクリックで追加 ----------
   // いつも出しておく(以前は、サムネに乗せたときだけ出していた)。登録済みの動画は、緑の「✓ 登録済み」(押すと外す)。
   // ボタンは、低評価率の印(.tg-disb)と同じように、サムネの中に足す。YouTube がカードを使い回すので、どの動画かは、押したときにカードから読む
-  const LBI = '🕒', LB_HOST = 'ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, yt-lockup-view-model';
+  const LBI = '🕒', LB_HOST = 'ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, yt-lockup-view-model, ' + SHORTS_SEL; // ショート(ホームの棚・単体)にも付ける
   const lbPaint = (b, inl) => { if (b.dataset.busy) return; const t = inl ? '✓ 登録済み' : LBI; if (b.textContent !== t) b.textContent = t; if (b.classList.contains('done') !== inl) { b.classList.toggle('done', inl); b.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加'; } };
   // カードに、ボタンを付ける / 外す(markPlayed から、カードごとに呼ぶ)
   function laterBtnFor(card, id, inl) {
     const ok = !!id && card.matches(LB_HOST) && !card.closest('#tf-view, ytd-watch-flexy, ytd-miniplayer, ytd-playlist-panel-renderer') && !isMixCard(card);
-    const th = ok ? card.querySelector('ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail') : null;
+    const isSh = card.matches(SHORTS_SEL), th = ok ? card.querySelector('ytd-thumbnail, yt-thumbnail-view-model, a#thumbnail' + (isSh ? ', .shortsLockupViewModelHostThumbnailContainer, a.shortsLockupViewModelHostEndpoint' : '')) : null;
     let b = card.querySelector('.tf-lbtn');
     if (!th) { if (b) { b.remove(); card.classList.remove('tf-haslb'); } return; }
     if (b && b.parentElement !== th) { b.remove(); b = null; }
     if (!b) { b = el('button', 'tf-lbtn', LBI); b.type = 'button'; b.title = '再生リスト「TubeFolio2 後で見る」に追加'; th.appendChild(b); }
     if (!card.classList.contains('tf-haslb')) card.classList.add('tf-haslb');
+    if (b.classList.contains('sh') !== isSh) b.classList.toggle('sh', isSh);
     lbPaint(b, inl);
   }
   function laterToggle(b) {
