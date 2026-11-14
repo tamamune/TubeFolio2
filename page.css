@@ -484,3 +484,61 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 #reel .rl-src.rl-resume { background: rgba(204,0,0,.92); }
 #reel .rl-pb { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.35); }
 #reel .rl-pb i { display: block; height: 100%; background: #f00; }
+
+/* ---------- ✨ AIおすすめ(試作。aipick.js): もやもやの光 → 検索中… → 0〜100% のバー → おすすめ10本 ----------
+   光の色・バーの色は --ai-* で持ち、ライト/ダークの両方を用意する(ライトは淡く、ダークは明るく光らせる) */
+:root { --ai-c1: #7c5cff; --ai-c2: #1fb6e8; --ai-c3: #ff5fa2; --ai-c4: #ffad33; --ai-op: .5; --ai-track: rgba(0,0,0,.08); --ai-glow: rgba(124,92,255,.35); --ai-pan: color-mix(in srgb, var(--bg) 94%, #7c5cff); }
+:root[data-theme="dark"] { --ai-op: .78; --ai-track: rgba(255,255,255,.12); --ai-glow: rgba(157,123,255,.55); --ai-pan: color-mix(in srgb, var(--bg) 90%, #7c5cff); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --ai-op: .78; --ai-track: rgba(255,255,255,.12); --ai-glow: rgba(157,123,255,.55); --ai-pan: color-mix(in srgb, var(--bg) 90%, #7c5cff); } }
+#aip { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; }
+#aip .ai-bg { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(4px); }
+#aip .ai-pan { position: relative; width: min(1100px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; padding: 16px 18px 18px; border: 1px solid var(--line); border-radius: 22px; background: var(--ai-pan); color: var(--fg); box-shadow: 0 20px 60px rgba(0,0,0,.35); animation: ai-in .25s ease-out; }
+@keyframes ai-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+#aip .ai-h { display: flex; align-items: center; gap: 10px; }
+#aip .ai-h b { font-size: 17px; } #aip .ai-h b small { margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: var(--chip2); color: var(--sub); font-size: 11px; font-weight: 600; }
+#aip .ai-sp { flex: 1; }
+#aip .ai-h button { height: 32px; padding: 0 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--chip); color: var(--fg); font-family: inherit; font-size: 13px; cursor: pointer; }
+#aip .ai-h button:hover { background: var(--chip2); } #aip .ai-x { width: 32px; padding: 0 !important; }
+#aip .ai-h button[hidden] { display: none; }
+/* 考えている画面 */
+#aip .ai-think { display: flex; flex-direction: column; align-items: center; padding: 18px 0 26px; }
+#aip .ai-think[hidden] { display: none; }
+#aip .ai-mist { position: relative; width: min(420px, 80vw); height: 230px; }
+#aip .ai-mist i { position: absolute; width: 58%; height: 70%; border-radius: 50%; filter: blur(34px); opacity: var(--ai-op); animation: ai-drift 7s ease-in-out infinite alternate; }
+#aip .ai-mist .m1 { left: 4%; top: 10%; background: var(--ai-c1); }
+#aip .ai-mist .m2 { right: 2%; top: 4%; background: var(--ai-c2); animation-duration: 8.5s; animation-delay: -2s; }
+#aip .ai-mist .m3 { left: 22%; bottom: 0; background: var(--ai-c3); animation-duration: 6s; animation-delay: -4s; }
+#aip .ai-mist .m4 { right: 16%; bottom: 8%; width: 40%; height: 50%; background: var(--ai-c4); animation-duration: 9s; animation-delay: -1s; opacity: calc(var(--ai-op) * .8); }
+@keyframes ai-drift { 0% { transform: translate(0, 0) scale(1); } 33% { transform: translate(14%, -10%) scale(1.15); } 66% { transform: translate(-12%, 8%) scale(.9); } 100% { transform: translate(6%, 12%) scale(1.1); } }
+#aip .ai-core { position: absolute; left: 50%; top: 50%; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, color-mix(in srgb, var(--ai-c1) 60%, #fff) 40%, transparent 72%); box-shadow: 0 0 40px 12px var(--ai-glow); animation: ai-pulse 1.8s ease-in-out infinite; }
+@keyframes ai-pulse { 50% { transform: scale(1.18); box-shadow: 0 0 60px 22px var(--ai-glow); } }
+#aip .ai-lbl { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 4px; }
+#aip .ai-lbl b { font-size: 20px; letter-spacing: .06em; background: linear-gradient(90deg, var(--ai-c1), var(--ai-c3), var(--ai-c2), var(--ai-c1)); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: ai-shine 3s linear infinite; }
+@keyframes ai-shine { to { background-position: 300% 0; } }
+#aip .ai-dots i { font-style: normal; animation: ai-dot 1.2s infinite; } #aip .ai-dots i:nth-child(2) { animation-delay: .2s; } #aip .ai-dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes ai-dot { 0%, 60%, 100% { opacity: .2; } 30% { opacity: 1; } }
+#aip .ai-step { color: var(--sub); font-size: 13px; min-height: 18px; } #aip .ai-step.in { animation: ai-step .35s ease-out; }
+@keyframes ai-step { from { opacity: 0; transform: translateY(4px); } }
+/* シークバー(YouTube の再生バーのような形。色は AI らしいグラデーション) */
+#aip .ai-bar { position: relative; width: min(520px, 84vw); height: 6px; margin-top: 18px; border-radius: 3px; background: var(--ai-track); }
+#aip .ai-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--ai-c1), var(--ai-c3), var(--ai-c2)); box-shadow: 0 0 12px var(--ai-glow); }
+#aip .ai-head { position: absolute; top: 50%; left: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #fff; border: 2px solid var(--ai-c1); box-shadow: 0 0 10px var(--ai-glow); }
+#aip .ai-pct { margin-top: 8px; color: var(--sub); font: 600 13px/1 Roboto, Arial, sans-serif; font-variant-numeric: tabular-nums; }
+/* 結果のカード(YouTube のホームの見た目。1枚ずつ、ふわっと出す) */
+#aip .ai-out[hidden] { display: none; }
+#aip .ai-msg { margin: 12px 2px 10px; color: var(--sub); font-size: 13px; }
+#aip .ai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px 14px; }
+#aip .ai-c { display: flex; flex-direction: column; gap: 4px; color: inherit; text-decoration: none; opacity: 0; animation: ai-card .45s ease-out forwards; }
+@keyframes ai-card { from { opacity: 0; transform: translateY(10px) scale(.97); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+#aip .ai-th { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--chip); }
+#aip .ai-th img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; } #aip .ai-c:hover .ai-th img { transform: scale(1.04); }
+#aip .ai-src, #aip .ai-len { position: absolute; padding: 1px 7px; border-radius: 6px; background: rgba(0,0,0,.75); color: #fff; font: 600 11px/18px Roboto, Arial, "Noto Sans JP", sans-serif; font-style: normal; }
+#aip .ai-src { left: 6px; top: 6px; } #aip .ai-len { right: 6px; bottom: 6px; }
+#aip .ai-src.ai-later { background: rgba(26,115,232,.9); } #aip .ai-src.ai-non { background: rgba(229,50,45,.9); } #aip .ai-src.ai-trd { background: rgba(245,179,1,.95); color: #1a1300; } #aip .ai-src.ai-resume { background: rgba(204,0,0,.92); }
+#aip .ai-pb { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.35); } #aip .ai-pb i { display: block; height: 100%; background: #f00; }
+#aip .ai-c b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 13.5px; font-weight: 500; line-height: 19px; }
+#aip .ai-c small { color: var(--sub); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) { #aip .ai-mist i, #aip .ai-core, #aip .ai-lbl b { animation: none; } }
+#aip .ai-lbl, #aip .ai-bar, #aip .ai-pct { position: relative; z-index: 1; } /* もやもやの光より前に(文字がにじまないように) */
+#aip .ai-step { color: var(--fg); opacity: .75; }
+#aip .ai-lbl b { font-size: 24px; } #aip .ai-step { font-size: 14px; opacity: .85; } #aip .ai-pct { font-size: 14px; }
