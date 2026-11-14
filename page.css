@@ -537,3 +537,4 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 #aip .ai-hint { position: absolute; left: 0; right: 0; bottom: 12px; z-index: 2000; text-align: center; color: var(--aq-sub); font-size: 12px; opacity: 0; transition: opacity .4s .6s; pointer-events: none; }
 #aip.done .ai-hint { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { #aip .ai-ci, #aip .ai-dots i { animation-duration: .01s; } }
+.card.hidw, #rres section.day[hidden] { display: none !important; } /* 検索: 視聴済みを隠す(🙈) */

@@ -56,16 +56,18 @@ applyCols(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local'
 //   視聴済み(8割以上見た動画) = サムネを薄くして、左上に「✓ 視聴済み」。途中まで見た動画 = 薄くせず、左上に「途中 ◯%」。少し再生しただけでは、視聴済みにしない。
 //   見た割合 = YouTube 側の見た割合(再生リストの一覧の data-pct)と、この拡張機能の視聴履歴(hist。見た時間 ÷ 長さ)の、大きい方
 {
-  let info = new Map(), dimOn = true, pt = 0, later = new Set();
+  let info = new Map(), dimOn = true, hideW = false, pt = 0, later = new Set();
   const loadLater = () => chrome.storage.local.get('plLaterIds').then(r => { const c = r.plLaterIds; later = new Set((c && c.ids) || []); markPlayed(); if (!c || Date.now() - (c.t || 0) > 600e3) chrome.runtime.sendMessage({ type: 'plLaterSync' }, () => void chrome.runtime.lastError); }).catch(() => {});
   const idOf = cd => { const h = cd.getAttribute('href') || (cd.querySelector('a[href]') || { getAttribute: () => '' }).getAttribute('href') || '', m = h.match(/[?&]v=([\w-]{11})/) || h.match(/\/shorts\/([\w-]{11})/); return m ? m[1] : ''; };
   const secOfT = t => { const p = String(t || '').trim().split(':').map(Number); return p.length > 1 && !p.some(isNaN) ? p.reduce((a, x) => a * 60 + x, 0) : 0; };
-  const markPlayed = () => document.querySelectorAll('.card').forEach(cd => {
+  const markPlayed = () => { document.querySelectorAll('.card').forEach(cd => {
     const id = idOf(cd), e = id ? info.get(id) : null, th = cd.querySelector('.th'), short = !!cd.closest('.grid.shorts');
     let pct = +cd.dataset.pct || 0;
     if (e) { const len = secOfT((cd.querySelector('.tm') || {}).textContent), h = TF.pctOf(e, len); pct = Math.max(pct, TF.isPlayed(e, len) ? Math.max(h, TF.PLAYED_PCT) : Math.max(h, 0)); }
     pct = Math.round(Math.min(100, pct));
-    const on = dimOn && pct >= TF.PLAYED_PCT, part = dimOn && !on && pct >= 1 && !short;
+    const done8 = pct >= TF.PLAYED_PCT, hid = hideW && P === 'rec' && done8 && !!cd.closest('#rres'); // 検索の結果は、「視聴済みを隠す」(🙈)のとき、8割以上見た動画を隠す
+    if (cd.classList.contains('hidw') !== hid) cd.classList.toggle('hidw', hid);
+    const on = dimOn && done8, part = dimOn && !on && pct >= 1 && !short;
     if (cd.classList.contains('played') !== on) cd.classList.toggle('played', on);
     if (cd.classList.contains('part') !== part) cd.classList.toggle('part', part);
     if (th) {
@@ -77,7 +79,9 @@ applyCols(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local'
     const inl = P !== 'later' && later.has(idOf(cd)); if (cd.classList.contains('inlater') !== inl) cd.classList.toggle('inlater', inl);
     const lb = cd.querySelector('.rlater'); if (lb && !lb.dataset.busy) { const t = inl ? '✓ 登録済み' : '🕒'; if (lb.textContent !== t) { lb.textContent = t; lb.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加'; } }
   });
-  const loadPlayed = () => chrome.storage.local.get(['hist', 'settings']).then(r => { info = TF.playedInfo(r.hist); dimOn = (r.settings || {}).dimPlayed !== false; markPlayed(); }).catch(() => {});
+    document.querySelectorAll('#rres section.day').forEach(sc => { const none = !sc.querySelector('.card:not(.hidw)'); if (sc.hidden !== none) sc.hidden = none; }); // 全部隠れた日は、見出しごと隠す
+  };
+  const loadPlayed = () => chrome.storage.local.get(['hist', 'settings']).then(r => { info = TF.playedInfo(r.hist); hideW = !!(r.settings || {}).hideWatched; dimOn = (r.settings || {}).dimPlayed !== false; markPlayed(); }).catch(() => {});
   new MutationObserver(() => { clearTimeout(pt); pt = setTimeout(markPlayed, 150); }).observe(main, { childList: true, subtree: true });
   chrome.storage.onChanged.addListener((ch, a) => { if (a !== 'local') return; if (ch.hist || ch.settings) loadPlayed(); if (ch.plLaterIds) { later = new Set(((ch.plLaterIds.newValue || {}).ids) || []); markPlayed(); } });
   loadPlayed(); loadLater();
