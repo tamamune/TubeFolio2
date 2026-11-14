@@ -1,42 +1,34 @@
 # TubeFolio2 開発ルール(どのPCで修正する場合も必ず守る)
 
 ## Google Drive 同期は必須
-- 各PCで登録した TubeFolio2 の設定・登録データは、すべて Google Drive(appDataFolder の `tubefolio2.json`)に保存し、他のPCでも共有できる状態を保つこと。対象のキーは [store.js](store.js) の `TF.SYNC_KEYS` の1か所で決める([sync.js](sync.js) の `SYNC_KEYS`・JSONの書き出し/読み込みが、これを使う)。今の対象: groups / channels / settings / meta / activity / cmt / px / folderRates / sleepWin / chSet / later / laterRemoved / folderSeen / cchap / pickMode / notifyRules / notifyFolders / focus / ui / bookmarks / playedTags / trendHours / fOpen / hideMembers / setGrp / cmtNames / hist(視聴履歴) / plSeen(再生リストの登録日) / autoMusic(急上昇の音楽を「🎵 音楽🎵」へ自動で入れる設定と記録。前回の実行時刻を共有して、複数のPCで重ねて動かない)。
-- 同期の方式は「キーごとの統合」: キーごとに最後に変えた時刻(`syncMeta.k`)を持ち、キーごとに新しい方を採る(全体を丸ごと上書きしない)。hist / playedTags / plSeen は、中身どうしを合わせる(`sync.js` の `MERGE`)。その端末で初めて同期するときは、Drive の内容を優先する。
-- 2回目の同期からは、キーの中の**項目ごと**(フォルダごと・チャンネルごと・設定の項目ごと)に統合する(`sync.js` の `merge3`)。前回の同期のときの内容(`syncBase`。この端末だけに置く)と比べて、「この端末だけが変えた項目」「相手だけが変えた項目」を、それぞれ採る。両方が変えた項目だけ、あとで変えた方を採る。これで、別のPCで設定を1つ変えただけで、フォルダ設定(groups / channels)が古い内容に戻ることがない。
-- JSON の書き出し / 読み込み(管理画面・設定)も、`TF.SYNC_KEYS` の全部を対象にする(Drive同期と同じ内容)。
-- 拡張機能のページと YouTube のページの localStorage に入れている見た目の設定(テーマ・開いていたタブ・折りたたみなど)は、[ui-sync.js](ui-sync.js) が `ui` に写して同期する。localStorage に新しい設定を足したら、`ui-sync.js` の `OK` に加える。
-- 同期しないもの(理由): YouTube 自身が共有しているデータ(視聴履歴の本体・登録チャンネルの本体・再生リストの本体)、取り直せるキャッシュ(feedCache_* / trdc_<日付>(youtube-trending.info の日別の急上昇の控え。実験ページ) / spub / chTitles / chAvCache / wbCache / ghCache / recent / plTargetId / plTargetName / plLaterIds(「TubeFolio2 後で見る」に入っている動画IDの控え)/ 急上昇の trendsCache4・trendsCache24 / localStorage の tfPlSums)、この端末だけの記録・動作中の状態(ytApiKey(ユーザー自身の YouTube Data API キー。秘密の情報なので Drive に上げず、この端末だけに置く) / tgLog / syncStatus / syncMeta / syncBase(前回の同期の内容の控え。項目ごとの統合に使う)/ driveTok / notified・notifyQueue(この端末で通知したかどうか)/ queue・tfQueue(連続再生の途中)/ tfView / lastCheckAt / checkLock / subsSyncAt(最後に YouTube の登録チャンネルと合わせた時刻)/ ブックマークのサムネ画像 bmt:…)。
-- 新しく保存するデータ(storage のキー)を追加したら、必ず `store.js` の `TF.SYNC_KEYS` に加えて同期対象にすること。同期対象外にするなら理由を明記する。
-- 保存や取得の処理を変更しても、同期(ローカル変更の検知→rev更新→Driveへ送信 / 起動時・5分ごと・手動での取り込み)が壊れていないことを確認すること。
-- 拡張機能IDは `manifest.json` の `key` で固定している(`ffjjmiikoghongpjbdcchhgclecokekm`)。`key` を消さない。OAuthのリダイレクトURIはこのIDに紐づく。
+- 設定・登録データは、すべて Google Drive(appDataFolder の `tubefolio2.json`)に保存し、他のPCと共有する。対象のキーは [store.js](store.js) の `TF.SYNC_KEYS` の1か所だけで決める(`sync.js`・JSON書き出し/読み込みもこれを使う)。同期しないものの理由も、`store.js` のコメントにある。
+- **新しい storage キーを足したら、必ず `TF.SYNC_KEYS` に加える**。対象外にするなら、`store.js` のコメントに理由を書く。
+- 方式: キーごとに最後に変えた時刻(`syncMeta.k`)で新しい方を採る。hist / playedTags / plSeen は中身どうしを合わせる(`MERGE`)。2回目からは項目ごと(フォルダ・チャンネル・設定の項目)に3者統合する(`merge3`。前回の内容 `syncBase` はこの端末だけ)。初回はDriveを優先。詳細は `sync.js`。
+- localStorage に新しい見た目の設定を足したら、[ui-sync.js](ui-sync.js) の `OK` に加える。
+- 保存・取得の処理を変えたら、同期(変更の検知→rev更新→Driveへ送信 / 起動時・5分ごと・手動の取り込み)が壊れていないか確認する。
+- `manifest.json` の `key` を消さない(拡張機能ID `ffjjmiikoghongpjbdcchhgclecokekm` を固定。OAuthのリダイレクトURIが紐づく)。
 
 ## ブラウザへの登録(Vivaldi / Chrome)
-- ブラウザには、開発用フォルダ(`C:\Claude\TubeFolio2`)ではなく、コピー先の **`C:\Claude\TubeFolio2-ext`** を「パッケージ化されていない拡張機能」として登録する。
-- 理由: `manifest.json` に `key` を追加する前の古い登録(ID `mkaj…`)が、開発用フォルダと同じパスでブラウザの設定に残っており、再起動のたびに拡張機能が読み込まれず消えていたため。別のパスから登録し直したところ、消えなくなった(2026-11-08確認)。
-- 変更したら `deploy-ext.cmd` を実行して、コピー先へ反映する(`.git` と `CLAUDE.md` はコピーしない)。そのあと `vivaldi://extensions` で「再読み込み」を押す。
-- 別のPCでも、再起動で消える場合は、同じ手順(別フォルダにコピーして登録し直す)を試す。
+- 開発用フォルダではなく、コピー先の **`C:\Claude\TubeFolio2-ext`** を「パッケージ化されていない拡張機能」として登録する(古い登録ID `mkaj…` が開発用フォルダのパスに残り、再起動で消えたため)。
+- 変更したら `deploy-ext.cmd` を実行し(`.git` と `CLAUDE.md` はコピーしない)、`vivaldi://extensions` で「再読み込み」。
+- 別のPCで再起動後に消える場合も、別フォルダにコピーして登録し直す。
 
 ## 共有
-- このルール自体を含め、変更は git でコミットして GitHub(tamamune/TubeFolio2)にpushし、全PCで共有する。作業を始める前に `git pull` する。
+- 変更は git でコミットして GitHub(tamamune/TubeFolio2)に push する。作業を始める前に `git pull`。
 
-## ページ・画面を作るときの決まり(ダークモード / ライトモード)
-- 新しいページ・パネル・メニュー・バーなど、画面に出るものは、**必ずダークモードとライトモードの両方で読める・見分けられる**ように作る。片方だけで作らない。
-- 色は文字列(`#fff` など)を直接書かず、CSS変数(`--bg` `--fg` `--sub` `--line` `--chip` など)で持つ。ガラス調のバー・メニューは `--g-*` の変数で持ち、ダーク/ライトの値を両方用意する。
-- 切り替えの基準:
-  - YouTube のページ上に出すもの(`content.css`): `html[dark]` が付いている = ダーク、付いていない = ライト。ライト用の上書きは `html:not([dark])` で書く。
-  - 拡張機能のページ(`manager.*` / `page.*`): OS の設定(`prefers-color-scheme`)に従う。YouTube に埋め込むときは `theme.js` が `data-theme="dark|light"` を付ける。
-- `<select>` の一覧(`option`)、入力欄、ボタンの無効状態、ホバー、選択中の表示も、両方のモードで文字と背景のコントラストを確認する。`select` と `option` には、背景色と文字色を明示する(未指定だと、片方のモードで読めなくなる)。
-- 画像・アイコンは、背景色に関係なく見えるものを使う(白一色・黒一色の絵は避ける)。
-- 変更後は、`deploy-ext.cmd` で反映し、両方のモードで見た目を確認してからコミットする。
+## 画面を作るときの決まり(ダーク / ライト両対応)
+- 新しいページ・パネル・メニュー・バーは、**ダークとライトの両方で読める**ように作る。
+- 色は直接書かず CSS変数(`--bg` `--fg` `--sub` `--line` `--chip` など)で持つ。ガラス調は `--g-*` で、両方の値を用意する。
+- 切り替えの基準: YouTube上に出すもの(`content.css`)は `html[dark]` の有無(ライト用は `html:not([dark])`)。拡張機能のページ(`manager.*` / `page.*`)は `prefers-color-scheme`(YouTubeに埋め込むときは `theme.js` が `data-theme` を付ける)。
+- `select` / `option` / 入力欄には背景色と文字色を明示する。無効・ホバー・選択中も両モードで確認。画像・アイコンは白一色・黒一色を避ける。
+- 変更後は `deploy-ext.cmd` で反映し、両モードで見てからコミットする。
 
-## スマホのブラウザ(Vivaldi for Android)で読み込むための決まり
-- `manifest.json` に、静的な declarativeNetRequest のルール(`declarative_net_request.rule_resources`)を書かない。書くと、ブラウザが拡張機能のフォルダに `_metadata` を作り、スマホでは次の読み込みが「Cannot load extension with file or directory name _metadata」で失敗する。ルールは `background.js` の `updateSessionRules` で登録する。
-- 名前が `_` で始まるファイル・フォルダを、拡張機能のフォルダに置かない(フォルダに `_metadata` が残っていたら、消してから読み込む)。
-- スマホでは、拡張機能からの `www.youtube.com` への通信が `m.youtube.com` へ回されるので、`background.js` のセッションルール(id 3)で、パソコンのブラウザとして名乗っている。
+## スマホ(Vivaldi for Android)
+- `manifest.json` に静的な declarativeNetRequest の `rule_resources` を書かない(`_metadata` ができ、次の読み込みが失敗する)。ルールは `background.js` の `updateSessionRules` で登録する。
+- 名前が `_` で始まるファイル・フォルダを置かない(`_metadata` が残っていたら消す)。
+- スマホでは `www.youtube.com` への通信が `m.youtube.com` に回るので、`background.js` のセッションルール(id 3)でパソコンとして名乗る。
 
-## 登録チャンネルの同期(未登録のチャンネル)
-- 同期(取り込みと同期・自動の同期)のときの決まり(`TF.syncChannels`):
-  - YouTube で登録している → 残す。
-  - 登録していないが、フォルダに入っている → 残す。`channels[キー].unsub = 1` の印を付けて、管理画面で「🚫 未登録」と表示する。
-  - 登録していなくて、フォルダにも入っていない → 一覧から消す。
+## 登録チャンネルの同期(`TF.syncChannels`)
+- YouTubeで登録している → 残す。
+- 登録していないが、フォルダに入っている → 残す。`channels[キー].unsub = 1` を付け、管理画面で「🚫 未登録」と表示。
+- どちらでもない → 一覧から消す。

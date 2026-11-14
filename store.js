@@ -117,6 +117,10 @@ const TF = (() => {
   const groupKw = g => { const src = g.kw && g.kw.length ? g.kw : defaultKw(g.name); return { inc: src.filter(x => !/^[-－ー]/.test(x.trim())).map(x => x.trim()).filter(Boolean), exc: src.filter(x => /^[-－ー]/.test(x.trim())).map(x => x.trim().slice(1)).filter(Boolean) }; };
 
   // Google Drive で共有するデータ(storage のキー)。ここ1か所で決める(sync.js の SYNC_KEYS・JSONの書き出し/読み込みが使う)。
+  // 同期しないもの(理由): YouTube 自身が共有しているデータ(視聴履歴・登録チャンネル・再生リストの本体) /
+  //   取り直せるキャッシュ(feedCache_* trdc_<日付> spub chTitles chAvCache wbCache ghCache recent plTargetId plTargetName plLaterIds trendsCache4 trendsCache24 tfPlSums) /
+  //   この端末だけの記録・動作中の状態(ytApiKey=秘密なのでDriveに上げない tgLog syncStatus syncMeta syncBase driveTok notified notifyQueue queue tfQueue tfView lastCheckAt checkLock subsSyncAt bmt:…)。
+  // 新しいキーを足したら、ここに入れる。対象外にするなら、上の理由に書く。
   //   新しく保存するデータを足したら、ここに加える。同期しないもの(取り直せるキャッシュ・この端末だけの記録)は CLAUDE.md に理由を書く
   const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags', 'trendHours',
     'fOpen', 'hideMembers', 'setGrp', 'cmtNames', 'hist', 'plSeen', 'autoMusic'];
