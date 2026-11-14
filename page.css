@@ -553,3 +553,7 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 /* 視聴の「▶ 続きから」: 表示件数のリスト */
 #pls .rsmax { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; color: var(--sub); font-size: 12px; }
 #pls .rsmax select { height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; } #pls .rsmax select option { background: var(--bg); color: var(--fg); }
+
+.th .rsdel { position: absolute; left: 6px; bottom: 6px; z-index: 6; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.72); color: #fff; font: 700 16px/26px Roboto, Arial, sans-serif; text-align: center; cursor: pointer; opacity: .9; }
+.th .rsdel:hover { background: #cc0000; opacity: 1; }
+#pls .rsundo { height: 26px; padding: 0 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; } #pls .rsundo:hover { background: var(--chip2); }

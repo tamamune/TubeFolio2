@@ -319,7 +319,7 @@ function viewPage() {
   }
   const fillAvatars = root => { [...root.querySelectorAll('span.av[data-chid]')].forEach(e => { const id = e.dataset.chid; if (avMap.has(id)) { const im = document.createElement('img'); im.className = 'av'; im.loading = 'lazy'; im.src = avMap.get(id); e.replaceWith(im); } else avQ.add(id); }); pumpAv(); };
   // サムネの左下の「×」: この再生リストから削除(自分の再生リストだけ。高く評価した動画は除く)
-  const delBtn = (x, listId) => (listId && listId !== 'LL' && ownIds.has(listId)) ? `<button type="button" class="vdel" data-vid="${esc(x.id)}" data-set="${esc(x.setId || '')}" data-list="${esc(listId)}" title="この再生リストから削除">×</button>` : '';
+  const delBtn = (x, listId) => listId === 'resume' ? `<button type="button" class="rsdel" data-vid="${esc(x.id)}" title="「続きから」から外す(YouTube の履歴は消えません。下の「戻す」で元に戻せます)">×</button>` :  (listId && listId !== 'LL' && ownIds.has(listId)) ? `<button type="button" class="vdel" data-vid="${esc(x.id)}" data-set="${esc(x.setId || '')}" data-list="${esc(listId)}" title="この再生リストから削除">×</button>` : '';
   // ---- 登録日(再生リストに入れた日): YouTube は教えてくれないので、この拡張機能が「初めてそのリストで見つけた日」を覚える(plSeen。Drive同期の対象)。
   //   初めて開いたリストに元からあった動画は、日が分からないので出さない(0)。それ以後に増えた動画と、TubeFolio2 のボタンで追加した動画に、日が付く
   let plSeen = {}; const ymdNum = d => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
@@ -359,6 +359,7 @@ function viewPage() {
   const plData = new Map();
   const modeOf = id => (plSort[id] === 'old' ? 'old' : 'new'); // 並び: 追加日の 新しい順(初期) / 古い順
   // 「▶ 続きから」: 途中まで見た動画(YouTube の再生履歴と TubeFolio2 の視聴履歴。1%〜80%・30日以内)。ほかの再生リストと同じ行・カードで出す(reel.js の reelGather)
+  let resumeHide = {}; chrome.storage.local.get('resumeHide').then(r => { resumeHide = r.resumeHide || {}; }).catch(() => {}); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.resumeHide) resumeHide = ch.resumeHide.newValue || {}; });
   let resumeMax = 30; chrome.storage.local.get('px').then(r => { const v = (r.px || {}).resumeMax; resumeMax = v === undefined ? 30 : +v || 0; }).catch(() => {});
   const fetchResume = () => (typeof reelGather === 'function' ? reelGather(true) : Promise.resolve({ resume: [] })).then(p => ({ items: (p && p.resume) || [], ordered: true })).catch(e => ({ error: String((e && e.message) || e) }));
   const fetchPl = (id, order) => { const k = id + '|' + (order || ''); if (id === 'resume') { if (!plData.has(k)) plData.set(k, fetchResume().then(r => { if (r.error) plData.delete(k); return r; })); return plData.get(k); } if (!plData.has(k)) plData.set(k, new Promise(res => chrome.runtime.sendMessage({ type: 'plVideos', ids: [id], order }, res)).then(r => { if (!r || r.error) plData.delete(k); return r; })); return plData.get(k); };
@@ -372,8 +373,9 @@ function viewPage() {
     const sum = sumOf(items);
     sums.set(id, sum);
     if (id === 'resume') { // ぴったり再生・ランダム再生などのツールは出さない。表示する件数は、リストで選ぶ(px.resumeMax。0 = すべて)
+      const hidN = items.filter(x => resumeHide[x.id]).length; items = items.filter(x => !resumeHide[x.id]); // 「×」で外した動画は出さない(resumeHide。Drive同期の対象)
       const shownN = resumeMax ? items.slice(0, resumeMax) : items;
-      return (items.length ? `<div class="rsmax"><label>表示する件数 <select class="rsel" title="表示する件数(新しい順の先頭から)">${[[10, '10件'], [20, '20件'], [30, '30件'], [50, '50件'], [100, '100件'], [0, 'すべて']].map(([n, t]) => `<option value="${n}"${n === resumeMax ? ' selected' : ''}>${t}</option>`).join('')}</select></label><small>${shownN.length} / ${items.length}本を表示</small></div>` : '')
+      return (items.length ? `<div class="rsmax"><label>表示する件数 <select class="rsel" title="表示する件数(新しい順の先頭から)">${[[10, '10件'], [20, '20件'], [30, '30件'], [50, '50件'], [100, '100件'], [0, 'すべて']].map(([n, t]) => `<option value="${n}"${n === resumeMax ? ' selected' : ''}>${t}</option>`).join('')}</select></label><small>${shownN.length} / ${items.length}本を表示</small>${hidN ? `<button type="button" class="rsundo">外した ${hidN}本を戻す</button>` : ''}</div>` : (hidN ? `<div class="rsmax"><small>外した ${hidN}本</small><button type="button" class="rsundo">戻す</button></div>` : ''))
         + (items.length ? `<div class="grid">${shownN.map(x => vcard(x, id)).join('')}</div>` : '<p class="none">途中まで見た動画はありません。</p>');
     }
     return `<div class="pltools" data-id="${esc(id)}">
@@ -460,6 +462,13 @@ function viewPage() {
     box.querySelectorAll('.pl:not(.lib)').forEach(s => { const x = mine.find(m => m.id === s.dataset.id); if (x && defOpen(x.id, x.title)) { const b = s.querySelector(':scope > .plb'); b.hidden = false; s.classList.add('open'); load(x.id, b, x.title || ''); } });
     if (kwOrs.length) { openForKw(); applyFolder(); } // 読み込む前にキーワードで探していたとき
   });
+  $('#pls').addEventListener('click', async e => { // 「▶ 続きから」: × で外す / 外した動画を戻す
+    const d = e.target.closest && e.target.closest('.rsdel'), u = e.target.closest && e.target.closest('.rsundo'); if (!d && !u) return;
+    e.preventDefault(); e.stopPropagation();
+    if (d) { resumeHide = { ...resumeHide, [d.dataset.vid]: Date.now() }; await chrome.storage.local.set({ resumeHide }); }
+    else { resumeHide = {}; await chrome.storage.local.set({ resumeHide }); }
+    const sec = e.target.closest('.pl'), b = sec && sec.querySelector(':scope > .plb'); if (b) { loaded.delete('resume'); load('resume', b, '▶ 続きから'); }
+  }, true);
   $('#pls').addEventListener('change', async e => { // 「▶ 続きから」の表示件数
     if (!(e.target.matches && e.target.matches('.rsel'))) return;
     resumeMax = +e.target.value || 0; const { px = {} } = await chrome.storage.local.get('px'); await chrome.storage.local.set({ px: { ...px, resumeMax }, prefsAt: Date.now() });

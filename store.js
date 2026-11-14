@@ -124,7 +124,7 @@ const TF = (() => {
   // 新しいキーを足したら、ここに入れる。対象外にするなら、上の理由に書く。
   //   新しく保存するデータを足したら、ここに加える。同期しないもの(取り直せるキャッシュ・この端末だけの記録)は CLAUDE.md に理由を書く
   const SYNC_KEYS = ['groups', 'channels', 'settings', 'meta', 'activity', 'cmt', 'px', 'folderRates', 'sleepWin', 'chSet', 'later', 'laterRemoved', 'folderSeen', 'cchap', 'pickMode', 'notifyRules', 'notifyFolders', 'focus', 'ui', 'bookmarks', 'playedTags', 'trendHours',
-    'fOpen', 'hideMembers', 'setGrp', 'cmtNames', 'hist', 'plSeen', 'autoMusic'];
+    'fOpen', 'hideMembers', 'setGrp', 'cmtNames', 'hist', 'plSeen', 'autoMusic', 'resumeHide'];
 
   // 視聴履歴(hist)から、動画ごとの「どこまで見たか」を作る: Map(動画ID → { sec: 見た時間の合計(秒), pos: いちばん先まで進んだ位置(秒), len: 長さ(秒。0 = 分からない), short })
   //   再生の記録は [開始(秒), 動画ID, 見た秒数, いちばん先まで進んだ位置(秒。無いこともある)]
