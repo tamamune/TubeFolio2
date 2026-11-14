@@ -91,6 +91,7 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
 } else if (P === 'rec' || P === 'rec2') { recPage({ trend: true }); // 検索(急上昇の種類つき。旧「検索2」を統合)
 } else if (P === 'bm') { bmPage(); // ブックマーク
 } else if (P === 'hist') { histPage(); // 視聴履歴(histpage.js)
+} else if (P === 'trw') { trwPage(); // 🧪 急上昇ワード(ワードクラウド版・テスト。trwpage.js)
 } else if (P === 'trdapi') { trdApiPage(); // 急上昇動画(YouTube Data API・実験。trdpage.js)
 } else if (P === 'trd') { trdPage(); // 急上昇動画(日付別・実験。trdpage.js)
 } else if (P === 'rec2') { rec2Page(); // 検索2: 検索 + 急上昇(日付をさかのぼる)のタブ(trdpage.js)

@@ -18,7 +18,7 @@ html[dark] {
   background: var(--tgt-bg); border-left: 1px solid var(--tgt-line); box-shadow: -4px 0 16px var(--tgt-shadow);
 }
 #tg-trend { bottom: var(--tf-hbot-h, 0px); } /* 下のバー(🔥 / 📈 ボタンのあるバー)に重ねない。たたんだときは 0 */
-#tg-trend { width: 312px; }
+#tg-trend { width: 312px; top: 68px; right: 12px; bottom: calc(var(--tf-hbot-h, 0px) + 12px); border: 1px solid var(--tgt-line); border-radius: 16px; overflow: hidden; box-shadow: 0 8px 28px var(--tgt-shadow); transform: translateX(calc(100% + 24px)); } /* 画面の端にくっつけず、上と下に余白をとって、角を丸くする */
 #tg-trend.on { transform: none; }
 
 /* 急上昇ワード */
