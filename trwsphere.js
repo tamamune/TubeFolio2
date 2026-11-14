@@ -41,14 +41,24 @@ function openTrendSphere() {
   const app = v => [M[0] * v[0] + M[1] * v[1] + M[2] * v[2], M[3] * v[0] + M[4] * v[1] + M[5] * v[2], M[6] * v[0] + M[7] * v[1] + M[8] * v[2]];
 
   // ---- 点と線の球 ----
-  const N = 260, P = [], PAIRS = [];
-  for (let i = 0; i < N; i++) { const y = 1 - (i + .5) / N * 2, r = Math.sqrt(1 - y * y), th = i * 2.399963; P.push({ s: [Math.cos(th) * r, y, Math.sin(th) * r], tw: Math.random() * 6.28 }); }
-  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) { const a = P[i].s, b = P[j].s; if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2 < 0.04) PAIRS.push([i, j]); }
+  // 後ろの球は、視聴の「おすすめ動画」(aipick.js)と同じ(点300・近い点どうしを線で・まわりに散った点・ワード同士を結ぶ光る線)
+  const N = 300, P = [], PAIRS = [], FLY = [];
+  for (let i = 0; i < N; i++) {
+    const y = 1 - (i + .5) / N * 2, r = Math.sqrt(1 - y * y), th = i * 2.399963 + (Math.random() - .5) * .35;
+    const v = [Math.cos(th) * r, y + (Math.random() - .5) * .04, Math.sin(th) * r], L = Math.hypot(...v);
+    P.push({ s: [v[0] / L, v[1] / L, v[2] / L], tw: Math.random() * 6.28 });
+  }
+  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) { const a = P[i].s, b = P[j].s; if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2 < 0.034) PAIRS.push([i, j]); }
+  for (let i = 0; i < 50; i++) { const v = [Math.random() - .5, Math.random() - .5, Math.random() - .5], L = Math.hypot(...v) || 1, r = 1.1 + Math.random() * .5; FLY.push({ v: v.map(c => c / L * r) }); }
   const ctx = cv.getContext('2d'); let W = 0, H = 0, col = '170,230,255';
   const fit = () => { const dpr = Math.min(2, devicePixelRatio || 1); W = Math.max(1, box.clientWidth); H = Math.max(1, box.clientHeight); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); col = (getComputedStyle(box).getPropertyValue('--tsp-p') || '170,230,255').trim(); };
   const ro = new ResizeObserver(fit); ro.observe(box);
-  const geo = () => ({ R: Math.min(W * 0.34, H * 0.4) * zoom, cx: W / 2, cy: H * 0.5 });
-  const place = n => { CP = []; for (let i = 0; i < n; i++) { const y = 1 - (i + .5) / n * 2, r = Math.sqrt(1 - y * y), th = i * 2.399963; CP.push([Math.cos(th) * r, y, Math.sin(th) * r]); } };
+  const geo = () => ({ R: Math.min(W * 0.38, H * 0.4) * zoom, cx: W / 2, cy: H * 0.52 });
+  let CPAIR = [];
+  const place = n => {
+    CP = []; for (let i = 0; i < n; i++) { const y = 1 - (i + .5) / n * 2, r = Math.sqrt(1 - y * y), th = i * 2.399963; CP.push([Math.cos(th) * r, y, Math.sin(th) * r]); }
+    CPAIR = []; CP.forEach((a, i) => { CP.map((b, j) => [j, (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2]).filter(x => x[0] !== i).sort((p, q) => p[1] - q[1]).slice(0, 2).forEach(([j]) => { if (i < j) CPAIR.push([i, j]); }); });
+  };
   function frame(t) {
     if (!alive) return; sRaf = requestAnimationFrame(frame);
     const dt = last ? Math.min(60, t - last) : 16; last = t;
@@ -56,11 +66,16 @@ function openTrendSphere() {
     const { R, cx, cy } = geo(); ctx.clearRect(0, 0, W, H);
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.35); g.addColorStop(0, `rgba(${col},0.10)`); g.addColorStop(1, `rgba(${col},0)`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     const proj = v => { const p = app(v), f = 3.2 / (3.2 + p[2]); return [cx + p[0] * R * f, cy + p[1] * R * f, p[2], f]; };
-    const pr = P.map(p => proj(p.s)); ctx.lineWidth = 0.7;
-    for (const [i, j] of PAIRS) { const a = pr[i], b = pr[j], depth = (2 - (a[2] + b[2]) / 2) / 3; ctx.strokeStyle = `rgba(${col},${(0.3 * depth).toFixed(3)})`; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
-    for (let i = 0; i < N; i++) { const a = pr[i], depth = (2 - a[2]) / 3, tw = 0.6 + 0.4 * Math.sin(t / 400 + P[i].tw); ctx.fillStyle = `rgba(${col},${(0.3 + 0.6 * depth * tw).toFixed(3)})`; ctx.beginPath(); ctx.arc(a[0], a[1], 0.6 + 1.4 * depth, 0, 6.283); ctx.fill(); }
+    const pr = P.map(p => proj(p.s)), dim = 0.55; ctx.lineWidth = 0.7; // 結果の表示では、ワードが主役なので、点と線を少し控えめに(おすすめ動画と同じ)
+    for (const [i, j] of PAIRS) { const a = pr[i], b = pr[j], depth = (2 - (a[2] + b[2]) / 2) / 3; ctx.strokeStyle = `rgba(${col},${(0.5 * dim * depth).toFixed(3)})`; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+    for (let i = 0; i < N; i++) { const a = pr[i], depth = (2 - a[2]) / 3, tw = 0.6 + 0.4 * Math.sin(t / 400 + P[i].tw); ctx.fillStyle = `rgba(${col},${((0.35 + 0.65 * depth * tw) * dim).toFixed(3)})`; ctx.beginPath(); ctx.arc(a[0], a[1], 0.6 + 1.4 * depth, 0, 6.283); ctx.fill(); }
+    for (const q of FLY) { const a = proj(q.v); ctx.fillStyle = `rgba(${col},${(0.65 * dim).toFixed(2)})`; ctx.fillRect(a[0], a[1], 1.4, 1.4); }
+    if (els.length) { // ワード同士を、光る線でつなぐ
+      const cp = CP.map(v => proj([v[0] * 1.12, v[1] * 1.12, v[2] * 1.12])); ctx.lineWidth = 1;
+      for (const [i, j] of CPAIR) { const a = cp[i], b = cp[j], depth = (2 - (a[2] + b[2]) / 2) / 3; ctx.strokeStyle = `rgba(${col},${(0.45 * depth * depth).toFixed(3)})`; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+    }
     els.forEach((el, i) => {
-      const a = proj([CP[i][0] * 1.08, CP[i][1] * 1.08, CP[i][2] * 1.08]), depth = Math.max(0, Math.min(1, (1 - a[2] / 1.08) / 2)), s = (0.45 + 0.65 * depth) * a[3];
+      const a = proj([CP[i][0] * 1.12, CP[i][1] * 1.12, CP[i][2] * 1.12]), depth = Math.max(0, Math.min(1, (1 - a[2] / 1.08) / 2)), s = (0.45 + 0.65 * depth) * a[3];
       el.style.transform = `translate(${(a[0] - el._w / 2).toFixed(1)}px, ${(a[1] - el._h / 2).toFixed(1)}px) scale(${s.toFixed(3)})`;
       el.style.zIndex = String(Math.round(depth * 1000)); el.style.opacity = (0.18 + 0.82 * Math.pow(depth, 1.3)).toFixed(3); el.classList.toggle('back', depth < 0.4);
     });
@@ -120,9 +135,13 @@ function openTrendSphere() {
     place(list.length); zoom = 1;
     const lg = v => Math.log10(Math.max(1, v)), vs = list.map(x => lg(num(x))), lmax = Math.max(...vs, 1), lmin = Math.min(...vs, lmax);
     cards.innerHTML = list.map((it, i) => { const k = lmax === lmin ? .5 : (vs[i] - lmin) / (lmax - lmin), hue = Math.round(220 - k * 220);
-      return `<div class="tsp-w" role="listitem" data-i="${i}" style="--d:${calm ? 0 : i * 30}ms;--hue:${hue};font-size:${(13 + k * 13).toFixed(1)}px"><i>${i + 1}</i>${E(it.title)}</div>`; }).join('');
-    els = [...cards.querySelectorAll('.tsp-w')]; els.forEach(el => { el._w = el.offsetWidth; el._h = el.offsetHeight; });
+      return `<div class="tsp-w" role="listitem" data-i="${i}" style="--d:${calm ? 0 : i * 30}ms;--hue:${hue};font-size:calc(${(13 + k * 13).toFixed(1)}px * var(--tsp-fs, 1))"><i>${i + 1}</i>${E(it.title)}</div>`; }).join('');
+    els = [...cards.querySelectorAll('.tsp-w')]; els.forEach(el => { el._w = el.offsetWidth; el._h = el.offsetHeight; }); setTimeout(() => els.forEach(el => { el._w = el.offsetWidth; el._h = el.offsetHeight; }), 50);
   }
+  // 文字の大きさ(設定 px.sphFont。50〜100%・初期75%)。地球儀のワードだけに効く
+  const setFs = px => { const v = Math.max(50, Math.min(100, +(px || {}).sphFont || 75)); box.style.setProperty('--tsp-fs', String(v / 100)); setTimeout(() => els.forEach(el => { el._w = el.offsetWidth; el._h = el.offsetHeight; }), 0); };
+  chrome.storage.local.get('px').then(r => setFs(r.px)).catch(() => setFs(null)); setFs(null);
+  const onPx = (ch, a) => { if (a === 'local' && ch.px) setFs(ch.px.newValue); }; chrome.storage.onChanged.addListener(onPx);
   let gen = 0;
   function load(force) {
     const my = ++gen; cards.innerHTML = ''; els = []; msg.hidden = false; msg.textContent = '読み込み中…'; det.hidden = true; $b('.tsp-cnt').textContent = '';
@@ -137,7 +156,7 @@ function openTrendSphere() {
   $b('.tsp-cat').addEventListener('change', e => { cat = +e.target.value || 0; try { localStorage.setItem('tfTrwCat', String(cat)); } catch (x) { /* なし */ } load(); });
   $b('.tsp-re').addEventListener('click', () => load(true));
   const onNav = () => { if (/^\/(watch|shorts)(\/|$)/.test(location.pathname)) close(); };
-  const close = () => { alive = false; clearTimeout(hideT); clearInterval(rangeT); window.removeEventListener('resize', setRange); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('yt-navigate-finish', onNav); };
+  const close = () => { alive = false; chrome.storage.onChanged.removeListener(onPx); clearTimeout(hideT); clearInterval(rangeT); window.removeEventListener('resize', setRange); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('yt-navigate-finish', onNav); };
   const onKey = e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
