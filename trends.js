@@ -17,7 +17,7 @@
   // 開くのは下バーの 🔥 ボタンから(右端のタブは無し)
   const panel = document.createElement('div');
   panel.id = 'tg-trend';
-  panel.innerHTML = '<div class="tgt-h"><b>🔥 急上昇ワード<small>Google トレンド・日本</small></b><button class="tgt-r" title="取り直す">↻</button><button class="tgt-x" title="閉じる">✕</button></div><div class="tgt-h2"><span class="tgt-hs"><button data-hr="4">過去4時間</button><button data-hr="24">過去24時間</button></span></div><div class="tgt-l"><div class="tgt-m">読み込み中…</div></div>';
+  panel.innerHTML = '<div class="tgt-h"><b>🔥 急上昇ワード<small>Google トレンド・日本</small></b><button class="tgt-g" title="地球儀で見る(色 = 検索ボリューム・ニュース・カテゴリ・48時間)">🌐</button><button class="tgt-r" title="取り直す">↻</button><button class="tgt-x" title="閉じる">✕</button></div><div class="tgt-h2"><span class="tgt-hs"><button data-hr="4">過去4時間</button><button data-hr="24">過去24時間</button></span></div><div class="tgt-l"><div class="tgt-m">読み込み中…</div></div>';
   const news = document.createElement('div');
   news.id = 'tg-trend-news';
   document.documentElement.append(panel, news);
@@ -35,6 +35,7 @@
   document.addEventListener('tg-panel-open', e => { if (e.detail !== 'words' && open) setOpen(false); });
   panel.querySelector('.tgt-x').addEventListener('click', () => setOpen(false));
   panel.querySelector('.tgt-r').addEventListener('click', () => load(true));
+  panel.querySelector('.tgt-g').addEventListener('click', () => { setOpen(false); document.dispatchEvent(new CustomEvent('tg-open-sphere')); }); // 🌐: パネルは閉じて、地球儀だけを出す (trwsphere.js)
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && open) setOpen(false); });
 
   // ---- データ ----
@@ -111,15 +112,12 @@
   news.addEventListener('mouseenter', () => clearTimeout(hideT));
   news.addEventListener('mouseleave', () => { news.style.display = 'none'; });
 
-  // ---- ワードを押したとき ----
-  //   TubeFolio2 の「視聴」を開いているとき = 視聴のキーワード欄に入れて探す(page.js)
-  //   TubeFolio2 の「検索」を開いているとき = クリアしてから、検索のキーワード欄に入れて探す(search.js)
-  //   それ以外(ホームなど) = YouTube の上の検索欄に入れる(設定で「入れて検索」も)
+  // ---- ワードを押したとき(パネルのワード・地球儀のワード どちらも) ----
+  //   ホーム(TubeFolio2 の画面を開いていない) = YouTube の上の検索欄に入れる(設定で「入れて検索」も)
+  //   ほかのページ = TubeFolio2 の検索画面を開いて、キーワードに入れて探す(対象 = すべて・種類 = 動画。content.js の tg-open-search)
   function useTerm(term) {
-    const html = document.documentElement, pgk = html.getAttribute('data-tf-pgk'), fr = document.querySelector('#tf-view iframe');
-    if (fr && html.hasAttribute('data-tf-pg') && (pgk === 'later' || pgk === 'rec')) {
-      try { fr.contentWindow.postMessage({ tfTerm: term }, '*'); return; } catch { /* YouTube の検索欄へ */ }
-    }
+    const html = document.documentElement, home = location.pathname === '/' && !html.hasAttribute('data-tf-view') && !html.hasAttribute('data-tf-pg');
+    if (!home) { document.dispatchEvent(new CustomEvent('tg-open-search', { detail: term })); return; }
     const go = !!cfg.trendGo;
     const inp = document.querySelector('yt-searchbox input[name="search_query"], ytd-searchbox input[name="search_query"], input[name="search_query"], input#search');
     if (!inp) { if (go) location.href = '/results?search_query=' + encodeURIComponent(term); return; }
@@ -131,6 +129,7 @@
       if (btn) btn.click(); else location.href = '/results?search_query=' + encodeURIComponent(term);
     }
   }
+  document.addEventListener('tg-use-term', e => { if (e.detail) useTerm(String(e.detail)); }); // 地球儀から
 
   // ---- 設定 ----
   // 再生画面(/watch・ショート)では出さない

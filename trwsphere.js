@@ -1,23 +1,28 @@
-// 🧪 テスト: 急上昇ワードを、「おすすめ動画」(aipick.js)と同じ、点と線の球の表面に並べて回す。trwpage.js から openTrendSphere() で開く。
-//   ・ワードは、検索数が多いほど大きく。手前ほど大きく・はっきり、奥は小さく・薄く(奥は押せない)
-//   ・ドラッグ・矢印キーで回せる(離すと勢いで回り続ける)・ホイールで大きさ・ワードに乗せると止まって、下に細かい数字と関連ワードを出す
-//   ・ワードを押すと YouTube で検索 ・ 周りをクリック / Esc / ✕ で閉じる ・ 4時間 / 24時間の切り替えと、↻ 取り直し
-//   見た目は #aip と同じ --aq-* の色(page.css。ダーク・ライトの両方)。ワードのデータは、背景の tg-trends(ふつうの急上昇ワードのパネルと同じ)
+// 🌐 急上昇ワードの地球儀(YouTube のページに出す)。急上昇ワードのパネル(trends.js)の右上の 🌐 ボタンから openTrendSphere() で開く(開くと、パネルは閉じる)。
+//   「おすすめ動画」(aipick.js)と同じ、点と線の球の表面に、急上昇ワードを並べて回す。
+//   ・色 = 検索ボリューム(高いほど赤、低いほど青)。大きさも、ボリュームが多いほど大きい
+//   ・過去4時間 / 24時間 / 48時間 と、カテゴリ(Google トレンドのカテゴリ)を選べる ・ ↻ 取り直し
+//   ・ワードに乗せると回転が止まり、下に数字・ニュース3件(パネルと同じ)・関連ワードを出す。ニュースの記事は別タブで開く
+//   ・ワードを押す → 閉じて、trends.js の useTerm へ(ホーム = YouTube の検索欄に入れる / ほか = TubeFolio2 の検索で、対象 = すべて・種類 = 動画)
+//   ・ドラッグ・矢印キーで回す ・ ホイールで大きさ ・ 周りのクリック / Esc / ✕ で閉じる。見た目は trwsphere.css(ダーク・ライト両対応)
 function openTrendSphere() {
-  document.getElementById('aip')?.remove();
+  document.getElementById('tf-sph')?.remove();
   const E = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const calm = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
-  let hours = 4; try { hours = +(localStorage.getItem('tfTrwHours') || 4) === 24 ? 24 : 4; } catch (e) { /* なし */ }
-  const box = document.createElement('div'); box.id = 'aip'; box.className = 'done trwsph';
-  box.innerHTML = `<div class="ai-bg"></div><canvas class="ai-cv" aria-hidden="true"></canvas>
-    <div class="ai-top"><b class="ai-ttl">🔥 急上昇ワード<small>テスト</small></b><span class="ai-cnt"></span><span class="ai-sp"></span>
-      <span class="trw-seg"><button type="button" data-h="4">過去4時間</button><button type="button" data-h="24">過去24時間</button></span><button type="button" class="ai-re" title="取り直す">🔄</button><button type="button" class="ai-x" title="閉じる(Esc)">✕</button></div>
-    <div class="ai-cards" role="list" aria-label="急上昇ワード"></div><p class="ai-msg" hidden></p>
-    <div class="trw-det" hidden></div>
-    <div class="ai-hint">周りをクリックで閉じる ・ ドラッグ・矢印キーで回せます ・ ホイールで大きさ ・ ワードを押すと検索</div>`;
-  document.body.appendChild(box);
-  const $b = s => box.querySelector(s), cv = $b('.ai-cv'), cards = $b('.ai-cards'), msg = $b('.ai-msg'), det = $b('.trw-det');
-  let alive = true, sRaf = 0, items = [], els = [], CP = [], vx = 0, vy = 0, hold = false, hoverCard = false, zoom = 1, last = 0;
+  const CATS = [[0, 'すべてのカテゴリ'], [4, 'エンタメ'], [17, 'スポーツ'], [14, '政治'], [3, 'ビジネス・金融'], [18, 'テクノロジー'], [6, 'ゲーム'], [15, '科学'], [7, '健康'], [2, 'ファッション・美容'], [5, '食べ物'], [19, '旅行・交通'], [1, '自動車'], [8, '趣味・レジャー'], [9, '仕事・教育'], [10, '法律・行政'], [13, 'ペット'], [16, 'ショッピング'], [20, '気候'], [11, 'その他']];
+  let hours = 4, cat = 0; try { const h = +(localStorage.getItem('tfTrwHours') || 4); hours = [4, 24, 48].includes(h) ? h : 4; cat = +(localStorage.getItem('tfTrwCat') || 0) || 0; } catch (e) { /* なし */ }
+  const box = document.createElement('div'); box.id = 'tf-sph';
+  box.innerHTML = `<div class="tsp-bg"></div><canvas class="tsp-cv" aria-hidden="true"></canvas>
+    <div class="tsp-top"><b class="tsp-ttl">🌐 急上昇ワード</b><span class="tsp-cnt"></span><span class="tsp-sp"></span>
+      <span class="tsp-seg">${[4, 24, 48].map(h => `<button type="button" data-h="${h}">過去${h}時間</button>`).join('')}</span>
+      <select class="tsp-cat" title="カテゴリ">${CATS.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select>
+      <button type="button" class="tsp-re" title="取り直す">↻</button><button type="button" class="tsp-x" title="閉じる(Esc)">✕</button></div>
+    <div class="tsp-cards" role="list" aria-label="急上昇ワード"></div><p class="tsp-msg" hidden></p>
+    <div class="tsp-det" hidden></div>
+    <div class="tsp-hint">周りをクリックで閉じる ・ ドラッグ・矢印キーで回せます ・ ホイールで大きさ ・ 色: 赤 = 検索が多い / 青 = 少ない</div>`;
+  document.documentElement.appendChild(box);
+  const $b = s => box.querySelector(s), cv = $b('.tsp-cv'), cards = $b('.tsp-cards'), msg = $b('.tsp-msg'), det = $b('.tsp-det');
+  let alive = true, sRaf = 0, items = [], els = [], CP = [], vx = 0, vy = 0, hold = false, hoverCard = false, zoom = 1, last = 0, hideT = 0;
 
   // ---- 回転(3×3 の行列。aipick.js と同じ) ----
   let M = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -32,11 +37,9 @@ function openTrendSphere() {
   for (let i = 0; i < N; i++) { const y = 1 - (i + .5) / N * 2, r = Math.sqrt(1 - y * y), th = i * 2.399963; P.push({ s: [Math.cos(th) * r, y, Math.sin(th) * r], tw: Math.random() * 6.28 }); }
   for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) { const a = P[i].s, b = P[j].s; if ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2 < 0.04) PAIRS.push([i, j]); }
   const ctx = cv.getContext('2d'); let W = 0, H = 0, col = '170,230,255';
-  const fit = () => { const dpr = Math.min(2, devicePixelRatio || 1); W = Math.max(1, box.clientWidth); H = Math.max(1, box.clientHeight); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); col = (getComputedStyle(box).getPropertyValue('--aq-p') || '170,230,255').trim(); };
+  const fit = () => { const dpr = Math.min(2, devicePixelRatio || 1); W = Math.max(1, box.clientWidth); H = Math.max(1, box.clientHeight); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); col = (getComputedStyle(box).getPropertyValue('--tsp-p') || '170,230,255').trim(); };
   const ro = new ResizeObserver(fit); ro.observe(box);
-  const geo = () => ({ R: Math.min(W * 0.36, H * 0.42) * zoom, cx: W / 2, cy: H * 0.52 });
-
-  // ---- ワードの位置: 球の表面にほぼ均等に(順位の高いものが、最初は手前に来る) ----
+  const geo = () => ({ R: Math.min(W * 0.34, H * 0.4) * zoom, cx: W / 2, cy: H * 0.5 });
   const place = n => { CP = []; for (let i = 0; i < n; i++) { const y = 1 - (i + .5) / n * 2, r = Math.sqrt(1 - y * y), th = i * 2.399963; CP.push([Math.cos(th) * r, y, Math.sin(th) * r]); } };
   function frame(t) {
     if (!alive) return; sRaf = requestAnimationFrame(frame);
@@ -51,14 +54,14 @@ function openTrendSphere() {
     els.forEach((el, i) => {
       const a = proj([CP[i][0] * 1.08, CP[i][1] * 1.08, CP[i][2] * 1.08]), depth = Math.max(0, Math.min(1, (1 - a[2] / 1.08) / 2)), s = (0.45 + 0.65 * depth) * a[3];
       el.style.transform = `translate(${(a[0] - el._w / 2).toFixed(1)}px, ${(a[1] - el._h / 2).toFixed(1)}px) scale(${s.toFixed(3)})`;
-      el.style.zIndex = String(Math.round(depth * 1000)); el.style.opacity = (0.15 + 0.85 * Math.pow(depth, 1.3)).toFixed(3); el.classList.toggle('back', depth < 0.4);
+      el.style.zIndex = String(Math.round(depth * 1000)); el.style.opacity = (0.18 + 0.82 * Math.pow(depth, 1.3)).toFixed(3); el.classList.toggle('back', depth < 0.4);
     });
   }
   sRaf = requestAnimationFrame(frame);
 
-  // ---- ドラッグ・矢印キー・ホイール(aipick.js と同じ操作) ----
+  // ---- ドラッグ・矢印キー・ホイール ----
   let dragFrom = null, moved = 0, lastMove = 0, onCard = false;
-  box.addEventListener('pointerdown', e => { if (e.button !== 0 || e.target.closest('.ai-top')) return; onCard = !!e.target.closest('.ai-c'); dragFrom = [e.clientX, e.clientY]; moved = 0; hold = true; vx = vy = 0; lastMove = performance.now(); });
+  box.addEventListener('pointerdown', e => { if (e.button !== 0 || e.target.closest('.tsp-top, .tsp-det')) return; onCard = !!e.target.closest('.tsp-w'); dragFrom = [e.clientX, e.clientY]; moved = 0; hold = true; vx = vy = 0; lastMove = performance.now(); });
   box.addEventListener('pointermove', e => {
     if (!dragFrom) return;
     const dx = e.clientX - dragFrom[0], dy = e.clientY - dragFrom[1], now = performance.now(), dt = Math.max(8, now - lastMove);
@@ -66,50 +69,75 @@ function openTrendSphere() {
     const k = 1 / Math.max(160, geo().R); turn(-dx * k, dy * k); vx = -dx * k / dt; vy = dy * k / dt;
     if (moved > 6 && !box.classList.contains('drag')) { box.classList.add('drag'); try { box.setPointerCapture(e.pointerId); } catch (x) { /* なし */ } }
   });
-  const endDrag = e => { if (!dragFrom) return; if (e && e.type === 'pointerup' && moved <= 6 && !onCard) { close(); return; } dragFrom = null; hold = false; setTimeout(() => box.classList.remove('drag'), 0); if (performance.now() - lastMove > 80) vx = vy = 0; };
+  const endDrag = e => { if (!dragFrom) return; const tap = e && e.type === 'pointerup' && moved <= 6; if (tap && !onCard) { close(); return; } dragFrom = null; hold = false; setTimeout(() => box.classList.remove('drag'), 0); if (performance.now() - lastMove > 80) vx = vy = 0; };
   box.addEventListener('pointerup', endDrag); box.addEventListener('pointercancel', endDrag);
-  cards.addEventListener('click', e => { if (moved > 6) { e.preventDefault(); e.stopPropagation(); } }, true);
-  box.addEventListener('wheel', e => { e.preventDefault(); zoom = Math.max(0.6, Math.min(1.5, zoom * (e.deltaY > 0 ? 0.92 : 1.08))); }, { passive: false });
+  box.addEventListener('wheel', e => { if (e.target.closest('.tsp-det, .tsp-cat')) return; e.preventDefault(); zoom = Math.max(0.6, Math.min(1.5, zoom * (e.deltaY > 0 ? 0.92 : 1.08))); }, { passive: false });
 
-  // ---- 乗せたワードの詳細 ----
-  cards.addEventListener('mouseover', e => {
-    const a = e.target.closest('.ai-c:not(.back)'); hoverCard = !!a;
-    if (!a) { det.hidden = true; return; }
-    const it = items[+a.dataset.i] || {}, rel = (it.related || []).slice(0, 5).join(' / ');
-    det.innerHTML = `<b>${E(it.title)}</b><span>${[it.traffic && '検索 ' + E(it.traffic), it.pctText && '▲' + E(it.pctText), E(it.agoText || '')].filter(Boolean).join(' ・ ')}</span>${rel ? `<small>関連: ${E(rel)}</small>` : ''}`; det.hidden = false;
+  // ---- ワードを押す ----
+  cards.addEventListener('click', e => {
+    const w = e.target.closest('.tsp-w'); if (!w || moved > 6) return;
+    const it = items[+w.dataset.i]; if (!it) return; close();
+    document.dispatchEvent(new CustomEvent('tg-use-term', { detail: it.title }));
   });
-  cards.addEventListener('mouseleave', () => { hoverCard = false; det.hidden = true; });
 
-  // ---- データ ----
+  // ---- 乗せたワードの詳細(数字・ニュース3件・関連ワード。ニュースは、パネルと同じ背景の tg-trend-news で探す) ----
+  const paintDet = it => {
+    const hasN = it.news && it.news.length, rel = (it.related || []).slice(0, 8);
+    det.innerHTML = `<b>${E(it.title)}</b><span class="tsp-num">${[it.traffic && '検索 ' + E(it.traffic), it.pctText && '▲' + E(it.pctText), E(it.agoText || '')].filter(Boolean).join(' ・ ')}</span>`
+      + (hasN ? it.news.slice(0, 3).map(n => `<a class="tsp-n" href="${E(n.url)}" target="_blank" rel="noopener noreferrer">${n.picture ? `<img src="${E(n.picture)}" alt="" referrerpolicy="no-referrer">` : ''}<span>${E(n.title)}<small>${E(n.source || '')}</small></span></a>`).join('')
+        : `<span class="tsp-nn">${it.newsLoading ? 'ニュースを探しています…' : 'ニュースは見つかりませんでした'}</span>`)
+      + (rel.length ? `<div class="tsp-rel">${rel.map(w => `<i data-w="${E(w)}">${E(w)}</i>`).join('')}</div>` : '');
+    det.hidden = false;
+  };
+  let hoverIt = null;
+  cards.addEventListener('mouseover', e => {
+    const a = e.target.closest('.tsp-w:not(.back)'); if (!a) return;
+    clearTimeout(hideT); hoverCard = true; const it = items[+a.dataset.i]; if (!it) return; hoverIt = it; paintDet(it);
+    if (!(it.news && it.news.length) && !it.newsTried) {
+      it.newsTried = true; it.newsLoading = true; paintDet(it);
+      chrome.runtime.sendMessage({ type: 'tg-trend-news', q: it.title }, r => { it.newsLoading = false; if (!chrome.runtime.lastError && r && r.news && r.news.length) it.news = r.news; if (alive && hoverIt === it && !det.hidden) paintDet(it); });
+    }
+  });
+  const leave = () => { clearTimeout(hideT); hideT = setTimeout(() => { hoverCard = false; det.hidden = true; hoverIt = null; }, 400); };
+  cards.addEventListener('mouseleave', leave);
+  det.addEventListener('mouseenter', () => { clearTimeout(hideT); hoverCard = true; });
+  det.addEventListener('mouseleave', leave);
+  det.addEventListener('click', e => { const w = e.target.closest('[data-w]'); if (w) { close(); document.dispatchEvent(new CustomEvent('tg-use-term', { detail: w.dataset.w })); } });
+
+  // ---- データ・色(ボリュームが高いほど赤、低いほど青) ----
   const num = it => { let n = +it.vol || 0; if (!n) { const m = /([\d,.]+)\s*(万)?/.exec(String(it.traffic || '')); if (m) n = parseFloat(m[1].replace(/,/g, '')) * (m[2] ? 10000 : 1); } return n || 0; };
   function show(list) {
-    items = list; els = []; cards.innerHTML = ''; det.hidden = true; msg.hidden = !!list.length; if (!list.length) msg.textContent = '急上昇ワードがありません';
-    $b('.ai-cnt').textContent = list.length ? `${list.length}語` : '';
+    items = list; els = []; cards.innerHTML = ''; det.hidden = true; msg.hidden = !!list.length; if (!list.length) msg.textContent = 'このカテゴリの急上昇ワードがありません';
+    $b('.tsp-cnt').textContent = list.length ? `${list.length}語` : '';
     place(list.length); zoom = 1;
     const lg = v => Math.log10(Math.max(1, v)), vs = list.map(x => lg(num(x))), lmax = Math.max(...vs, 1), lmin = Math.min(...vs, lmax);
-    cards.innerHTML = list.map((it, i) => { const k = lmax === lmin ? .5 : (vs[i] - lmin) / (lmax - lmin);
-      return `<a class="ai-c wd" role="listitem" data-i="${i}" href="https://www.youtube.com/results?search_query=${encodeURIComponent(it.title)}" target="_top" draggable="false" title="${E(it.title)}"><span class="ai-ci" style="--d:${calm ? 0 : i * 30}ms;font-size:${(14 + k * 12).toFixed(1)}px"><i>${i + 1}</i>${E(it.title)}</span></a>`; }).join('');
-    els = [...cards.querySelectorAll('.ai-c')]; els.forEach(el => { el._w = el.offsetWidth; el._h = el.offsetHeight; });
+    cards.innerHTML = list.map((it, i) => { const k = lmax === lmin ? .5 : (vs[i] - lmin) / (lmax - lmin), hue = Math.round(220 - k * 220);
+      return `<div class="tsp-w" role="listitem" data-i="${i}" style="--d:${calm ? 0 : i * 30}ms;--hue:${hue};font-size:${(13 + k * 13).toFixed(1)}px"><i>${i + 1}</i>${E(it.title)}</div>`; }).join('');
+    els = [...cards.querySelectorAll('.tsp-w')]; els.forEach(el => { el._w = el.offsetWidth; el._h = el.offsetHeight; });
   }
   let gen = 0;
   function load(force) {
-    const my = ++gen; cards.innerHTML = ''; els = []; msg.hidden = false; msg.textContent = '読み込み中…'; det.hidden = true;
-    box.querySelectorAll('.trw-seg [data-h]').forEach(b => b.classList.toggle('on', +b.dataset.h === hours));
-    chrome.runtime.sendMessage({ type: 'tg-trends', force: !!force, hours }, r => {
+    const my = ++gen; cards.innerHTML = ''; els = []; msg.hidden = false; msg.textContent = '読み込み中…'; det.hidden = true; $b('.tsp-cnt').textContent = '';
+    box.querySelectorAll('.tsp-seg [data-h]').forEach(b => b.classList.toggle('on', +b.dataset.h === hours)); $b('.tsp-cat').value = String(cat);
+    chrome.runtime.sendMessage({ type: 'tg-trends', force: !!force, hours, cat }, r => {
       if (!alive || my !== gen) return; void chrome.runtime.lastError;
       if (!r || r.error || !r.items) { msg.textContent = '取得できませんでした' + (r && r.error ? '(' + r.error + ')' : ''); return; }
       show(r.items.slice(0, 40));
     });
   }
-  $b('.trw-seg').addEventListener('click', e => { const b = e.target.closest('[data-h]'); if (!b || +b.dataset.h === hours) return; hours = +b.dataset.h; try { localStorage.setItem('tfTrwHours', String(hours)); } catch (x) { /* なし */ } load(); });
-  $b('.ai-re').addEventListener('click', () => load(true));
-  const close = () => { alive = false; cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); };
+  $b('.tsp-seg').addEventListener('click', e => { const b = e.target.closest('[data-h]'); if (!b || +b.dataset.h === hours) return; hours = +b.dataset.h; try { localStorage.setItem('tfTrwHours', String(hours)); } catch (x) { /* なし */ } load(); });
+  $b('.tsp-cat').addEventListener('change', e => { cat = +e.target.value || 0; try { localStorage.setItem('tfTrwCat', String(cat)); } catch (x) { /* なし */ } load(); });
+  $b('.tsp-re').addEventListener('click', () => load(true));
+  const onNav = () => { if (/^\/(watch|shorts)(\/|$)/.test(location.pathname)) close(); };
+  const close = () => { alive = false; clearTimeout(hideT); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('yt-navigate-finish', onNav); };
   const onKey = e => {
-    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     const K = { ArrowLeft: [0.004, 0], ArrowRight: [-0.004, 0], ArrowUp: [0, -0.004], ArrowDown: [0, 0.004] }[e.key];
     if (K) { e.preventDefault(); vx += K[0]; vy += K[1]; }
   };
-  document.addEventListener('keydown', onKey, true);
-  $b('.ai-x').addEventListener('click', close);
+  document.addEventListener('keydown', onKey, true); document.addEventListener('yt-navigate-finish', onNav);
+  $b('.tsp-x').addEventListener('click', close);
   fit(); load();
 }
+document.addEventListener('tg-open-sphere', () => openTrendSphere());

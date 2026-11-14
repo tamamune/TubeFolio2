@@ -1,0 +1,34 @@
+/* 🌐 急上昇ワードの地球儀(trwsphere.js)。YouTube のページの上に、画面いっぱいに出す。色は --tsp-* で持ち、ダーク(html[dark])とライトの両方を用意する */
+#tf-sph { --tsp-p: 0,105,160; --tsp-fg: #0b2a3a; --tsp-sub: #46697a; --tsp-edge: rgba(0,110,165,.3); --tsp-card: rgba(255,255,255,.92); --tsp-glow: rgba(0,140,210,.35); --tsp-dim: rgba(232,242,249,.86); --tsp-hl: #0a7fc0; --tsp-l: 38%; --tsp-bgc: #fff; }
+html[dark] #tf-sph { --tsp-p: 170,230,255; --tsp-fg: #e8f8ff; --tsp-sub: #8db4c6; --tsp-edge: rgba(150,225,255,.28); --tsp-card: rgba(5,15,24,.9); --tsp-glow: rgba(120,210,255,.45); --tsp-dim: rgba(1,5,10,.86); --tsp-hl: #9fe3ff; --tsp-l: 62%; --tsp-bgc: #0b1822; }
+#tf-sph { position: fixed; inset: 0; z-index: 2400; overflow: hidden; color: var(--tsp-fg); font: 14px/1.4 Roboto, Arial, "Noto Sans JP", sans-serif; user-select: none; touch-action: none; }
+#tf-sph .tsp-bg { position: absolute; inset: 0; background: var(--tsp-dim); backdrop-filter: blur(6px); animation: tsp-fade .35s ease-out; }
+@keyframes tsp-fade { from { opacity: 0; } }
+#tf-sph .tsp-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+#tf-sph .tsp-top { position: absolute; left: 0; right: 0; top: 0; z-index: 3000; display: flex; align-items: center; gap: 10px; padding: 12px 16px; pointer-events: none; }
+#tf-sph .tsp-top > * { pointer-events: auto; } #tf-sph .tsp-sp { flex: 1; }
+#tf-sph .tsp-ttl { font-size: 16px; letter-spacing: .04em; } #tf-sph .tsp-cnt { color: var(--tsp-hl); font-size: 13px; font-weight: 600; }
+#tf-sph .tsp-seg { display: inline-flex; border: 1px solid var(--tsp-edge); border-radius: 15px; overflow: hidden; background: var(--tsp-card); }
+#tf-sph .tsp-seg button { height: 30px; padding: 0 12px; border: 0; background: transparent; color: var(--tsp-sub); font: inherit; font-size: 13px; cursor: pointer; } #tf-sph .tsp-seg button:hover { color: var(--tsp-fg); } #tf-sph .tsp-seg button.on { background: var(--tsp-hl); color: var(--tsp-bgc); font-weight: 700; }
+#tf-sph .tsp-cat { height: 32px; padding: 0 10px; border: 1px solid var(--tsp-edge); border-radius: 16px; background: var(--tsp-card); color: var(--tsp-fg); font: inherit; font-size: 13px; cursor: pointer; } #tf-sph .tsp-cat option { background: var(--tsp-bgc); color: var(--tsp-fg); }
+#tf-sph .tsp-re, #tf-sph .tsp-x { width: 32px; height: 32px; padding: 0; border: 1px solid var(--tsp-edge); border-radius: 50%; background: var(--tsp-card); color: var(--tsp-fg); font: inherit; font-size: 15px; cursor: pointer; } #tf-sph .tsp-re:hover, #tf-sph .tsp-x:hover { border-color: var(--tsp-hl); box-shadow: 0 0 12px var(--tsp-glow); }
+#tf-sph.drag { cursor: grabbing; } #tf-sph { cursor: grab; }
+#tf-sph .tsp-cards { position: absolute; inset: 0; pointer-events: none; }
+/* ワード: 色 = 検索ボリューム(--hue: 青 220 → 赤 0) */
+#tf-sph .tsp-w { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; display: flex; align-items: center; gap: 6px; padding: .3em .8em; border-radius: 999px; white-space: nowrap; font-weight: 700; line-height: 1.25; cursor: pointer; pointer-events: auto; will-change: transform, opacity;
+  color: hsl(var(--hue) 75% var(--tsp-l)); border: 1.5px solid hsl(var(--hue) 75% var(--tsp-l) / .75); background: color-mix(in srgb, hsl(var(--hue) 80% 55% / .22) 60%, var(--tsp-card)); box-shadow: 0 0 14px hsl(var(--hue) 80% 55% / .35);
+  animation: tsp-in .6s cubic-bezier(.2,.8,.2,1) var(--d) both; }
+@keyframes tsp-in { from { opacity: 0; filter: brightness(2); } }
+#tf-sph .tsp-w.back { pointer-events: none; } #tf-sph.drag .tsp-w { pointer-events: none; }
+#tf-sph .tsp-w:hover { box-shadow: 0 0 24px hsl(var(--hue) 85% 55% / .7); border-color: hsl(var(--hue) 85% var(--tsp-l)); }
+#tf-sph .tsp-w i { font-style: normal; font-size: .62em; font-weight: 700; opacity: .8; }
+#tf-sph .tsp-msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; color: var(--tsp-sub); font-size: 14px; }
+#tf-sph .tsp-msg[hidden], #tf-sph .tsp-det[hidden] { display: none; }
+#tf-sph .tsp-hint { position: absolute; left: 0; right: 0; bottom: 10px; z-index: 3000; text-align: center; color: var(--tsp-sub); font-size: 12px; pointer-events: none; }
+/* 乗せたワードの詳細(ニュース3件つき) */
+#tf-sph .tsp-det { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 3500; width: min(520px, 92vw); max-height: 46vh; overflow: auto; padding: 10px 14px; border: 1px solid var(--tsp-edge); border-radius: 14px; background: var(--tsp-card); color: var(--tsp-fg); box-shadow: 0 0 20px var(--tsp-glow); cursor: default; user-select: text; }
+#tf-sph .tsp-det > b { display: block; font-size: 16px; } #tf-sph .tsp-num { display: block; margin-bottom: 4px; color: var(--tsp-sub); font-size: 12px; } #tf-sph .tsp-nn { display: block; color: var(--tsp-sub); font-size: 12px; }
+#tf-sph .tsp-n { display: flex; gap: 9px; align-items: flex-start; padding: 6px 8px; border-radius: 8px; color: inherit; text-decoration: none; font-size: 13px; } #tf-sph .tsp-n:hover { background: color-mix(in srgb, var(--tsp-hl) 16%, transparent); }
+#tf-sph .tsp-n img { width: 52px; height: 52px; border-radius: 6px; object-fit: cover; flex: none; } #tf-sph .tsp-n small { display: block; margin-top: 2px; color: var(--tsp-sub); font-size: 11px; }
+#tf-sph .tsp-rel { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } #tf-sph .tsp-rel i { padding: 2px 10px; border-radius: 12px; border: 1px solid var(--tsp-edge); font-style: normal; font-size: 12px; cursor: pointer; } #tf-sph .tsp-rel i:hover { border-color: var(--tsp-hl); color: var(--tsp-hl); }
+@media (prefers-reduced-motion: reduce) { #tf-sph .tsp-w, #tf-sph .tsp-bg { animation-duration: .01s; } }

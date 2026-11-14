@@ -15,8 +15,8 @@
     { "matches": ["https://www.youtube.com/*"], "js": ["nav-main.js", "mainworld.js", "perf-main.js"], "run_at": "document_start", "world": "MAIN" },
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["ui-sync.js", "store.js", "focus.js", "tf-shim.js", "yt-api.js", "setspec.js", "content.js", "comments.js", "extras.js", "chapters.js", "playerx.js", "perf.js", "xtra.js", "antitrans.js", "speaker.js", "memhide.js", "toolpanel.js", "toolbtn.js", "later-glue.js", "watchadd.js", "histrec.js", "bookmark-key.js", "playedtags.js", "tagmgr.js", "hover-tune.js", "preview-host.js", "trends.js", "bgwait.js"],
-      "css": ["content.css", "comments.css", "tools.css", "watchq.css", "bmkey.css", "trends.css"],
+      "js": ["ui-sync.js", "store.js", "focus.js", "tf-shim.js", "yt-api.js", "setspec.js", "content.js", "comments.js", "extras.js", "chapters.js", "playerx.js", "perf.js", "xtra.js", "antitrans.js", "speaker.js", "memhide.js", "toolpanel.js", "toolbtn.js", "later-glue.js", "watchadd.js", "histrec.js", "bookmark-key.js", "playedtags.js", "tagmgr.js", "hover-tune.js", "preview-host.js", "trends.js", "trwsphere.js", "bgwait.js"],
+      "css": ["content.css", "comments.css", "tools.css", "watchq.css", "bmkey.css", "trends.css", "trwsphere.css"],
       "run_at": "document_idle"
     }
   ]

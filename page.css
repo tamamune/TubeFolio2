@@ -558,18 +558,3 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .th .rsdel:hover { background: #cc0000; opacity: 1; }
 #pls .rsundo { height: 26px; padding: 0 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; } #pls .rsundo:hover { background: var(--chip2); }
 
-/* 🧪 急上昇ワード(ワードクラウド版・テスト。trwpage.js) */
-.trw-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 15px; overflow: hidden; } .trw-seg button { height: 30px; padding: 0 14px; border: 0; background: transparent; color: var(--sub); font: inherit; font-size: 13px; cursor: pointer; } .trw-seg button.on { background: var(--fg); color: var(--bg); font-weight: 700; }
-.trw-re { height: 30px; width: 30px; margin-left: 8px; border: 1px solid var(--line); border-radius: 15px; background: transparent; color: var(--fg); font-size: 15px; cursor: pointer; } .trw-re:hover, .trw-seg button:hover:not(.on) { background: var(--chip2); }
-.trw-cloud { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 12px; padding: 24px 12px 32px; }
-.trw-w { position: relative; padding: .35em .85em; border: 1px solid color-mix(in srgb, var(--fg) 18%, transparent); border-radius: 999px; background: color-mix(in srgb, #ff5a36 calc(var(--heat) * 38%), var(--chip)); color: var(--fg); font: 600 var(--sz)/1.2 Roboto, Arial, "Noto Sans JP", sans-serif; cursor: pointer; transition: transform .15s, border-color .15s; }
-.trw-w:hover { transform: scale(1.07); border-color: var(--fg); } .trw-w.top { border-color: #ff5a36; box-shadow: 0 0 0 2px color-mix(in srgb, #ff5a36 35%, transparent); }
-.trw-w i { margin-right: .5em; font-style: normal; font-size: .6em; font-weight: 700; color: var(--sub); }
-.trw-tip { position: absolute; z-index: 20; width: 240px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg); font-size: 12px; pointer-events: none; box-shadow: 0 6px 20px rgba(0,0,0,.3); } .trw-tip b { display: block; font-size: 14px; } .trw-tip span, .trw-tip small { display: block; color: var(--sub); }
-
-/* 🧪 急上昇ワードの球(trwsphere.js。#aip と同じ色 --aq-*) */
-#aip.trwsph .trw-seg { border-color: var(--aq-edge); } #aip.trwsph .trw-seg button { color: var(--aq-sub); } #aip.trwsph .trw-seg button.on { background: var(--aq-hl); color: #001018; }
-#aip .ai-c.wd .ai-ci { flex-direction: row; align-items: center; gap: 6px; padding: .3em .8em; border-radius: 999px; white-space: nowrap; font-weight: 600; line-height: 1.25; color: var(--aq-fg); }
-#aip .ai-c.wd .ai-ci i { font-style: normal; font-size: .62em; font-weight: 700; color: var(--aq-hl); }
-#aip .trw-det { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 2500; max-width: min(560px, 90vw); padding: 8px 16px; border: 1px solid var(--aq-edge); border-radius: 12px; background: var(--aq-card); color: var(--aq-fg); text-align: center; pointer-events: none; box-shadow: 0 0 18px var(--aq-glow); }
-#aip .trw-det b { display: block; font-size: 15px; } #aip .trw-det span, #aip .trw-det small { display: block; color: var(--aq-sub); font-size: 12px; } #aip .trw-det[hidden] { display: none; }

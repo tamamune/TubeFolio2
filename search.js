@@ -229,6 +229,7 @@ function recPage(opts = {}) {
   window.addEventListener('message', async e => {
     if (e.source !== window.parent || !e.data || typeof e.data.tfTerm !== 'string') return;
     if (fold !== 'all') { await TF.mutate(s => { s.settings.plFolder = 'all'; }); fold = 'all'; foldNames = null; foldNote(); }
+    scope = 'all'; kind = 'v'; lset('tfRecScope', scope); lset(KK, kind); $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); if (typeof syncMode === 'function') syncMode();
     $('#rq').value = e.data.tfTerm; updClear(); run(false);
   });
   $('#rmore').addEventListener('click', () => run(true));
@@ -290,6 +291,6 @@ function recPage(opts = {}) {
 
   Promise.all([loadReg(), loadFold(), chrome.storage.local.get('recOpen')]).then(([, , ro]) => {
     const o = ro && ro.recOpen; // ホームでフォルダを押して開いたとき: 登録チャンネル・動画に切り替えて、キーワードは空にする
-    if (o) { scope = o.scope || 'reg'; kind = o.kind || 'v'; q = ''; lset('tfRecScope', scope); lset(KK, kind); lset('tfRecQ', ''); const rq = $('#rq'); if (rq) rq.value = ''; updClear(); $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); chrome.storage.local.remove('recOpen'); }
+    if (o) { scope = o.scope || 'reg'; kind = o.kind || 'v'; q = String(o.q || ''); lset('tfRecScope', scope); lset(KK, kind); lset('tfRecQ', q); const rq = $('#rq'); if (rq) rq.value = q; updClear(); $('#rs').innerHTML = seg(SCOPES, scope, 's'); $('#rk').innerHTML = seg(KINDS, kind, 'k'); chrome.storage.local.remove('recOpen'); }
     foldNote(); if (o || scope === 'reg' || q || (T && kind === 't')) run(false); else note('キーワードを入れて、検索してください'); });
 }
