@@ -240,7 +240,7 @@ function recPage(opts = {}) {
     const amPaint = a => {
       a = { on: true, name: '🎵 音楽🎵', ...(a || {}) }; const l = a.last, keepN = Object.keys(a.keep || {}).length, blockN = Object.keys(a.removed || {}).length;
       const when = l ? new Date(l.at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-      amBox.innerHTML = `<span class="rl">🎵 急上昇の音楽を「${E(a.name)}」へ自動で追加(3時間ごと・30日で外す・10日以内に削除した動画は入れない)</span>`
+      amBox.innerHTML = `<span class="rl">🎵 急上昇の音楽を「${E(a.name)}」へ自動で追加(間隔・期間は TubeFolio2 設定 → その他。取り置き・削除した動画は 視聴の「🎵 音楽🎵」)</span>`
         + `<b class="${a.on ? 'on' : ''}">${a.on ? 'オン' : 'オフ'}</b>`
         + (l ? `<span class="rl">最後 ${E(when)} ・ +${l.add}本 / 外した ${l.del}本 ・ 全${l.total}本 ・ 📌 取り置き ${keepN}本 ・ 削除して入れない ${blockN}本</span>` : '<span class="rl">まだ実行していません</span>')
         + `<button type="button" data-am="tog">${a.on ? 'オフにする' : 'オンにする'}</button><button type="button" data-am="run">今すぐ実行</button>`;

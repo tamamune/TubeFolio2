@@ -173,9 +173,39 @@ function viewPage() {
       const tt = k ? '取り置き中(30日たっても、自動では外しません。押すと解除)' : '📌 取り置き(30日たっても、自動では外さない)'; if (b.title !== tt) b.title = tt;
     });
   };
-  chrome.storage.local.get('autoMusic').then(r => { am = r.autoMusic || {}; markKeep(); }).catch(() => {});
-  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.autoMusic) { am = ch.autoMusic.newValue || {}; markKeep(); } });
-  { let kt = 0; new MutationObserver(() => { clearTimeout(kt); kt = setTimeout(markKeep, 200); }).observe($('#pls'), { childList: true, subtree: true }); }
+  // ---- 「🎵 音楽🎵」を開いたとき、自動追加のツール(状態・オン/オフ・今すぐ実行・取り置き一覧・削除した動画の一覧)を、リストの上に出す。×(削除)・📌(取り置き)は、下のカードのまま ----
+  let amPx = {};
+  const amOpen = { keep: false, rm: false };
+  const amHtml = () => {
+    const a = { on: true, ...am }, l = a.last, kp = Object.entries(a.keep || {}), rm = Object.entries(a.removed || {}), px = amPx || {};
+    const gap = +px.amGapH || 3, kd = px.amKeepD !== undefined ? +px.amKeepD : 30, bd = px.amBlockD !== undefined ? +px.amBlockD : 10;
+    const when = l ? new Date(l.at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const th = (id, t, act, label) => `<span class="am-i"><a href="https://www.youtube.com/watch?v=${id}" target="_top" title="${esc(id)}"><img loading="lazy" src="https://i.ytimg.com/vi/${id}/mqdefault.jpg" alt=""></a><small>${esc(new Date(t).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }))}</small><button type="button" data-am="${act}" data-vid="${id}">${label}</button></span>`;
+    return `<div class="am-row"><b>🎵 急上昇の音楽の自動追加</b><span class="am-st ${a.on ? 'on' : ''}">${a.on ? 'オン' : 'オフ'}</span><button type="button" data-am="tog">${a.on ? 'オフにする' : 'オンにする'}</button><button type="button" data-am="run">今すぐ実行</button><span class="am-sub">${gap}時間ごと ・ ${kd ? kd + '日で外す' : '自動では外さない'} ・ ${bd ? '削除した動画は' + bd + '日入れない' : '削除した動画も入れ直す'}(設定: TubeFolio2 設定 → その他)</span></div>`
+      + `<div class="am-row"><span class="am-sub">${l ? `最後 ${esc(when)} ・ +${l.add}本 / 外した ${l.del}本 ・ 全${l.total}本` : 'まだ実行していません'}</span></div>`
+      + `<details class="am-d"${amOpen.keep ? ' open' : ''} data-d="keep"><summary>📌 取り置き ${kp.length}本(期限がきても外しません)</summary><div class="am-g">${kp.map(([id, t]) => th(id, t, 'unkeep', '解除')).join('') || '<span class="am-sub">なし(下のカードの 📌 で取り置きできます)</span>'}</div></details>`
+      + `<details class="am-d"${amOpen.rm ? ' open' : ''} data-d="rm"><summary>🗑 削除して入れない ${rm.length}本${bd ? '(' + bd + '日)' : ''}</summary><div class="am-g">${rm.sort((x, y) => y[1] - x[1]).map(([id, t]) => th(id, t, 'unblock', '戻す')).join('') || '<span class="am-sub">なし(下のカードの × で削除すると、次の実行のときにここへ入ります)</span>'}</div></details>`;
+  };
+  const markTool = () => {
+    const sec = am.listId ? document.querySelector(`#pls .pl[data-id="${CSS.escape(am.listId)}"]`) : null;
+    document.querySelectorAll('#pls .amtool').forEach(x => { if (!sec || x.parentNode !== sec) x.remove(); });
+    if (!sec) return;
+    let t = sec.querySelector(':scope > .amtool'); if (!t) { t = document.createElement('div'); t.className = 'amtool'; sec.insertBefore(t, sec.querySelector(':scope > .plb')); }
+    const h = amHtml(); if (t._h !== h) { t._h = h; t.innerHTML = h; }
+  };
+  chrome.storage.local.get(['autoMusic', 'px']).then(r => { am = r.autoMusic || {}; amPx = r.px || {}; markKeep(); markTool(); }).catch(() => {});
+  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && (ch.autoMusic || ch.px)) { if (ch.autoMusic) am = ch.autoMusic.newValue || {}; if (ch.px) amPx = ch.px.newValue || {}; markKeep(); markTool(); } });
+  $('#pls').addEventListener('toggle', e => { const d = e.target.closest && e.target.closest('.am-d'); if (d) amOpen[d.dataset.d] = d.open; }, true);
+  $('#pls').addEventListener('click', async e => {
+    const b = e.target.closest && e.target.closest('.amtool [data-am]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const k = b.dataset.am, { autoMusic: a = {} } = await chrome.storage.local.get('autoMusic');
+    if (k === 'tog') return void chrome.storage.local.set({ autoMusic: { ...a, on: a.on === false } });
+    if (k === 'unkeep') { const keep = { ...(a.keep || {}) }; delete keep[b.dataset.vid]; return void chrome.storage.local.set({ autoMusic: { ...a, keep } }); }
+    if (k === 'unblock') { const removed = { ...(a.removed || {}) }; delete removed[b.dataset.vid]; return void chrome.storage.local.set({ autoMusic: { ...a, removed } }); }
+    if (k === 'run') { b.disabled = true; b.textContent = '実行中…'; chrome.runtime.sendMessage({ type: 'musicAuto' }, r => { void chrome.runtime.lastError; b.disabled = false; b.textContent = '今すぐ実行'; }); }
+  }, true);
+  { let kt = 0; new MutationObserver(() => { clearTimeout(kt); kt = setTimeout(() => { markKeep(); markTool(); }, 200); }).observe($('#pls'), { childList: true, subtree: true }); }
   document.addEventListener('click', async e => {
     const b = e.target.closest && e.target.closest('.vkeep'); if (!b) return;
     e.preventDefault(); e.stopPropagation();
