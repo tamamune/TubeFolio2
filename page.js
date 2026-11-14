@@ -94,7 +94,6 @@ if (P === 'later') { viewPage(); // 視聴: 再生リスト
 } else if (P === 'trdapi') { trdApiPage(); // 急上昇動画(YouTube Data API・実験。trdpage.js)
 } else if (P === 'trd') { trdPage(); // 急上昇動画(日付別・実験。trdpage.js)
 } else if (P === 'rec2') { rec2Page(); // 検索2: 検索 + 急上昇(日付をさかのぼる)のタブ(trdpage.js)
-} else if (P === 'histd') { histDash(); // 視聴履歴ダッシュボード(試作。histdash.js)
 } else { // まだ中身のないページ
   main.innerHTML = `<h1>${esc(TITLE)}</h1><p class="empty">このページは、まだ中身がありません。</p>`;
 }

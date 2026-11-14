@@ -487,10 +487,10 @@
     root.setAttribute('data-tf-fit', '');
   }
   // 各ボタン → 空のページ(後で中身を作る)。キーとタイトル
-  const HBAR_PAGES = { later: '視聴', rec: '検索', bm: 'ブックマーク', hist: '視聴履歴', histd: '🧪 履歴' };
+  const HBAR_PAGES = { later: '視聴', rec: '検索', bm: 'ブックマーク', hist: '視聴履歴' };
   // ツールバーの置き方(試験用)。ボタン「配置」で順に切り替える
   const HBAR_MODES = [['home', '標準'], ['fixed', '固定バー'], ['bottom', '下バー']];
-  const HBAR_ICONS = { rec: '🔎', later: '🕒', bm: '🔖', hist: '📊', histd: '🧪' };
+  const HBAR_ICONS = { rec: '🔎', later: '🕒', bm: '🔖', hist: '📊' };
   function openPg(p) { document.documentElement.setAttribute('data-tf-pgk', p); openView('page.html', '&p=' + encodeURIComponent(p) + '&t=' + encodeURIComponent(HBAR_PAGES[p] || '')); document.documentElement.setAttribute('data-tf-pgk', p); }
   // ツール(旧ハブの機能)。上のバーの右側のボタンを押すと、その下にメニューが開く
   function showBarFly(it) {

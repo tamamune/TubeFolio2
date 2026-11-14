@@ -404,7 +404,7 @@ html[data-tf-view] #tf-hbar:not(.tf-hfix):not(.tf-hfloat) { display: none; }
 
 /* 空のページ: ツールバーの下だけを置き換える。開いているボタンを目立たせる */
 html[data-tf-pgk="new"] #tf-hbar [data-p="new"], html[data-tf-pgk="live"] #tf-hbar [data-p="live"], html[data-tf-pgk="shorts"] #tf-hbar [data-p="shorts"],
-html[data-tf-pgk="rec"] #tf-hbar [data-p="rec"], html[data-tf-pgk="later"] #tf-hbar [data-p="later"], html[data-tf-pgk="bm"] #tf-hbar [data-p="bm"], html[data-tf-pgk="hist"] #tf-hbar [data-p="hist"], html[data-tf-pgk="histd"] #tf-hbar [data-p="histd"] { background: var(--yt-spec-text-primary, #f1f1f1) !important; color: var(--yt-spec-text-primary-inverse, #0f0f0f) !important; }
+html[data-tf-pgk="rec"] #tf-hbar [data-p="rec"], html[data-tf-pgk="later"] #tf-hbar [data-p="later"], html[data-tf-pgk="bm"] #tf-hbar [data-p="bm"], html[data-tf-pgk="hist"] #tf-hbar [data-p="hist"] { background: var(--yt-spec-text-primary, #f1f1f1) !important; color: var(--yt-spec-text-primary-inverse, #0f0f0f) !important; }
 /* チップの行を閉じているときは、入れ物の余白と高さをツールバーの分だけにして、下の動画との間の空きをなくす */
 html[data-tf-hbar][data-tf-nochips] ytd-browse[page-subtype="home"] #chips-wrapper { height: 34px !important; min-height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; margin: 0 !important; border: 0 !important; }
 html[data-tf-hbar][data-tf-nochips] ytd-browse[page-subtype="home"] ytd-feed-filter-chip-bar-renderer { height: 34px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; }
