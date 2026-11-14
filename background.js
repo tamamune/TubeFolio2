@@ -287,7 +287,54 @@ function collect(data, out) {
 }
 let importP = null;
 // prune = true(「取り込みと同期」を押したとき・自動の同期): 取り込みと同時に、YouTube の登録に無いチャンネルを整理する(TF.syncChannels: フォルダに入っていれば「未登録」の印を付けて残し、入っていなければ消す)
-function importSubs(prune, force) {
+// ---- アカウントの見張り: YouTube のアカウントが入れ替わったときや、登録チャンネルが急に大きく減ったときは、整理(削除・「未登録」の印)をしない ----
+//   ・YouTube のアカウントは、アカウントメニューのメールアドレス(取れなければ、ハンドル・名前)を「指紋」にして、この端末にだけ覚える(ytAcct)
+//   ・前回と違うアカウント / 登録が前回の4割以上いなくなる(20件以上のとき) → 整理を止めて、お知らせ(「整理する」ボタン)。追加だけは行う
+//   ・YouTube のアカウントと Google Drive のアカウントが違うときは、お知らせ(同じ組み合わせでは1回だけ)
+//   ・整理の直前に、フォルダとチャンネルの控え(最新3回分。この端末だけ。subsBackups)を取る。「☁ 同期」のメニューから戻せる
+async function ytAccount() {
+  try {
+    const c = await ytCtx();
+    const r = await fetch(`${ORIGIN}/youtubei/v1/account/account_menu?key=${c.key}&prettyPrint=false`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion: c.ver, hl: 'ja' } } }) });
+    const t = await r.text(), pick = re => { const m = re.exec(t); return m ? m[1] : ''; };
+    const email = pick(/"email":\s*(?:\{"simpleText":)?"([^"]+@[^"]+)"/).toLowerCase(), handle = pick(/"channelHandle":\{"simpleText":"([^"]+)"/), name = pick(/"accountName":\{"simpleText":"([^"]+)"/);
+    const fp = email || handle || name; return fp ? { fp, email, handle, name } : null;
+  } catch (e) { return null; }
+}
+const acctLabel = a => a ? (a.email || [a.name, a.handle].filter(Boolean).join(' ')) : '不明';
+const acctNotify = (id, title, message, buttons) => { try { chrome.notifications.create(id, { type: 'basic', iconUrl: chrome.runtime.getURL('icon128.png'), title, message, priority: 2, ...(buttons ? { requireInteraction: true, buttons: buttons.map(t => ({ title: t })) } : {}) }); } catch (e) { /* 無視 */ } };
+chrome.notifications.onButtonClicked.addListener((id, i) => { if (id === 'tf-acct-block') { chrome.notifications.clear(id); if (i === 0) importSubs(true, true, true).then(r => { try { bgLog('取り込み', '確認のうえ、登録チャンネルを整理しました: ' + (r && r.note || '')); } catch (e) { /* 無視 */ } }).catch(() => {}); } });
+async function subsBackup() {
+  try {
+    const S = await TF.get(), { subsBackups: b = [] } = await chrome.storage.local.get('subsBackups');
+    b.unshift({ t: Date.now(), groups: S.groups || [], channels: S.channels || {}, n: Object.keys(S.channels || {}).length }); b.length = Math.min(b.length, 3);
+    await chrome.storage.local.set({ subsBackups: b });
+  } catch (e) { /* 無視 */ }
+}
+// 整理してよいか。approved = ユーザーが「整理する」を押した。戻り値: { ok, why, note }
+async function pruneGuard(list, approved) {
+  const acct = await ytAccount();
+  const st = await chrome.storage.local.get(['ytAcct', 'driveHint', 'acctNoticed', 'acctBlockAt', 'channels', 'meta']);
+  { const dh = String(st.driveHint || '').toLowerCase(); if (acct && acct.email && dh && acct.email !== dh) { const k = acct.email + '|' + dh; if (st.acctNoticed !== k) { await chrome.storage.local.set({ acctNoticed: k }); acctNotify('tf-acct-diff', 'YouTube と Google Drive のアカウントが違います', `YouTube: ${acct.email}\nGoogle Drive(同期): ${dh}\nTubeFolio2 のフォルダ設定は Drive のアカウントに保存されます。YouTube のアカウントを替えると、登録チャンネルの一覧が変わるので、整理は確認してから行います。`); } } }
+  let why = '', note = '';
+  if (!approved) {
+    if (acct && st.ytAcct && st.ytAcct.fp && st.ytAcct.fp !== acct.fp) { why = 'account'; note = `YouTube のアカウントが変わりました(${acctLabel(st.ytAcct)} → ${acctLabel(acct)})`; }
+    else {
+      const mm = st.meta || {}, keys = new Set(list.map(c => c.key)), ids = new Set(list.map(c => c.id).filter(Boolean)), prev = Object.values(st.channels || {}).filter(c => !c.unsub);
+      if (prev.length >= 20) { const miss = prev.filter(c => !keys.has(c.key) && !ids.has(/^UC/.test(c.key) ? c.key : (mm[c.key] && mm[c.key].id) || '')).length; if (miss > prev.length * 0.4) { why = 'drop'; note = `登録チャンネルが前回より大きく減っています(${prev.length}件のうち ${miss}件が一覧にありません)`; } }
+    }
+  }
+  if (why) {
+    if (Date.now() - (st.acctBlockAt || 0) > 6 * 3600e3) { await chrome.storage.local.set({ acctBlockAt: Date.now() }); acctNotify('tf-acct-block', '登録チャンネルの整理を止めました', note + '。フォルダ設定を守るため、削除と「未登録」の印は付けていません(追加だけ行いました)。いまの YouTube のアカウントで整理しますか?', ['このアカウントで整理する', 'あとで']); }
+    try { bgLog('取り込み', '整理を止めました: ' + note, 'warn'); } catch (e) { /* 無視 */ }
+    return { ok: false, why, note };
+  }
+  if (acct) await chrome.storage.local.set({ ytAcct: acct });
+  await subsBackup();
+  return { ok: true };
+}
+function importSubs(prune, force, approved) {
   return importP || (importP = (async () => {
     const html = await (await fetch(`${ORIGIN}/feed/channels`, { credentials: 'include' })).text();
     const mi = html.match(/ytInitialData\s*=\s*(\{[\s\S]*?\});\s*<\/script>/);
@@ -311,9 +358,10 @@ function importSubs(prune, force) {
     if (!out.size) throw new Error('no channels (ログインしていないか、YouTube側の形式が変わりました)');
     const list = [...out.values()]; let sync = { removed: [], deleted: [], note: '', held: 0 };
     await bulkMetaIds(list); // チャンネルID(UC…)を保存しておく(新着一覧が、チャンネルページを開かずにRSSを取れる。登録を解除したチャンネルを見分けるのにも使う)
-    if (prune && full) sync = await TF.syncChannels(list); else await TF.upsertChannels(list); // 一覧を最後まで取れたときだけ、印を付ける
+    let guard = { ok: true }; if (prune && full) guard = await pruneGuard(list, approved); // アカウントの入れ替わり・登録の急な減少のときは、整理しない
+    if (prune && full && guard.ok) sync = await TF.syncChannels(list); else { await TF.upsertChannels(list); if (guard.note) sync.note = guard.note + '。整理は止めました'; } // 一覧を最後まで取れたときだけ、印を付ける
     try { if (sync.deleted.length) bgLog('取り込み', `登録もフォルダも無いチャンネルを ${sync.deleted.length}件 消しました: ${sync.deleted.slice(0, 30).join(' / ')}`); if (sync.removed.length) bgLog('取り込み', `フォルダに入っている未登録のチャンネル ${sync.removed.length}件に「未登録」の印を付けました(残します): ${sync.removed.slice(0, 30).join(' / ')}`); } catch (e) { /* 無視 */ }
-    if (prune && full) await chrome.storage.local.set({ subsSyncAt: { t: Date.now(), count: out.size, removed: sync.removed.length, held: sync.held } }); // 最後に、YouTube の登録と合わせた時刻(この端末だけの記録)
+    if (prune && full && guard.ok) await chrome.storage.local.set({ subsSyncAt: { t: Date.now(), count: out.size, removed: sync.removed.length, held: sync.held } }); // 最後に、YouTube の登録と合わせた時刻(この端末だけの記録)
     return { count: out.size, removed: sync.removed.length, deleted: sync.deleted.length, note: sync.note, held: sync.held };
   })().finally(() => { importP = null; }));
 }
@@ -662,6 +710,8 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (m.type === 'syncNow') { syncNow(!!m.interactive).then(send); return true; }
   if (m.type === 'driveUp' || m.type === 'driveDown') { driveForce(m.type === 'driveUp' ? 'up' : 'down').then(send); return true; }
   if (m.type === 'subsAuto') { subsAuto(+m.gap || 0, m.why || '自動').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
+  if (m.type === 'acctGuard') { pruneGuard(m.list || [], !!m.approved).then(send).catch(() => send({ ok: false, why: 'error' })); return true; } // content.js の取り込みから
+  if (m.type === 'restoreBackup') { (async () => { const { subsBackups: b = [] } = await chrome.storage.local.get('subsBackups'), x = b[+m.i || 0]; if (!x) return { error: '控えがありません' }; await TF.mutate(s => { s.groups = x.groups; s.channels = x.channels; }); return { ok: true, t: x.t, n: x.n }; })().then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'importSubs') { logged('取り込み', importSubs(true, !!m.force), '登録チャンネルの取り込み').then(send).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'scan') { limit(() => scan(m.key)).then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'openManager') openMgr();

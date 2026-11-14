@@ -405,7 +405,7 @@
       return `<div class="fh">🧪 実験(オン/オフ)</div>${T.map(([k, ic, t, d]) => `<button data-a="lab" data-k="${k}" class="${on(k, d) ? 'act' : ''}">${ic} ${t} ${on(k, d) ? '✓' : ''}</button>`).join('')}<div class="fh">実験ページ</div><button data-a="labtra">📈 急上昇(YouTube公式API・今・要APIキー)</button><div class="fh">選ぶもの</div><button data-a="labp">▶ 外部プレイヤー: ${ep}(押して切り替え)</button><div class="fn">画質・関連動画・コメント欄・終了画面カード・ホイール音量は、TubeFolio2 の設定(⚡ 軽量化・画質)にあります</div>`;
     }
     if (key === 'vtool') return `<div class="fh">再生リスト</div><button data-a="plnew">＋ 再生リストを新しく作る</button><button data-a="pldel">🗑 再生リストを削除</button>`;
-    if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button><div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
+    if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button>${bkList[0] ? `<button data-a="restore" title="登録チャンネルの整理の直前に取った、フォルダとチャンネルの控え(最新3回分)に戻します">⏪ 整理の前に戻す(${esc(new Date(bkList[0].t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }))} ・ ${bkList[0].n}件)</button>` : ''}<div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
     if (key === 'imp') return `<div class="fh">登録チャンネル</div><button data-a="imp">⟳ 取り込みと同期</button>`;
     if (key === 'mgr') return `<div class="fh">グループ管理</div><button data-a="mgr">❖ 管理画面を開く</button>`;
     if (key === 'set') return `<div class="fh">表示</div><button data-a="hw" class="${S.settings.hideWatched ? 'act' : ''}">視聴済みを隠す ${S.settings.hideWatched ? '✓' : ''}</button><button data-a="hm" class="${S.settings.hideMix ? 'act' : ''}">ミックスリストを隠す ${S.settings.hideMix ? '✓' : ''}</button><button data-a="hbh" class="${S.settings.hbarHome === 'closed' ? 'act' : ''}">ホームではバーを閉じる ${S.settings.hbarHome === 'closed' ? '✓' : ''}</button><button data-a="hc" class="${S.settings.hideCreate === true ? 'act' : ''}">「作成」ボタンを隠す ${S.settings.hideCreate === true ? '✓' : ''}</button><button data-a="more" class="sep">⚙ そのほかの設定</button>`;
@@ -456,6 +456,7 @@
     else if (a === 'grp') { TF.mutate(s => { s.settings.activeGroup = d.g; }); if (location.pathname !== '/feed/subscriptions') location.href = '/feed/subscriptions'; }
     else if (a === 'view') { closeFly(); chrome.runtime.sendMessage({ type: 'openManager' }); } // フォルダ設定は、拡張機能のページ(管理画面)で
     else if (a === 'col') setCols(+d.n, d.k);
+    else if (a === 'restore') { if (bkList[0] && confirm('フォルダとチャンネルを、整理の前の控え(' + new Date(bkList[0].t).toLocaleString('ja-JP') + ' ・ ' + bkList[0].n + '件)に戻します。いまの内容は置き換わります。よろしいですか?')) chrome.runtime.sendMessage({ type: 'restoreBackup', i: 0 }, r => { hubSt = r && r.ok ? '⏪ 戻しました' : '⚠ ' + ((r && r.error) || '戻せませんでした'); const e = $('#tf-fly-st'); if (e) e.textContent = hubSt; }); }
     else if (a === 'sync') { hubSt = '同期中…'; const e = $('#tf-fly-st'); if (e) e.textContent = hubSt; chrome.runtime.sendMessage({ type: 'syncNow', interactive: true }, r => { hubSt = r && r.ok ? '☁ 同期しました' : '⚠ ' + ((r && r.error) || '失敗'); const x = $('#tf-fly-st'); if (x) x.textContent = hubSt; }); }
     else if (a === 'hw') TF.mutate(s => { s.settings.hideWatched = !s.settings.hideWatched; });
     else if (a === 'dis') { chrome.storage.local.get('px').then(r => { const px = r.px || {}; px.disBadge = px.disBadge === false; return chrome.storage.local.set({ px }); }); }
@@ -506,6 +507,7 @@
   window.addEventListener('blur', () => setTimeout(() => { if (document.activeElement && document.activeElement.tagName === 'IFRAME') closeAllMenus(); }, 0)); // iframeへフォーカスが移ったとき
   document.addEventListener('mousedown', e => { if ($('#tf-gsb-fly.tf-barfly') && !e.target.closest('#tf-gsb-fly') && !e.target.closest('#tf-hbar [data-a="hub"]')) closeFly(); }, true);
   // 一覧のサムネの低評価率(xtra.js の設定 px.disBadge)の状態。ボタンの見た目に使う
+  let bkList = []; chrome.storage.local.get('subsBackups').then(r => { bkList = r.subsBackups || []; }); chrome.storage.onChanged.addListener(ch => { if (ch.subsBackups) bkList = ch.subsBackups.newValue || []; });
   let pxDis = true, hideMem = false, hideSh = false, pxAll = {}; // hideMem: メンバー限定の動画を隠す(storage の hideMembers。memhide.js が隠す)
   chrome.storage.local.get('hideMembers').then(r => { hideMem = !!r.hideMembers; try { renderHBar(); } catch (e) { /* 無視 */ } });
   chrome.storage.onChanged.addListener(ch => { if (ch.hideMembers) { hideMem = !!ch.hideMembers.newValue; try { renderHBar(); } catch (e) { /* 無視 */ } } });
@@ -957,7 +959,8 @@
       const img = r.querySelector('img');
       list.push({ key, name, avatar: img && /^https:\/\/(yt3|lh3)\.|ggpht/.test(img.src) ? img.src : '' });
     });
-    const sy = list.length ? await TF.syncChannels(list) : { removed: [], note: '' }; // 取り込みと同時に、登録に無いチャンネルを整理する(フォルダに入っていれば残し、入っていなければ消す)
+    const gd = list.length ? await new Promise(res => chrome.runtime.sendMessage({ type: 'acctGuard', list: list.map(c => ({ key: c.key, id: c.id })) }, r => { void chrome.runtime.lastError; res(r || { ok: false }); })) : { ok: true }; // アカウントの入れ替わり・登録の急な減少のときは、整理しない
+    const sy = list.length ? (gd.ok ? await TF.syncChannels(list) : (await TF.upsertChannels(list), { removed: [], note: (gd.note || '整理を止めました') + '。整理は止めました' })) : { removed: [], note: '' }; // 取り込みと同時に、登録に無いチャンネルを整理する(フォルダに入っていれば残し、入っていなければ消す)
     window.scrollTo(0, 0);
     importing = false;
     toast(`✓ ${list.length}件のチャンネルを取り込みました` + (sy.note ? `(${sy.note})` : ''), 6000);
