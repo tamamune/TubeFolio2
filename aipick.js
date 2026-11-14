@@ -183,11 +183,17 @@ function openAiPick() {
     items = [...cards.querySelectorAll('.ai-c')]; armRefresh();
     const cw = cardW(); items.forEach(el => { el.style.width = cw + 'px'; }); cardH = items.length ? items[0].offsetHeight || cw * 0.9 : 0;
   }
-  // ---- 決めた時間(設定 px.aiRefresh 秒。0 = 切り替えない)がたったら、動画を取り直して入れ替える。操作中(ドラッグ・カードに乗せている間)は待つ ----
-  let reSec = 60, reTimer = 0;
+  // ---- 画面に触れていない時間が、決めた時間(設定 px.aiRefresh 秒。0 = 切り替えない)以上たったら、動画を取り直して入れ替える。触れている間(マウスを動かす・押す・ホイール・キー)は、入れ替えない ----
+  let reSec = 60, reTimer = 0, touchAt = performance.now();
+  const touch = () => { touchAt = performance.now(); };
+  ['pointermove', 'pointerdown', 'wheel', 'keydown', 'touchstart'].forEach(ev => box.addEventListener(ev, touch, { passive: true, capture: true }));
   const armRefresh = () => {
-    clearTimeout(reTimer); if (!alive || !reSec || !box.classList.contains('done')) return;
-    reTimer = setTimeout(function tick() { if (!alive) return; if (hold || hoverCard || document.hidden) { reTimer = setTimeout(tick, 5000); return; } search(calm ? 600 : 3000); }, reSec * 1000);
+    clearTimeout(reTimer); touchAt = performance.now(); if (!alive || !reSec || !box.classList.contains('done')) return;
+    reTimer = setTimeout(function tick() {
+      if (!alive || !reSec || !box.classList.contains('done')) return;
+      if (hold || document.hidden || performance.now() - touchAt < reSec * 1000) { reTimer = setTimeout(tick, 1000); return; }
+      search(calm ? 600 : 3000);
+    }, 1000);
   };
   chrome.storage.local.get('px').then(r => { const v = (r.px || {}).aiRefresh; reSec = v === undefined ? 60 : +v || 0; armRefresh(); }).catch(() => {});
   const onPx = (ch, a) => { if (a === 'local' && ch.px) { const v = (ch.px.newValue || {}).aiRefresh; reSec = v === undefined ? 60 : +v || 0; armRefresh(); } };
