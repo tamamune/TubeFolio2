@@ -12,7 +12,7 @@ const xmlTag = (s, t) => { const m = s.match(new RegExp('<' + t + '(?: [^>]*)?>(
 // 急上昇のページ: ページに埋め込まれているデータ(AF_initDataCallback の ds:0)から、関連度順に上位 N 件。
 //   hours は 4 か 24。ds:0 が読めないときは、ページの表(25件ほど)から読む
 async function fetchTrendsPage(hours, limit, cat) {
-  const res = await fetch('https://trends.google.co.jp/trending?geo=JP&hours=' + hours + (cat ? '&category=' + cat : '') + '&hl=ja', { credentials: 'omit' });
+  const res = await fetch('https://trends.google.co.jp/trending?geo=JP&hours=' + hours + '&hl=ja', { credentials: 'omit' });
   if (!res.ok) throw new Error('急上昇のページを取得できませんでした(' + res.status + ')');
   const html = await res.text();
   try {
@@ -20,11 +20,12 @@ async function fetchTrendsPage(hours, limit, cat) {
     if (m) {
       const rest = html.slice(m.index + m[0].length);
       const d = JSON.parse(rest.slice(0, rest.indexOf(', sideChannel')));
-      const items = (d[1] || []).filter(x => Array.isArray(x) && x[0]).slice(0, limit).map(x => ({
+      // カテゴリは、Google のサーバーに頼まず、データの x[10](カテゴリ番号の並び)で、こちらで絞る
+      const items = (d[1] || []).filter(x => Array.isArray(x) && x[0] && (!cat || (Array.isArray(x[10]) && x[10].includes(cat)))).slice(0, limit).map(x => ({
         title: String(x[0]), start: x[3]?.[0] || 0, end: x[4]?.[0] || 0, vol: +x[6] || 0, pct: +x[8] || 0,
         related: (x[9] || []).filter(w => w && w !== x[0]).slice(0, 12)
       }));
-      if (items.length) return items;
+      if (items.length || cat) return items; // カテゴリで絞って 0 件のときは、そのまま「0件」
     }
   } catch { /* 表から読む */ }
   const cls = (b, c) => { const mm = b.match(new RegExp('class="' + c + '"[^>]*>([^<]*)<')); return mm ? xmlText(mm[1]) : ''; };
@@ -35,14 +36,14 @@ async function fetchTrendsPage(hours, limit, cat) {
 }
 async function fetchTrends(hours, cat) {
   const items = (await fetchTrendsPage(hours, 50, cat)).map(x => ({ ...x, news: [] })); // ニュースは、ワードにマウスを乗せたときに探す
-  if (!items.length) throw new Error('急上昇ワードを読み取れませんでした(Google トレンドのページの作りが変わった可能性があります)');
+  if (!items.length && !cat) throw new Error('急上昇ワードを読み取れませんでした(Google トレンドのページの作りが変わった可能性があります)');
   return { at: Date.now(), hours, items };
 }
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg?.type !== 'tg-trends') return;
   (async () => {
     const hours = msg.hours === 4 ? 4 : msg.hours === 48 ? 48 : 24, cat = Math.max(0, Math.min(30, +msg.cat || 0)); // 48時間と、カテゴリ(Google トレンドのカテゴリ番号。0 = すべて)は、地球儀(trwsphere.js)から
-    const key = 'trendsCache' + hours + (cat ? '_c' + cat : '');
+    const key = 'trendsCache' + hours + (cat ? '_c' + cat + 'f' : '');
     const cached = (await chrome.storage.local.get(key))[key];
     const age = cached ? Date.now() - cached.at : Infinity;
     if (cached && age < (msg.force ? 60e3 : TRENDS_TTL)) return reply(cached); // 取り直しでも1分以内なら使い回す
