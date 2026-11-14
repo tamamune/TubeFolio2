@@ -400,9 +400,9 @@
       return `<div class="fh">表示の切り替え</div>${row('hw', !!S.settings.hideWatched, '🙈', '視聴済みを隠す', '登録チャンネルの一覧と、個々のチャンネルのページで、8割以上見た動画を隠します')}${row('dis', pxDis, '👎', '低評価率を表示', '一覧のサムネに、低評価の割合を出します')}${row('mem', hideMem, '👑', 'メンバー限定の動画を隠す', 'ホーム・検索・登録チャンネル・チャンネルのページで、メンバー限定の動画を隠します')}${row('shr', hideSh, '🩳', 'ホームのショートを隠す', 'ホームの一覧に出るショート(棚・単体)を隠します')}`;
     }
     if (key === 'lab') { // 🧪 実験(負荷軽減・画質・操作): 押すたびに、その場で切り替わる(メニューは開いたまま)。再生画面の ⚡ ツールと同じ設定(px)
-      const T = [['qLock', '📌', '画質を固定', false], ['h264', '🪶', 'H.264で再生(軽い・次の読み込みから)', false], ['noEndCard', '🎬', '終了画面カードを隠す', true], ['wheelVol', '🖱', 'ホイールで音量', true], ['pvNoHist', '🙈', 'プレビューを視聴履歴に入れない', true], ['origAudio', '🗣', '音声は元の言語を既定に', true], ['hideShortsHome', '🩳', 'ホームのショートを隠す', false]];
-      const on = (k, d) => (pxAll[k] === undefined ? d : !!pxAll[k]), QR = [['hd2160', '2160p'], ['hd1440', '1440p'], ['hd1080', '1080p'], ['hd720', '720p'], ['large', '480p']], ql = (QR.find(x => x[0] === (pxAll.qRes || 'hd1080')) || QR[2])[1], ep = pxAll.extPlayer === 'vlc' ? 'VLC' : 'mpv';
-      return `<div class="fh">🧪 実験(オン/オフ)</div>${T.map(([k, ic, t, d]) => `<button data-a="lab" data-k="${k}" class="${on(k, d) ? 'act' : ''}">${ic} ${t} ${on(k, d) ? '✓' : ''}</button>`).join('')}<div class="fh">⏳ 関連動画を遅らせる</div>${[5, 10].map(n => `<button data-a="labrel" data-n="${n}" class="${pxAll.lazyRel && (+pxAll.relSec || 10) === n ? 'act' : ''}">⏱ 再生${n}秒後に出す ${pxAll.lazyRel && (+pxAll.relSec || 10) === n ? '✓' : ''}</button>`).join('')}<div class="fh">💬 YouTube標準のコメント欄</div><button data-a="labcmt" data-n="-1" class="${pxAll.noNativeCmt ? 'act' : ''}">🚫 出さない ${pxAll.noNativeCmt ? '✓' : ''}</button>${[5, 10].map(n => `<button data-a="labcmt" data-n="${n}" class="${!pxAll.noNativeCmt && +pxAll.cmtSec === n ? 'act' : ''}">⏱ 再生${n}秒後に出す ${!pxAll.noNativeCmt && +pxAll.cmtSec === n ? '✓' : ''}</button>`).join('')}<div class="fh">実験ページ</div><button data-a="labtrd">📈 急上昇(日付をさかのぼる・約200本)</button><button data-a="labtra">📈 急上昇(YouTube公式API・今・要APIキー)</button><div class="fh">選ぶもの</div><button data-a="labq">📌 固定する画質: ${ql}(押して切り替え)</button><button data-a="labp">▶ 外部プレイヤー: ${ep}(押して切り替え)</button><div class="fn">画質固定・H.264・関連の遅延は、再生画面の ⚡ ツールからも変えられます</div>`;
+      const T = [['h264', '🪶', 'H.264で再生(軽い・次の読み込みから)', false], ['pvNoHist', '🙈', 'プレビューを視聴履歴に入れない', true], ['origAudio', '🗣', '音声は元の言語を既定に', true]];
+      const on = (k, d) => (pxAll[k] === undefined ? d : !!pxAll[k]), ep = pxAll.extPlayer === 'vlc' ? 'VLC' : 'mpv';
+      return `<div class="fh">🧪 実験(オン/オフ)</div>${T.map(([k, ic, t, d]) => `<button data-a="lab" data-k="${k}" class="${on(k, d) ? 'act' : ''}">${ic} ${t} ${on(k, d) ? '✓' : ''}</button>`).join('')}<div class="fh">実験ページ</div><button data-a="labtra">📈 急上昇(YouTube公式API・今・要APIキー)</button><div class="fh">選ぶもの</div><button data-a="labp">▶ 外部プレイヤー: ${ep}(押して切り替え)</button><div class="fn">画質・関連動画・コメント欄・終了画面カード・ホイール音量は、TubeFolio2 の設定(⚡ 軽量化・画質)にあります</div>`;
     }
     if (key === 'vtool') return `<div class="fh">再生リスト</div><button data-a="plnew">＋ 再生リストを新しく作る</button><button data-a="pldel">🗑 再生リストを削除</button>`;
     if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button><div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
@@ -486,10 +486,10 @@
     root.setAttribute('data-tf-fit', '');
   }
   // 各ボタン → 空のページ(後で中身を作る)。キーとタイトル
-  const HBAR_PAGES = { later: '視聴', rec: '検索', bm: 'ブックマーク', hist: '視聴履歴', histd: '🧪 履歴', rec2: '検索2' };
+  const HBAR_PAGES = { later: '視聴', rec: '検索', bm: 'ブックマーク', hist: '視聴履歴', histd: '🧪 履歴' };
   // ツールバーの置き方(試験用)。ボタン「配置」で順に切り替える
   const HBAR_MODES = [['home', '標準'], ['fixed', '固定バー'], ['bottom', '下バー']];
-  const HBAR_ICONS = { rec: '🔎', later: '🕒', bm: '🔖', hist: '📊', histd: '🧪', rec2: '🔍' };
+  const HBAR_ICONS = { rec: '🔎', later: '🕒', bm: '🔖', hist: '📊', histd: '🧪' };
   function openPg(p) { document.documentElement.setAttribute('data-tf-pgk', p); openView('page.html', '&p=' + encodeURIComponent(p) + '&t=' + encodeURIComponent(HBAR_PAGES[p] || '')); document.documentElement.setAttribute('data-tf-pgk', p); }
   // ツール(旧ハブの機能)。上のバーの右側のボタンを押すと、その下にメニューが開く
   function showBarFly(it) {
@@ -529,7 +529,7 @@
     if (skip || (!chips && !fixed && !floatMode)) { html.removeAttribute('data-tf-hbot'); if (b) b.remove(); html.removeAttribute('data-tf-hbar'); html.removeAttribute('data-tf-hfix'); return; }
     if (!b) {
       b = el('div'); b.id = 'tf-hbar';
-      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-sep" data-only="later" hidden></span><button data-a="hub" data-k="vtool" data-only="later" class="tfh-vt" title="視聴のツール" hidden>ツール ▾</button><span class="tfh-grp">${['cols', 'folder'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="hub" data-k="lab" id="tfh-lab" class="tfh-t" data-ic="🧪" title="実験(負荷軽減・画質・操作のオン/オフ)">🧪</button><button data-a="hub" data-k="disp" id="tfh-disp" class="tfh-t" data-ic="👁" title="表示の切り替え(視聴済み・低評価率・メンバー限定)">👁</button><button data-a="trw" id="tfh-trw" class="tfh-t" data-ic="🔥" title="急上昇ワード">🔥</button><button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
+      b.innerHTML = `<button data-a="min" id="tfh-min" class="tfh-min" title="小さくたたむ / 開く">▾</button>` + Object.entries(HBAR_PAGES).map(([k, t]) => `<button data-a="pg" data-p="${k}" data-ic="${HBAR_ICONS[k] || ''}" title="${t}">${t}</button>`).join('') + `<span class="tfh-sep" data-only="later" hidden></span><button data-a="hub" data-k="vtool" data-only="later" class="tfh-vt" title="視聴のツール" hidden>ツール ▾</button><span class="tfh-grp">${['cols'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="hub" data-k="disp" id="tfh-disp" class="tfh-t" data-ic="👁" title="表示の切り替え(視聴済み・低評価率・メンバー限定)">👁</button><button data-a="trw" id="tfh-trw" class="tfh-t" data-ic="🔥" title="急上昇ワード">🔥</button>${['folder'].map(k => HUB_ITEMS.find(x => x[0] === k)).filter(Boolean).map(([k, ic, nm]) => `<button data-a="hub" data-k="${k}" data-ic="${ic}" class="tfh-t" title="${nm}">${ic}</button>`).join('')}<button data-a="hub" data-k="lab" id="tfh-lab" class="tfh-t" data-ic="🧪" title="テスト(実験のオン/オフ)">🧪</button><button data-a="gear" class="tfh-t tfh-gear" title="TubeFolio2 設定">${GEAR_IMG}</button></span><button data-a="tools" id="tfh-tools" class="tfh-right" title="「すべて / 音楽…」の行を表示 / 非表示">ツール ▴</button>`;
       b.addEventListener('wheel', e => { if (b.scrollWidth > b.clientWidth + 1 && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { b.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false }); // マウスのホイールでも、横に動かせる
       b.addEventListener('scroll', () => closeFly(), { passive: true });
       b.addEventListener('click', e => {
@@ -545,6 +545,7 @@
       });
     }
     { const bg = pageBg(); if (bg) html.style.setProperty('--tf-pagebg', bg); }
+    { const lb = $('#tfh-lab', b); if (lb) { const hid = pxAll.showLab === false; if (lb.hidden !== hid) lb.hidden = hid; } }
     { const dp = $('#tfh-disp', b); if (dp) { const hid = !!S.settings.hideWatched || hideMem || hideSh, tx = hid ? '🙈' : '👁'; dp.classList.toggle('on', hid); if (dp.textContent !== tx) dp.textContent = tx; // 何かを隠しているときは 🙈
       dp.title = '表示の切り替え: ' + [S.settings.hideWatched ? '視聴済みを隠している' : '視聴済みを表示', pxDis ? '低評価率を表示' : '低評価率を隠している', hideMem ? 'メンバー限定を隠している' : 'メンバー限定を表示', hideSh ? 'ホームのショートを隠している' : 'ホームのショートを表示'].join(' ・ '); } }
     { const on = document.documentElement.getAttribute('data-tf-pgk') === 'later' && document.documentElement.hasAttribute('data-tf-pg'); b.querySelectorAll('[data-only="later"]').forEach(n => { if (n.hidden === on) n.hidden = !on; }); }

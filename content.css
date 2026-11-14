@@ -577,6 +577,7 @@ html[dark] #tf-plfly { --pf-bg: rgba(40,40,44,.72); --pf-fg: #f1f1f1; --pf-hv: r
 .tf-barfly .tf-vtf input, .tf-barfly .tf-vtf select { width: 100%; box-sizing: border-box; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--tf-line, rgba(128,128,128,.4)); background: var(--yt-spec-base-background, Canvas); color: var(--yt-spec-text-primary, CanvasText); font: inherit; }
 .tf-barfly .tf-vtf option { background: var(--yt-spec-base-background, Canvas); color: var(--yt-spec-text-primary, CanvasText); }
 
+#tf-hbar button[hidden] { display: none !important; }
 #tf-hbar button.tfh-t.on { background: rgba(255,255,255,.28); box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
 html:not([dark]) #tf-hbar button.tfh-t.on { background: rgba(0,0,0,.14); box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
 .tf-trange { display: flex; align-items: center; gap: 8px; margin-top: 6px; } .tf-trange input { flex: 1; min-width: 0; } .tf-trange b { color: var(--sub); font-weight: 400; }

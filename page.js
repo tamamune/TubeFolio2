@@ -84,7 +84,7 @@ applyCols(); chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local'
 }
 
 if (P === 'later') { viewPage(); // 視聴: 再生リスト
-} else if (P === 'rec') { recPage(); // 検索
+} else if (P === 'rec' || P === 'rec2') { recPage({ trend: true }); // 検索(急上昇の種類つき。旧「検索2」を統合)
 } else if (P === 'bm') { bmPage(); // ブックマーク
 } else if (P === 'hist') { histPage(); // 視聴履歴(histpage.js)
 } else if (P === 'trdapi') { trdApiPage(); // 急上昇動画(YouTube Data API・実験。trdpage.js)

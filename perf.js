@@ -13,8 +13,9 @@
 
   let prevQ = '';
   function apply() {
-    try { localStorage.setItem('tgPerf', JSON.stringify({ h264: !!cfg.h264, qLock: !!cfg.qLock, qRes: cfg.qRes, wheelVol: cfg.wheelVol !== false, pvNoHist: cfg.pvNoHist !== false, saver: !!cfg.saver, origAudio: cfg.origAudio !== false }));
-    if (prevQ !== cfg.qLock + '|' + cfg.qRes) { prevQ = cfg.qLock + '|' + cfg.qRes; window.dispatchEvent(new Event('tgperf-quality')); } } catch { /* なし */ }
+    const qs = cfg.qSel || (cfg.qLock ? cfg.qRes : 'auto'), qLk = qs !== 'auto'; // 画質: 自動 / 数値(以前の qLock・qRes の設定も引き継ぐ)
+    try { localStorage.setItem('tgPerf', JSON.stringify({ h264: !!cfg.h264, qLock: qLk, qRes: qs, wheelVol: cfg.wheelVol !== false, pvNoHist: cfg.pvNoHist !== false, saver: !!cfg.saver, origAudio: cfg.origAudio !== false }));
+    if (prevQ !== qLk + '|' + qs) { prevQ = qLk + '|' + qs; window.dispatchEvent(new Event('tgperf-quality')); } } catch { /* なし */ }
     root.classList.toggle('tg-noend', cfg.noEndCard !== false);
     root.classList.toggle('tg-nocmt', !!cfg.noNativeCmt);
     root.classList.toggle('tg-noshorts', !!cfg.hideShortsHome);
