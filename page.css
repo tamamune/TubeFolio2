@@ -495,7 +495,7 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 @keyframes aq-fade { from { opacity: 0; } }
 #aip .ai-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
 #aip.done { cursor: grab; } #aip.done.drag { cursor: grabbing; }
-#aip .ai-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2000; display: flex; align-items: center; gap: 10px; padding: 12px 16px; pointer-events: none; }
+#aip .ai-top { position: absolute; left: 0; right: 0; top: 64px; z-index: 2000; display: flex; align-items: center; gap: 10px; padding: 12px 16px; pointer-events: none; }
 #aip .ai-top > * { pointer-events: auto; } #aip .ai-sp { flex: 1; }
 #aip .ai-ttl { font-size: 15px; letter-spacing: .04em; } #aip .ai-ttl small { margin-left: 8px; padding: 1px 8px; border: 1px solid var(--aq-edge); border-radius: 10px; color: var(--aq-sub); font-size: 11px; font-weight: 600; }
 #aip .ai-cnt { color: var(--aq-hl); font-size: 13px; font-weight: 600; letter-spacing: .06em; }

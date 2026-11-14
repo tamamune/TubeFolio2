@@ -111,14 +111,13 @@ function openAiPick() {
   box.addEventListener('pointerdown', e => {
     if (!box.classList.contains('done') || e.button !== 0 || e.target.closest('.ai-top')) return;
     onCard = !!e.target.closest('.ai-c, .ai-msg'); dragFrom = [e.clientX, e.clientY]; moved = 0; hold = true; vx = vy = 0; lastMove = performance.now();
-    try { box.setPointerCapture(e.pointerId); } catch (x) { /* なし */ }
   });
   box.addEventListener('pointermove', e => {
     if (!dragFrom) return;
     const dx = e.clientX - dragFrom[0], dy = e.clientY - dragFrom[1], now = performance.now(), dt = Math.max(8, now - lastMove);
     moved += Math.abs(dx) + Math.abs(dy); dragFrom = [e.clientX, e.clientY]; lastMove = now;
     const k = 1 / Math.max(160, geo().R); turn(-dx * k, dy * k); vx = -dx * k / dt; vy = dy * k / dt; // 手の動きと同じ向きに、手前の面が動く
-    if (moved > 6) box.classList.add('drag');
+    if (moved > 6 && !box.classList.contains('drag')) { box.classList.add('drag'); try { box.setPointerCapture(e.pointerId); } catch (x) { /* なし */ } }
   });
   const endDrag = e => { if (!dragFrom) return; if (e && e.type === 'pointerup' && moved <= 6 && !onCard) { close(); return; } dragFrom = null; hold = false; setTimeout(() => box.classList.remove('drag'), 0); if (performance.now() - lastMove > 80) vx = vy = 0; };
   box.addEventListener('pointerup', endDrag); box.addEventListener('pointercancel', endDrag);
