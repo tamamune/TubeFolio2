@@ -11,7 +11,7 @@ html[dark] #tf-sph { --tsp-p: 170,230,255; --tsp-fg: #e8f8ff; --tsp-sub: #8db4c6
 #tf-sph .tsp-seg { display: inline-flex; border: 1px solid var(--tsp-edge); border-radius: 15px; overflow: hidden; background: var(--tsp-card); }
 #tf-sph .tsp-seg button { height: 30px; padding: 0 12px; border: 0; background: transparent; color: var(--tsp-sub); font: inherit; font-size: 13px; cursor: pointer; } #tf-sph .tsp-seg button:hover { color: var(--tsp-fg); } #tf-sph .tsp-seg button.on { background: var(--tsp-hl); color: var(--tsp-bgc); font-weight: 700; }
 #tf-sph .tsp-cat { height: 32px; padding: 0 10px; border: 1px solid var(--tsp-edge); border-radius: 16px; background: var(--tsp-card); color: var(--tsp-fg); font: inherit; font-size: 13px; cursor: pointer; } #tf-sph .tsp-cat option { background: var(--tsp-bgc); color: var(--tsp-fg); }
-#tf-sph .tsp-re, #tf-sph .tsp-x { width: 32px; height: 32px; padding: 0; border: 1px solid var(--tsp-edge); border-radius: 50%; background: var(--tsp-card); color: var(--tsp-fg); font: inherit; font-size: 15px; cursor: pointer; } #tf-sph .tsp-re:hover, #tf-sph .tsp-x:hover { border-color: var(--tsp-hl); box-shadow: 0 0 12px var(--tsp-glow); }
+#tf-sph .tsp-re, #tf-sph .tsp-x, #tf-sph .tsp-fs { width: 32px; height: 32px; padding: 0; border: 1px solid var(--tsp-edge); border-radius: 50%; background: var(--tsp-card); color: var(--tsp-fg); font: inherit; font-size: 15px; cursor: pointer; } #tf-sph .tsp-re:hover, #tf-sph .tsp-x:hover, #tf-sph .tsp-fs:hover { border-color: var(--tsp-hl); box-shadow: 0 0 12px var(--tsp-glow); }
 #tf-sph.drag { cursor: grabbing; } #tf-sph { cursor: grab; }
 #tf-sph .tsp-cards { position: absolute; inset: 0; pointer-events: none; }
 /* ワード: 色 = 検索ボリューム(--hue: 青 220 → 赤 0) */

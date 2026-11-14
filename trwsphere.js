@@ -16,12 +16,20 @@ function openTrendSphere() {
     <div class="tsp-top"><b class="tsp-ttl">🌐 急上昇ワード</b><span class="tsp-cnt"></span><span class="tsp-sp"></span>
       <span class="tsp-seg">${[4, 24, 48].map(h => `<button type="button" data-h="${h}">過去${h}時間</button>`).join('')}</span>
       <select class="tsp-cat" title="カテゴリ">${CATS.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select>
-      <button type="button" class="tsp-re" title="取り直す">↻</button><button type="button" class="tsp-x" title="閉じる(Esc)">✕</button></div>
+      <button type="button" class="tsp-fs" title="表示の範囲(サイドバーを除くメイン画面 / 画面全体)"></button><button type="button" class="tsp-re" title="取り直す">↻</button><button type="button" class="tsp-x" title="閉じる(Esc)">✕</button></div>
     <div class="tsp-cards" role="list" aria-label="急上昇ワード"></div><p class="tsp-msg" hidden></p>
     <div class="tsp-det" hidden></div>
     <div class="tsp-hint">周りをクリックで閉じる ・ ドラッグ・矢印キーで回せます ・ ホイールで大きさ ・ 色: 赤 = 検索が多い / 青 = 少ない</div>`;
   document.documentElement.appendChild(box);
   const $b = s => box.querySelector(s), cv = $b('.tsp-cv'), cards = $b('.tsp-cards'), msg = $b('.tsp-msg'), det = $b('.tsp-det');
+  // 表示の範囲: メイン画面(サイドバーを除く。上から下まで) / 画面全体(これまで)。選んだ方は覚えておく
+  let full = false; try { full = localStorage.getItem('tfTrwFull') === '1'; } catch (e) { /* なし */ }
+  const setRange = () => {
+    const pm = document.querySelector('ytd-page-manager'), l = !full && pm ? Math.max(0, Math.round(pm.getBoundingClientRect().left)) : 0;
+    box.style.left = l + 'px'; const b = $b('.tsp-fs'); b.textContent = full ? '▣' : '⛶'; b.title = full ? 'サイドバーを除くメイン画面に戻す' : '画面全体に広げる';
+  };
+  $b('.tsp-fs').addEventListener('click', () => { full = !full; try { localStorage.setItem('tfTrwFull', full ? '1' : '0'); } catch (e) { /* なし */ } setRange(); });
+  window.addEventListener('resize', setRange); const rangeT = setInterval(setRange, 1000); // サイドバーを開閉したときも、左端をそろえる
   let alive = true, sRaf = 0, items = [], els = [], CP = [], vx = 0, vy = 0, hold = false, hoverCard = false, zoom = 1, last = 0, hideT = 0;
 
   // ---- 回転(3×3 の行列。aipick.js と同じ) ----
@@ -129,7 +137,7 @@ function openTrendSphere() {
   $b('.tsp-cat').addEventListener('change', e => { cat = +e.target.value || 0; try { localStorage.setItem('tfTrwCat', String(cat)); } catch (x) { /* なし */ } load(); });
   $b('.tsp-re').addEventListener('click', () => load(true));
   const onNav = () => { if (/^\/(watch|shorts)(\/|$)/.test(location.pathname)) close(); };
-  const close = () => { alive = false; clearTimeout(hideT); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('yt-navigate-finish', onNav); };
+  const close = () => { alive = false; clearTimeout(hideT); clearInterval(rangeT); window.removeEventListener('resize', setRange); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); document.removeEventListener('yt-navigate-finish', onNav); };
   const onKey = e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
@@ -138,6 +146,6 @@ function openTrendSphere() {
   };
   document.addEventListener('keydown', onKey, true); document.addEventListener('yt-navigate-finish', onNav);
   $b('.tsp-x').addEventListener('click', close);
-  fit(); load();
+  setRange(); fit(); load();
 }
 document.addEventListener('tg-open-sphere', () => openTrendSphere());
