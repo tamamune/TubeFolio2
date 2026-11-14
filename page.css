@@ -193,6 +193,7 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 .rrn button { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--sub); font: 500 13px/26px Roboto, Arial, sans-serif; cursor: pointer; }
 .rrn button:hover { background: var(--chip2); color: var(--fg); }
 .rrn button.on { background: var(--fg); color: var(--bg); }
+.rrn select { height: 28px; padding: 0 6px; border: 0; border-radius: 14px; background: var(--chip); color: var(--fg); font: 600 13px Roboto, Arial, sans-serif; cursor: pointer; } .rrn select option { background: var(--bg); color: var(--fg); }
 
 /* ---------- 視聴履歴のページ(histpage.js) ---------- */
 /* 棒の色は1色(量を表すだけ)。文字は、文字の色のまま。ライト/ダークで、それぞれの色を用意する */

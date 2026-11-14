@@ -362,18 +362,22 @@ let feedP = null;
 // 結果のキャッシュ(feedCache_v/s/l)と、ショートの投稿日(spub)は、取り直せる一時データなので、Drive同期(SYNC_KEYS)の対象にしない。
 const feedPs = {}, feedProgs = {};
 const idleProg = () => ({ running: false, phase: '', done: 0, total: 0, items: [] });
-function feedAll(days, force, kind = 'v') {
+// quick = true: 「今日の分」だけを先に返す(最近投稿したチャンネルと、まだ分からないチャンネルだけ調べる。キャッシュには書かない)。新しいキャッシュがあれば、それをそのまま返す
+function feedAll(days, force, kind = 'v', quick = false) {
   if (!'vsl'.includes(kind)) kind = 'v';
-  if (feedPs[kind]) return feedPs[kind];
-  feedPs[kind] = (async () => {
+  const pk = kind + (quick ? ':q' : '');
+  if (feedPs[pk]) return feedPs[pk];
+  feedPs[pk] = (async () => {
     const ck = 'feedCache_' + kind;
     const st = await chrome.storage.local.get(['channels', ck, 'spub', 'meta']);
-    if (!force && st[ck] && st[ck].days === days && Date.now() - st[ck].t < (kind === 'l' ? 2 : 10) * 60 * 1000) return st[ck];
+    if (!force && st[ck] && (quick ? st[ck].days >= days : st[ck].days === days) && Date.now() - st[ck].t < (kind === 'l' ? 2 : 10) * 60 * 1000) return st[ck];
     const channels = st.channels || {}, keys = Object.keys(channels), spub = st.spub || {};
+    if (quick) { days = 1; }
     // チャンネルIDが未取得のチャンネルが多いときは、登録チャンネルの取り込み(1回の通信でまとめて取れる)でIDを集める
     { const { meta = {} } = await chrome.storage.local.get('meta'); const noId = keys.filter(k => !k.startsWith('UC') && !(meta[k] && meta[k].id));
       if (noId.length > 20) { feedProgs[kind] = { running: true, phase: 'チャンネルIDを取得中', done: 0, total: 0, items: [] }; try { await importSubs(); } catch (e) { /* ログインしていない等。個別に解決する */ } } }
     const d0 = new Date(); d0.setHours(0, 0, 0, 0); const cut = d0.getTime() - (days - 1) * 86400000;
+    if (quick) { const mm = st.meta || {}, part = keys.filter(k => { const v = mm[k] && mm[k][kind]; return v === undefined || v > cut; }); keys.length = 0; keys.push(...part); }
     const prog = feedProgs[kind] = { running: true, phase: '新着を取得中', done: 0, total: keys.length, items: [] };
     const items = prog.items;
     // 新着が見つかりやすい順(最近投稿したチャンネル → 不明 → 長く投稿のないチャンネル)に取得して、新しい動画が先に画面へ出るようにする
@@ -397,10 +401,11 @@ function feedAll(days, force, kind = 'v') {
     });
     const sk = Object.keys(spub); if (sk.length > 4000) sk.slice(0, sk.length - 4000).forEach(i => delete spub[i]);
     const out = { t: Date.now(), days, kind, items: items.slice() };
+    if (quick) return { ...out, quick: true };
     await chrome.storage.local.set({ [ck]: out, spub });
     return out;
-  })().finally(() => { feedProgs[kind] = idleProg(); delete feedPs[kind]; });
-  return feedPs[kind];
+  })().finally(() => { feedProgs[kind] = idleProg(); delete feedPs[pk]; });
+  return feedPs[pk];
 }
 
 // ---------- 再生画面: コメント(時刻リスト・流れるコメント用)と翻訳 ----------
@@ -603,7 +608,7 @@ chrome.runtime.onStartup.addListener(() => { setTimeout(() => musicAuto(false), 
 
 chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
-  if (m.type === 'feedAll') { logged('新着', feedAll(m.days || 4, !!m.force, m.kind), '新着一覧(' + (m.kind || 'v') + ')を取得').then(send).catch(e => send({ error: String(e) })); return true; }
+  if (m.type === 'feedAll') { logged('新着', feedAll(m.days || 4, !!m.force, m.kind, !!m.quick), '新着一覧(' + (m.kind || 'v') + ')を取得').then(send).catch(e => send({ error: String(e) })); return true; }
   if (m.type === 'feedStatus') { send(feedProgs[m.kind || 'v'] || idleProg()); return; }
   if (m.type === 'plAdd') { logged('再生リスト', plAdd(m.videoId, m.listId), '「後で見る」などに追加').then(send).catch(e => { if (!m.listId) chrome.storage.local.remove('plTargetId'); send({ error: String(e.message || e) }); }); return true; }
   if (m.type === 'cmtPage') { cmtPage(m.videoId, m.token).then(send).catch(e => send({ error: String(e.message || e) })); return true; }

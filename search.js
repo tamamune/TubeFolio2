@@ -156,7 +156,11 @@ function recPage(opts = {}) {
           const p = await send({ type: 'feedStatus', kind }); if (my !== gen || !p || !p.running) return;
           prog(p.done, p.total, (p.items || []).length);
         }, 400);
-        let r; try { r = await send({ type: 'feedAll', days: DAYS, kind }); } finally { clearInterval(poll); }
+        let r; try {
+          // まず「今日の分」だけを先に出す(新しいキャッシュがあれば、それがそのまま全期間の結果)。そのあと、直近DAYS日ぶんを取って、並べ直す
+          if (!more) { const q1 = await send({ type: 'feedAll', days: DAYS, kind, quick: true }); if (my !== gen) return; if (q1 && !q1.error && !q1.quick) r = q1; else if (q1 && !q1.error && (q1.items || []).length) { apply(q1.items); st.textContent = visibleCount() + '件(今日の分・続きを取得中…)'; } }
+          if (!r) r = await send({ type: 'feedAll', days: DAYS, kind });
+        } finally { clearInterval(poll); }
         if (my !== gen) return;
         if (!r || r.error) { st.textContent = ''; return note('取得できませんでした' + (r && r.error ? '(' + r.error + ')' : '')); }
         apply(r.items || []);
@@ -189,14 +193,12 @@ function recPage(opts = {}) {
   // 🎲 ランダムタグ: 溜まったタグ(playedTags)から、回数の多いものほど選ばれやすく選んで、キーワードに入れて探す
   //   いくつ選ぶか(1〜5)は px.randN(Drive同期)。2つ以上は、別々のタグを選んで「a | b | c」(どれかを含む)でまとめて探す
   let randN = 1;
-  const drawRandN = () => { $('#rrn').innerHTML = [1, 2, 3, 4, 5].map(n => `<button type="button" data-rn="${n}" class="${n === randN ? 'on' : ''}" title="${n}つ選ぶ">${n}</button>`).join(''); };
+  const drawRandN = () => { $('#rrn').innerHTML = `<select id="rrsel" title="選ぶタグの数(マウスのホイールでも変えられます)">${[1, 2, 3, 4, 5].map(n => `<option value="${n}"${n === randN ? ' selected' : ''}>${n}個</option>`).join('')}</select>`; };
   chrome.storage.local.get('px').then(r => { randN = Math.min(5, Math.max(1, +((r.px || {}).randN) || 1)); drawRandN(); });
   drawRandN();
-  $('#rrn').addEventListener('click', async e => {
-    const b = e.target.closest('[data-rn]'); if (!b) return;
-    randN = +b.dataset.rn; drawRandN();
-    const { px = {} } = await chrome.storage.local.get('px'); await chrome.storage.local.set({ px: { ...px, randN }, prefsAt: Date.now() });
-  });
+  const saveRandN = async () => { const { px = {} } = await chrome.storage.local.get('px'); await chrome.storage.local.set({ px: { ...px, randN }, prefsAt: Date.now() }); };
+  $('#rrn').addEventListener('change', e => { if (e.target.id !== 'rrsel') return; randN = Math.min(5, Math.max(1, +e.target.value || 1)); saveRandN(); });
+  $('#rrn').addEventListener('wheel', e => { e.preventDefault(); randN = Math.min(5, Math.max(1, randN + (e.deltaY > 0 ? 1 : -1))); drawRandN(); saveRandN(); }, { passive: false }); // ホイールで数を変える
   $('#rrand').addEventListener('click', async () => {
     const { playedTags = {} } = await chrome.storage.local.get('playedTags');
     const list = Object.values(playedTags).filter(e => e && e.t && !e.x && !e.ng);
@@ -208,7 +210,9 @@ function recPage(opts = {}) {
       for (; i < list.length - 1; i++) { r -= w[i]; if (r <= 0) break; }
       picks.push(list.splice(i, 1)[0].t);
     }
-    $('#rq').value = picks.join(' | '); updClear(); run(false);
+    $('#rq').value = picks.join(' | '); updClear();
+    if (scope !== 'all') { scope = 'all'; lset('tfRecScope', scope); $('#rs').innerHTML = seg(SCOPES, scope, 's'); } // 対象を「すべて」にして探す
+    run(false);
   });
   // ✕ クリア: キーワードを消して、フォルダの絞り込みを「すべて」に戻して、探し直す。消すものがあるときだけ出す
   const updClear = () => { const c = $('#rclear'); if (c) c.hidden = !($('#rq').value.trim() || fold !== 'all'); };
