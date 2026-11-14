@@ -1,4 +1,4 @@
-// 視聴の「✨ AIおすすめ(試作)」
+// 視聴の「✨ おすすめ動画(試作)」
 //   検索中: 画面全体を半透明で覆い、真ん中に点と線でできた球(ネットワークの球)を回す。その下に「検索中…」と 0%→100% のシークバー。
 //           進むにつれて、散らばった点が集まって球になる。
 //   結果:   たくさんの動画(最大36本)を、球の表面に並べたカードにして、後ろの点の球と一緒に回す。
@@ -14,7 +14,7 @@ function openAiPick() {
   const MAXN = 36;
   const box = document.createElement('div'); box.id = 'aip'; box.className = 'thinking';
   box.innerHTML = `<div class="ai-bg"></div><canvas class="ai-cv" aria-hidden="true"></canvas>
-    <div class="ai-top"><b class="ai-ttl">✨ AIおすすめ<small>試作</small></b><span class="ai-cnt"></span><span class="ai-sp"></span><button type="button" class="ai-re" hidden>🔄 違う動画を探す</button><button type="button" class="ai-x" title="閉じる(Esc)">✕</button></div>
+    <div class="ai-top"><b class="ai-ttl">✨ おすすめ動画<small>試作</small></b><span class="ai-cnt"></span><span class="ai-sp"></span><button type="button" class="ai-re" hidden>🔄 違う動画を探す</button><button type="button" class="ai-x" title="閉じる(Esc)">✕</button></div>
     <div class="ai-txt"><b>検索中<span class="ai-dots"><i>.</i><i>.</i><i>.</i></span></b><small class="ai-step">準備しています</small>
       <div class="ai-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i class="ai-fill"></i><span class="ai-head"></span></div><div class="ai-pct">0%</div></div>
     <div class="ai-cards" role="list" aria-label="おすすめの動画"></div>
@@ -180,12 +180,21 @@ function openAiPick() {
     $b('.ai-cnt').textContent = list.length ? `${list.length}本` : '';
     placeCards(list.length);
     cards.innerHTML = list.length ? list.map(card).join('') : '<p class="ai-msg">おすすめできる動画が見つかりませんでした(YouTube にログインしているか、確認してください)</p>';
-    items = [...cards.querySelectorAll('.ai-c')];
+    items = [...cards.querySelectorAll('.ai-c')]; armRefresh();
     const cw = cardW(); items.forEach(el => { el.style.width = cw + 'px'; }); cardH = items.length ? items[0].offsetHeight || cw * 0.9 : 0;
   }
+  // ---- 決めた時間(設定 px.aiRefresh 秒。0 = 切り替えない)がたったら、動画を取り直して入れ替える。操作中(ドラッグ・カードに乗せている間)は待つ ----
+  let reSec = 60, reTimer = 0;
+  const armRefresh = () => {
+    clearTimeout(reTimer); if (!alive || !reSec || !box.classList.contains('done')) return;
+    reTimer = setTimeout(function tick() { if (!alive) return; if (hold || hoverCard || document.hidden) { reTimer = setTimeout(tick, 5000); return; } search(calm ? 600 : 3000); }, reSec * 1000);
+  };
+  chrome.storage.local.get('px').then(r => { const v = (r.px || {}).aiRefresh; reSec = v === undefined ? 60 : +v || 0; armRefresh(); }).catch(() => {});
+  const onPx = (ch, a) => { if (a === 'local' && ch.px) { const v = (ch.px.newValue || {}).aiRefresh; reSec = v === undefined ? 60 : +v || 0; armRefresh(); } };
+  chrome.storage.onChanged.addListener(onPx);
   const search = (min) => run(typeof reelGather === 'function' ? reelGather() : Promise.resolve(null), min).then(pool => show(pickMany(pool)));
   reBtn.addEventListener('click', () => search(calm ? 600 : 3000));
-  const close = () => { alive = false; cancelAnimationFrame(raf); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); };
+  const close = () => { alive = false; clearTimeout(reTimer); chrome.storage.onChanged.removeListener(onPx); cancelAnimationFrame(raf); cancelAnimationFrame(sRaf); ro.disconnect(); box.remove(); document.removeEventListener('keydown', onKey, true); };
   const onKey = e => {
     if (e.key === 'Escape') { e.preventDefault(); close(); return; }
     if (!box.classList.contains('done')) return;
