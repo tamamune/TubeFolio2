@@ -5,7 +5,7 @@ function trwPage() {
   main.style.position = 'relative'; let hours = 4, items = [];
   try { hours = +(localStorage.getItem('tfTrwHours') || 4) === 24 ? 24 : 4; } catch (e) { /* なし */ }
   main.innerHTML = `<div class="head"><h1>${esc(TITLE)}</h1><span class="sub">Google トレンド・日本(テスト)</span><span class="sp"></span>
-    <span class="trw-seg" id="trw-hr"><button data-h="4">過去4時間</button><button data-h="24">過去24時間</button></span><button id="trw-re" class="trw-re" title="取り直す">↻</button></div>
+    <span class="trw-seg" id="trw-hr"><button data-h="4">過去4時間</button><button data-h="24">過去24時間</button></span><button id="trw-re" class="trw-re" title="取り直す">↻</button><button id="trw-sp" class="trw-re" title="球で見る(おすすめ動画と同じ見た目)">🌐</button></div>
     <div id="trw-cloud" class="trw-cloud"><p class="empty">読み込み中…</p></div><div id="trw-tip" class="trw-tip" hidden></div>`;
   const cloud = $('#trw-cloud'), tip = $('#trw-tip');
   const num = it => { const t = String(it.traffic || ''); let n = +it.vol || 0; if (!n) { const m = /([\d,.]+)\s*(万)?/.exec(t); if (m) n = parseFloat(m[1].replace(/,/g, '')) * (m[2] ? 10000 : 1); } return n || 0; };
@@ -37,5 +37,7 @@ function trwPage() {
     tip.hidden = false; const r = main.getBoundingClientRect(); tip.style.left = Math.max(0, Math.min(e.clientX - r.left + 14, r.width - 260)) + 'px'; tip.style.top = (e.clientY - r.top + 18) + 'px';
   });
   cloud.addEventListener('mouseleave', () => { tip.hidden = true; });
+  $('#trw-sp').addEventListener('click', () => { if (typeof openTrendSphere === 'function') openTrendSphere(); });
   syncH(); load();
+  if (typeof openTrendSphere === 'function') openTrendSphere(); // 開いたら、まず球で見せる(閉じると、雲の表示)
 }
