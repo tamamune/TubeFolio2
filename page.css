@@ -485,68 +485,54 @@ h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 700; }
 #reel .rl-pb { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.35); }
 #reel .rl-pb i { display: block; height: 100%; background: #f00; }
 
-/* ---------- ✨ AIおすすめ(試作。aipick.js): 丸い半透明の背景 + 点と線の球 → 検索中… → 0〜100% のバー → 球の周りに10本 ----------
-   色は --aq-* で持つ。ダーク = 黒地に水色の光(画像の色)、ライト = 白地に深い青(白地でも点と線が見えるように)。球の色は --aq-p(R,G,B)を aipick.js が読む */
-:root { --aq-p: 0,105,160; --aq-orb: rgba(255,255,255,.78); --aq-edge: rgba(0,110,165,.28); --aq-fg: #0b2a3a; --aq-sub: #46697a; --aq-card: rgba(255,255,255,.9); --aq-glow: rgba(0,140,210,.35); --aq-dim: rgba(225,238,246,.6); --aq-track: rgba(0,90,140,.15); --aq-hl: #0a7fc0; }
-:root[data-theme="dark"] { --aq-p: 170,230,255; --aq-orb: rgba(2,8,14,.8); --aq-edge: rgba(150,225,255,.25); --aq-fg: #e8f8ff; --aq-sub: #8db4c6; --aq-card: rgba(5,15,24,.86); --aq-glow: rgba(120,210,255,.45); --aq-dim: rgba(0,3,8,.62); --aq-track: rgba(170,230,255,.16); --aq-hl: #9fe3ff; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --aq-p: 170,230,255; --aq-orb: rgba(2,8,14,.8); --aq-edge: rgba(150,225,255,.25); --aq-fg: #e8f8ff; --aq-sub: #8db4c6; --aq-card: rgba(5,15,24,.86); --aq-glow: rgba(120,210,255,.45); --aq-dim: rgba(0,3,8,.62); --aq-track: rgba(170,230,255,.16); --aq-hl: #9fe3ff; } }
-#aip { position: fixed; inset: 0; z-index: 100000; overflow: hidden; color: var(--aq-fg); font-family: Roboto, Arial, "Noto Sans JP", sans-serif; }
-#aip .ai-bg { position: absolute; inset: 0; background: var(--aq-dim); backdrop-filter: blur(6px); animation: aq-fade .3s ease-out; }
+/* ---------- ✨ AIおすすめ(試作。aipick.js): 画面全体の半透明の背景 + 点と線の球 → 検索中… → 0〜100% のバー → カードの球(上下左右に回せる) ----------
+   色は --aq-* で持つ。ダーク = 黒地に水色の光、ライト = 白地に深い青(白地でも点と線が見えるように)。球の色は --aq-p(R,G,B)を aipick.js が読む */
+:root { --aq-p: 0,105,160; --aq-fg: #0b2a3a; --aq-sub: #46697a; --aq-edge: rgba(0,110,165,.3); --aq-card: rgba(255,255,255,.92); --aq-glow: rgba(0,140,210,.35); --aq-dim: rgba(232,242,249,.84); --aq-track: rgba(0,90,140,.15); --aq-hl: #0a7fc0; }
+:root[data-theme="dark"] { --aq-p: 170,230,255; --aq-fg: #e8f8ff; --aq-sub: #8db4c6; --aq-edge: rgba(150,225,255,.28); --aq-card: rgba(5,15,24,.9); --aq-glow: rgba(120,210,255,.45); --aq-dim: rgba(1,5,10,.86); --aq-track: rgba(170,230,255,.16); --aq-hl: #9fe3ff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --aq-p: 170,230,255; --aq-fg: #e8f8ff; --aq-sub: #8db4c6; --aq-edge: rgba(150,225,255,.28); --aq-card: rgba(5,15,24,.9); --aq-glow: rgba(120,210,255,.45); --aq-dim: rgba(1,5,10,.86); --aq-track: rgba(170,230,255,.16); --aq-hl: #9fe3ff; } }
+#aip { position: fixed; inset: 0; z-index: 100000; overflow: hidden; color: var(--aq-fg); font-family: Roboto, Arial, "Noto Sans JP", sans-serif; user-select: none; touch-action: none; }
+#aip .ai-bg { position: absolute; inset: 0; background: var(--aq-dim); backdrop-filter: blur(6px); animation: aq-fade .35s ease-out; }
 @keyframes aq-fade { from { opacity: 0; } }
-#aip .ai-top { position: absolute; left: 0; right: 0; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 12px 16px; pointer-events: none; }
+#aip .ai-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+#aip.done { cursor: grab; } #aip.done.drag { cursor: grabbing; }
+#aip .ai-top { position: absolute; left: 0; right: 0; top: 0; z-index: 2000; display: flex; align-items: center; gap: 10px; padding: 12px 16px; pointer-events: none; }
 #aip .ai-top > * { pointer-events: auto; } #aip .ai-sp { flex: 1; }
 #aip .ai-ttl { font-size: 15px; letter-spacing: .04em; } #aip .ai-ttl small { margin-left: 8px; padding: 1px 8px; border: 1px solid var(--aq-edge); border-radius: 10px; color: var(--aq-sub); font-size: 11px; font-weight: 600; }
+#aip .ai-cnt { color: var(--aq-hl); font-size: 13px; font-weight: 600; letter-spacing: .06em; }
 #aip .ai-x, #aip .ai-re { height: 32px; padding: 0 14px; border: 1px solid var(--aq-edge); border-radius: 16px; background: var(--aq-card); color: var(--aq-fg); font: inherit; font-size: 13px; cursor: pointer; }
 #aip .ai-x { width: 32px; padding: 0; } #aip .ai-x:hover, #aip .ai-re:hover { border-color: var(--aq-hl); box-shadow: 0 0 12px var(--aq-glow); }
-/* 丸い半透明の背景(真ん中)。考えている間は大きく、結果では小さくなって真ん中に残る */
-#aip .ai-orb { position: absolute; left: 50%; top: 50%; z-index: 3; width: min(560px, 86vw, 82vh); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%;
-  background: radial-gradient(circle, var(--aq-orb) 55%, color-mix(in srgb, var(--aq-orb) 55%, transparent) 100%); border: 1px solid var(--aq-edge); box-shadow: 0 0 60px var(--aq-glow), inset 0 0 50px var(--aq-glow);
-  transition: width .7s cubic-bezier(.2,.8,.2,1), top .7s cubic-bezier(.2,.8,.2,1); animation: aq-pop .45s cubic-bezier(.2,.8,.2,1); }
-@keyframes aq-pop { from { opacity: 0; transform: translate(-50%, -50%) scale(.85); } }
-#aip .ai-cv { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; }
-#aip .ai-txt { position: absolute; left: 0; right: 0; bottom: 13%; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: opacity .3s; }
+#aip .ai-re[hidden] { display: none; }
+/* 検索中の文字とバー(球の下) */
+#aip .ai-txt { position: absolute; left: 50%; top: calc(42% + min(27vw, 27vh) + 18px); transform: translateX(-50%); width: min(460px, 86vw); display: flex; flex-direction: column; align-items: center; gap: 4px; transition: opacity .3s; z-index: 5; }
+#aip.done .ai-txt { opacity: 0; pointer-events: none; }
 #aip .ai-txt b { font-size: 22px; letter-spacing: .12em; color: var(--aq-hl); text-shadow: 0 0 14px var(--aq-glow); }
 #aip .ai-dots i { font-style: normal; animation: aq-dot 1.2s infinite; } #aip .ai-dots i:nth-child(2) { animation-delay: .2s; } #aip .ai-dots i:nth-child(3) { animation-delay: .4s; }
 @keyframes aq-dot { 0%, 60%, 100% { opacity: .2; } 30% { opacity: 1; } }
-#aip .ai-step { color: var(--aq-sub); font-size: 13px; min-height: 18px; } #aip .ai-step.in { animation: aq-step .35s ease-out; }
+#aip .ai-step { color: var(--aq-sub); font-size: 14px; min-height: 18px; } #aip .ai-step.in { animation: aq-step .35s ease-out; }
 @keyframes aq-step { from { opacity: 0; transform: translateY(4px); } }
 /* シークバー(YouTube の再生バーの形。色は球と同じ水色/青) */
-#aip .ai-bar { position: relative; width: 62%; height: 4px; margin-top: 10px; border-radius: 2px; background: var(--aq-track); }
+#aip .ai-bar { position: relative; width: 100%; height: 4px; margin-top: 10px; border-radius: 2px; background: var(--aq-track); }
 #aip .ai-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 2px; background: linear-gradient(90deg, rgba(var(--aq-p),.35), rgb(var(--aq-p))); box-shadow: 0 0 10px var(--aq-glow); }
 #aip .ai-head { position: absolute; top: 50%; left: 0; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: rgb(var(--aq-p)); box-shadow: 0 0 12px 3px var(--aq-glow); }
-#aip .ai-pct { margin-top: 6px; color: var(--aq-sub); font: 600 13px/1 Roboto, Arial, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
-#aip .ai-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; opacity: 0; pointer-events: none; transition: opacity .4s .3s; }
-#aip .ai-mid b { font-size: 30px; color: var(--aq-hl); text-shadow: 0 0 16px var(--aq-glow); } #aip .ai-mid small { color: var(--aq-sub); font-size: 11px; letter-spacing: .1em; }
-#aip .ai-mid .ai-re { margin-top: 8px; height: 26px; padding: 0 10px; font-size: 11.5px; }
-#aip.done .ai-txt { opacity: 0; pointer-events: none; }
-#aip.done .ai-orb { width: 200px; }
-#aip.done .ai-mid { opacity: 1; pointer-events: auto; }
-/* 結果: 球から各カードへの線(光が流れる) */
-#aip .ai-links { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; pointer-events: none; }
-#aip .ai-ln { stroke: rgb(var(--aq-p)); stroke-opacity: .35; stroke-width: 1; stroke-dasharray: 3 7; opacity: 0; animation: aq-ln .5s ease-out var(--d) forwards, aq-flow 1.4s linear infinite; }
-#aip .ai-ln.on { stroke-opacity: .95; stroke-width: 1.6; filter: drop-shadow(0 0 4px rgb(var(--aq-p))); }
-@keyframes aq-ln { to { opacity: 1; } } @keyframes aq-flow { to { stroke-dashoffset: -20; } }
-#aip .ai-nd { fill: rgb(var(--aq-p)); opacity: 0; animation: aq-ln .4s ease-out var(--d) forwards; filter: drop-shadow(0 0 4px rgb(var(--aq-p))); }
-/* 結果のカード: ガラスの板。1枚ずつ、走査線のように現れる */
-#aip .ai-cards { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
-#aip .ai-c { position: absolute; display: flex; flex-direction: column; color: inherit; text-decoration: none; border: 1px solid var(--aq-edge); border-radius: 14px; overflow: hidden; background: var(--aq-card);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--aq-glow) 60%, transparent); pointer-events: auto; opacity: 0; animation: aq-card .6s cubic-bezier(.2,.8,.2,1) var(--d) forwards; transition: transform .2s, box-shadow .2s, border-color .2s; }
-@keyframes aq-card { 0% { opacity: 0; clip-path: inset(0 0 100% 0); filter: brightness(2.2) blur(2px); } 60% { opacity: 1; clip-path: inset(0 0 0 0); } 100% { opacity: 1; clip-path: inset(0 0 0 0); filter: none; } }
-#aip .ai-c:hover { transform: scale(1.07); z-index: 2; border-color: var(--aq-hl); box-shadow: 0 0 26px var(--aq-glow); }
+#aip .ai-pct { margin-top: 6px; color: var(--aq-sub); font: 600 14px/1 Roboto, Arial, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
+/* 結果のカード(球の表面に並ぶ。位置・大きさ・濃さは aipick.js が毎フレーム決める) */
+#aip .ai-cards { position: absolute; inset: 0; pointer-events: none; }
+#aip .ai-c { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; color: inherit; text-decoration: none; pointer-events: auto; will-change: transform, opacity; }
+#aip .ai-c.back { pointer-events: none; } /* 奥のカードは押せない(手前のカードと重なるため) */
+#aip.drag .ai-c { pointer-events: none; }
+#aip .ai-ci { display: flex; flex-direction: column; border: 1px solid var(--aq-edge); border-radius: 12px; overflow: hidden; background: var(--aq-card); box-shadow: 0 0 16px color-mix(in srgb, var(--aq-glow) 60%, transparent);
+  animation: aq-card .6s cubic-bezier(.2,.8,.2,1) var(--d) both; transition: transform .2s, box-shadow .2s, border-color .2s; }
+@keyframes aq-card { 0% { opacity: 0; clip-path: inset(0 0 100% 0); filter: brightness(2.2); } 60% { opacity: 1; clip-path: inset(0 0 0 0); } 100% { opacity: 1; clip-path: inset(0 0 0 0); filter: none; } }
+#aip .ai-c:hover .ai-ci { transform: scale(1.12); border-color: var(--aq-hl); box-shadow: 0 0 26px var(--aq-glow); }
 #aip .ai-th { position: relative; aspect-ratio: 16 / 9; background: #000; }
-#aip .ai-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
-#aip .ai-len { position: absolute; right: 5px; bottom: 5px; padding: 0 5px; border-radius: 4px; background: rgba(0,0,0,.78); color: #fff; font: 600 11px/17px Roboto, Arial, sans-serif; }
+#aip .ai-th img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+#aip .ai-len { position: absolute; right: 4px; bottom: 4px; padding: 0 5px; border-radius: 4px; background: rgba(0,0,0,.78); color: #fff; font: 600 10.5px/16px Roboto, Arial, sans-serif; }
 #aip .ai-pb { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.35); } #aip .ai-pb i { display: block; height: 100%; background: #f00; }
-#aip .ai-tx { display: flex; flex-direction: column; gap: 2px; padding: 6px 9px 8px; min-width: 0; }
-#aip .ai-src { color: var(--aq-hl); font: 600 10.5px/14px Roboto, Arial, "Noto Sans JP", sans-serif; font-style: normal; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#aip .ai-tx b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 12.5px; font-weight: 500; line-height: 17px; }
-#aip .ai-tx small { color: var(--aq-sub); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#aip .ai-msg { position: absolute; left: 50%; top: calc(50% + 130px); transform: translateX(-50%); width: min(520px, 90vw); text-align: center; color: var(--aq-sub); font-size: 13px; pointer-events: auto; }
-/* 狭い画面: 球を上に、カードを下に並べる(線は出さない) */
-#aip.grid .ai-orb { top: 130px; }
-#aip.grid.done .ai-orb { width: 160px; }
-#aip.grid .ai-cards { top: 225px; overflow: auto; padding: 0 16px 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; align-content: start; pointer-events: auto; }
-#aip.grid .ai-c { position: relative; }
-@media (prefers-reduced-motion: reduce) { #aip .ai-ln, #aip .ai-c, #aip .ai-dots i { animation-duration: .01s; } }
-#aip.done:not(.grid) .ai-orb { top: var(--aq-cy, 50%); } /* 結果: 球を、カードの枠の真ん中へ */
-#aip .ai-txt { padding: 8px 0; background: radial-gradient(ellipse 60% 70% at center, var(--aq-orb) 35%, transparent 75%); } /* 文字の後ろを少し暗く(明るく)して、点と線に重なっても読めるように */
+#aip .ai-tx { display: flex; flex-direction: column; gap: 1px; padding: 5px 8px 7px; min-width: 0; }
+#aip .ai-src { color: var(--aq-hl); font: 600 10px/13px Roboto, Arial, "Noto Sans JP", sans-serif; font-style: normal; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#aip .ai-tx b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 12px; font-weight: 500; line-height: 16px; }
+#aip .ai-tx small { color: var(--aq-sub); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#aip .ai-msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, 90vw); text-align: center; color: var(--aq-sub); font-size: 13px; pointer-events: auto; }
+#aip .ai-hint { position: absolute; left: 0; right: 0; bottom: 12px; z-index: 2000; text-align: center; color: var(--aq-sub); font-size: 12px; opacity: 0; transition: opacity .4s .6s; pointer-events: none; }
+#aip.done .ai-hint { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #aip .ai-ci, #aip .ai-dots i { animation-duration: .01s; } }
