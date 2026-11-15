@@ -47,8 +47,18 @@ html[dark] #tfsh{--sh-bg:rgba(32,32,32,.88);--sh-fg:#f1f1f1;--sh-sub:#bdbdbd;--s
 #tfsh.clr:hover,#tfsh.clr:focus-within{opacity:1}
 #tfsh.clr > :not(.sh-clrrow){display:none}
 #tfsh.clr .sh-clr{width:38px;flex:none;background:var(--sh-bg)}
-@media (max-width:900px){#tfsh{left:6px;width:124px}}
-@media (pointer:coarse){#tfsh{width:150px;gap:8px;padding:10px}#tfsh button{height:46px;font-size:15px;border-radius:12px}#tfsh .sh-t{font-size:12px}#tfsh .sh-t b{font-size:15px}#tfsh .sh-fold{height:30px}#tfsh.fold .sh-fold{height:46px;width:46px}#tfsh.clr .sh-clr{width:50px}}
+/* スマホ・狭い画面: 文字を隠して、アイコンだけの細い縦の帯にする(動画をじゃましない。指で押しやすい大きさ) */
+@media (pointer:coarse),(max-width:900px){
+#tfsh{left:4px;width:54px;gap:6px;padding:6px}
+#tfsh .sh-r{flex-direction:column}
+#tfsh button{height:44px;padding:0;font-size:17px;border-radius:12px}
+#tfsh .l{display:none}
+#tfsh .sh-t{font-size:10px;line-height:1.3}#tfsh .sh-t b{display:block;font-size:12px}#tfsh .sh-t br{display:none}
+#tfsh .sh-fold{height:30px;font-size:16px}
+#tfsh.fold{width:auto}#tfsh.fold .sh-fold{height:44px;width:44px}
+#tfsh.clr .sh-clr{width:44px}
+#tfsh [data-a=back],#tfsh [data-a=fwd]{font-size:14px}
+#tfsh .sh-n{font-size:10px;word-break:break-all}}
 /* クリアスクリーン: 動画だけにする(場所は変えない = 消さずに透明にして、押しても動画に届くようにする) */
 html[data-tfsh-clear] ytd-shorts ytd-reel-player-overlay-renderer,html[data-tfsh-clear] ytd-shorts ytd-shorts-player-controls,html[data-tfsh-clear] ytd-shorts #navigation-container,html[data-tfsh-clear] ytd-shorts #navigation-button-up,html[data-tfsh-clear] ytd-shorts #navigation-button-down,
 html[data-tfsh-clear] ytd-shorts ytd-reel-player-header-renderer,html[data-tfsh-clear] ytd-masthead,html[data-tfsh-clear] #masthead-container,html[data-tfsh-clear] ytd-mini-guide-renderer,
@@ -58,13 +68,13 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
   // ---- パネル ----
   const bar = E('div'); bar.id = 'tfsh'; bar.hidden = true;
   bar.innerHTML = `
-    <div class="sh-r sh-head"><button type="button" class="sh-fold" title="パネルをたたむ / ひらく">🛠 ショート</button></div>
-    <div class="sh-t">今回 <b class="sh-s">0:00</b><br>本日 <b class="sh-d">0:00</b></div>
+    <div class="sh-r sh-head"><button type="button" class="sh-fold" title="パネルをたたむ / ひらく">🛠<span class="l"> ショート</span></button></div>
+    <div class="sh-t"><span>今回</span> <b class="sh-s">0:00</b><br><span>本日</span> <b class="sh-d">0:00</b></div>
     <div class="sh-r"><button type="button" data-a="back" title="5秒戻る">⏪ 5</button><button type="button" data-a="fwd" title="5秒進む">5 ⏩</button></div>
-    <div class="sh-r"><button type="button" data-a="frame" title="コマ送りモード(一時停止して、1コマずつ動かす)">🎞 コマ送り</button></div>
-    <div class="sh-r sh-fr" hidden><button type="button" data-a="fb" title="1コマ戻る">◀ コマ</button><button type="button" data-a="ff" title="1コマ進む">コマ ▶</button></div>
-    <div class="sh-r"><button type="button" data-a="auto" title="動画の最後まで来たら、自動で次のショートへ">⏭ 自動で次へ</button></div>
-    <div class="sh-r"><button type="button" data-a="later" title="再生リスト「TubeFolio2 後で見る」に追加">🕒 後で見る</button></div>
+    <div class="sh-r"><button type="button" data-a="frame" title="コマ送りモード(一時停止して、1コマずつ動かす)">🎞<span class="l"> コマ送り</span></button></div>
+    <div class="sh-r sh-fr" hidden><button type="button" data-a="fb" title="1コマ戻る">◀<span class="l"> コマ</span></button><button type="button" data-a="ff" title="1コマ進む"><span class="l">コマ </span>▶</button></div>
+    <div class="sh-r"><button type="button" data-a="auto" title="動画の最後まで来たら、自動で次のショートへ">⏭<span class="l"> 自動で次へ</span></button></div>
+    <div class="sh-r"><button type="button" data-a="later" title="再生リスト「TubeFolio2 後で見る」に追加">🕒<span class="l"> 後で見る</span></button></div>
     <div class="sh-r sh-clrrow"><button type="button" class="sh-clr" data-a="clear" title="クリアスクリーン(動画以外を隠す。もう一度押すか Esc で戻る)">🖥 クリア</button></div>
     <div class="sh-n"></div>`;
   const q = s => bar.querySelector(s);
@@ -90,9 +100,9 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
   const paint = () => {
     q('[data-a=frame]').classList.toggle('on', frame); q('.sh-fr').hidden = !frame;
     q('[data-a=auto]').classList.toggle('on', auto);
-    const cb = q('[data-a=clear]'); cb.classList.toggle('on', clear && false); cb.textContent = clear ? '🖥' : '🖥 クリア';
+    const cb = q('[data-a=clear]'); cb.classList.toggle('on', clear && false); cb.innerHTML = clear ? '🖥' : '🖥<span class="l"> クリア</span>';
     const id = curId(), inl = !!id && laterIds.has(id), lb = q('[data-a=later]');
-    lb.classList.toggle('done', inl); lb.textContent = inl ? '✓ 登録済み' : '🕒 後で見る'; lb.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加';
+    lb.classList.toggle('done', inl); lb.innerHTML = inl ? '✓<span class="l"> 登録済み</span>' : '🕒<span class="l"> 後で見る</span>'; lb.title = inl ? '「TubeFolio2 後で見る」に登録済み(押すと外す)' : '再生リスト「TubeFolio2 後で見る」に追加';
     bar.classList.toggle('fold', folded && !clear); bar.classList.toggle('clr', clear);
     document.documentElement.toggleAttribute('data-tfsh-clear', clear && onShorts());
   };
@@ -177,7 +187,15 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
     if (v && !v.paused && !v.ended && v.readyState > 2 && !document.hidden) { sess++; pending++; if (++ticks % 5 === 0) flush(); }
     draw();
   };
-  loadToday(); setInterval(tick, 1000);
+  // パソコン: 動画のすぐ左に寄せる(窓の幅が変わっても、動画から離れない)。スマホ・狭い画面は、CSS で左端に固定
+  const place = () => {
+    const wide = !matchMedia('(pointer:coarse),(max-width:900px)').matches, v = wide && onShorts() ? vid() : null;
+    if (!v || bar.hidden) { bar.style.left = ''; return; }
+    const r = v.getBoundingClientRect(); if (r.width < 50) return;
+    bar.style.left = Math.max(84, Math.round(r.left - bar.offsetWidth - 20)) + 'px';
+  };
+  window.addEventListener('resize', place);
+  loadToday(); setInterval(() => { tick(); place(); }, 1000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
   window.addEventListener('pagehide', () => { flush(); });
   document.addEventListener('yt-navigate-finish', tick);
