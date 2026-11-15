@@ -48,10 +48,10 @@ html[dark] #tfsh{--sh-bg:rgba(32,32,32,.88);--sh-fg:#f1f1f1;--sh-sub:#bdbdbd;--s
 #tfsh.clr > :not(.sh-clrrow){display:none}
 #tfsh.clr .sh-clr{width:38px;flex:none;background:var(--sh-bg)}
 /* スマホ・狭い画面: 文字を隠して、アイコンだけの細い縦の帯にする(動画をじゃましない。指で押しやすい大きさ) */
-@media (pointer:coarse),(max-width:900px){
-#tfsh{left:4px;width:54px;gap:6px;padding:6px}
+@media all{
+#tfsh{width:50px;gap:5px;padding:6px}
 #tfsh .sh-r{flex-direction:column}
-#tfsh button{height:44px;padding:0;font-size:17px;border-radius:12px}
+#tfsh button{height:38px;padding:0;font-size:16px;border-radius:12px}
 #tfsh .l{display:none}
 #tfsh .sh-t{font-size:10px;line-height:1.3}#tfsh .sh-t b{display:block;font-size:12px}#tfsh .sh-t br{display:none}
 #tfsh .sh-fold{height:30px;font-size:16px}
@@ -59,8 +59,12 @@ html[dark] #tfsh{--sh-bg:rgba(32,32,32,.88);--sh-fg:#f1f1f1;--sh-sub:#bdbdbd;--s
 #tfsh.clr .sh-clr{width:44px}
 #tfsh [data-a=back],#tfsh [data-a=fwd]{font-size:14px}
 #tfsh .sh-n{font-size:10px;word-break:break-all}}
+/* スマホ・狭い画面: 右の端に固定。右の端のぶんだけ、YouTubeの動画の領域を狭めて、重ならないようにする。指で押す大きさ */
+@media (pointer:coarse),(max-width:900px){#tfsh{left:auto;right:4px;width:54px}#tfsh button{height:44px}#tfsh.fold .sh-fold{height:44px;width:44px}html[data-tfsh-m] ytd-shorts #shorts-container{width:calc(100% - 64px) !important}}
+/* パソコン: 動画の右(YouTube の👍💬ボタンのさらに右)に置く。窓が狭くて入らないときは、動画ごと左へずらす(--tfsh-shift) */
+html[data-tfsh-d] ytd-shorts #shorts-container{transform:translateX(calc(var(--tfsh-shift,0) * -1px))}
 /* クリアスクリーン: 動画だけにする(場所は変えない = 消さずに透明にして、押しても動画に届くようにする) */
-html[data-tfsh-clear] ytd-shorts ytd-reel-player-overlay-renderer,html[data-tfsh-clear] ytd-shorts ytd-shorts-player-controls,html[data-tfsh-clear] ytd-shorts #navigation-container,html[data-tfsh-clear] ytd-shorts #navigation-button-up,html[data-tfsh-clear] ytd-shorts #navigation-button-down,
+html[data-tfsh-clear] ytd-shorts #experiment-overlay,html[data-tfsh-clear] ytd-shorts #cinematic-shorts-scrim,html[data-tfsh-clear] ytd-shorts ytd-reel-player-overlay-renderer,html[data-tfsh-clear] ytd-shorts ytd-shorts-player-controls,html[data-tfsh-clear] ytd-shorts #navigation-container,html[data-tfsh-clear] ytd-shorts #navigation-button-up,html[data-tfsh-clear] ytd-shorts #navigation-button-down,
 html[data-tfsh-clear] ytd-shorts ytd-reel-player-header-renderer,html[data-tfsh-clear] ytd-masthead,html[data-tfsh-clear] #masthead-container,html[data-tfsh-clear] ytd-mini-guide-renderer,
 html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm-shorts-player-controls,html[data-tfsh-clear] ytm-reel-player-header-renderer,html[data-tfsh-clear] .reel-player-overlay-actions,html[data-tfsh-clear] #tf-toast{opacity:0 !important;pointer-events:none !important}`;
   const st = E('style'); st.textContent = css; (document.head || document.documentElement).appendChild(st);
@@ -188,11 +192,17 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
     draw();
   };
   // パソコン: 動画のすぐ左に寄せる(窓の幅が変わっても、動画から離れない)。スマホ・狭い画面は、CSS で左端に固定
+  let shift = 0;
   const place = () => {
-    const wide = !matchMedia('(pointer:coarse),(max-width:900px)').matches, v = wide && onShorts() ? vid() : null;
-    if (!v || bar.hidden) { bar.style.left = ''; return; }
+    const de = document.documentElement, mob = matchMedia('(pointer:coarse),(max-width:900px)').matches, on = onShorts();
+    de.toggleAttribute('data-tfsh-m', mob && on); de.toggleAttribute('data-tfsh-d', !mob && on);
+    const v = !mob && on ? vid() : null;
+    if (!v || bar.hidden) { bar.style.left = ''; de.style.removeProperty('--tfsh-shift'); shift = 0; return; }
     const r = v.getBoundingClientRect(); if (r.width < 50) return;
-    bar.style.left = Math.max(84, Math.round(r.left - bar.offsetWidth - 20)) + 'px';
+    const base = r.right + shift, bw = bar.offsetWidth, ACT = 74, GAP = 14, NAV = 100; // ACT = YouTube の👍💬ボタンの列 / NAV = 右端の↑↓ボタンの列
+    const need = base + ACT + GAP + bw + 8 - (innerWidth - NAV), ns = Math.max(0, Math.min(Math.round(need), Math.max(0, Math.round(r.left + shift - 80)))); // 入らないぶんだけ、動画を左へ(左の余白は残す)
+    if (ns !== shift) { shift = ns; de.style.setProperty('--tfsh-shift', String(ns)); }
+    bar.style.left = Math.round(base - shift + ACT + GAP) + 'px';
   };
   window.addEventListener('resize', place);
   loadToday(); setInterval(() => { tick(); place(); }, 1000);
