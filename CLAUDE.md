@@ -32,3 +32,13 @@
 - YouTubeで登録している → 残す。
 - 登録していないが、フォルダに入っている → 残す。`channels[キー].unsub = 1` を付け、管理画面で「🚫 未登録」と表示。
 - どちらでもない → 一覧から消す。
+
+## リリース(バージョンを上げる)
+- ふだんの修正は、テストとして、`git pull` → 修正 → `deploy-ext.cmd` → コミット → push だけ。バージョンは上げない。
+- **ユーザーが「バージョンを上げて」と指示したときだけ**、次をすべて行う(説明も、リリースも):
+  1. `manifest.json` の `version` を上げる(最初のリリースは 0.2.0。機能追加は 0.x.0、不具合修正だけなら 0.x.y)。`key` は消さない。
+  2. [CHANGELOG.md](CHANGELOG.md) の先頭に、新しいバージョンの説明(日付・主な機能・変更点・インストール方法)を追加する。前のバージョンからの `git log` を元にまとめる。
+  3. コミット(`Release vX.Y.Z`)して、タグ `vX.Y.Z` を付け、main とタグを push する。
+  4. 配布用の zip(`TubeFolio2-vX.Y.Z.zip`)を作る: `git archive --format=zip --prefix=TubeFolio2/ -o <出力先>.zip vX.Y.Z -- . ":(exclude)CLAUDE.md" ":(exclude)deploy-ext.cmd"`(`.git`・開発用のルールは入れない)。
+  5. GitHub のリリースを作る: `gh release create vX.Y.Z <zip> --title "TubeFolio2 vX.Y.Z" --notes-file <CHANGELOG の該当部分>`(`gh auth login` が済んでいること。済んでいなければ、ユーザーに頼む)。
+  6. リリースの URL を、ユーザーに伝える。
