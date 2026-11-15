@@ -43,7 +43,23 @@
 
   // ---- メニュー(1個だけ。中身を入れ替えて使う) ----
   let menu = null, anchorEl = null;
-  const closeMenu = () => { if (menu) { menu.remove(); menu = null; } anchorEl = null; document.removeEventListener('pointerdown', outside, true); };
+  // フォルダの入れる / 外すは、押した瞬間に画面だけ先に切り替え(want に溜める)、保存は少しあとにまとめて行う。
+  //   (保存のたびに、サイドバー・一覧の描き直しが走って重く、チェックも閉じる動作も、ワンテンポ遅れていた)
+  const want = new Map(); let wantCtx = null, wantT = 0, flushing = Promise.resolve();
+  const flushNow = () => {
+    clearTimeout(wantT); wantT = 0;
+    if (!want.size || !wantCtx) return flushing;
+    const todo = [...want.entries()], f = wantCtx; want.clear();
+    flushing = flushing.then(async () => {
+      for (const [gid, on] of todo) {
+        const S = await TF.get(), c = S.channels[f.key], has = !!(c && (c.groups || []).includes(gid));
+        if (has !== on) await TF.toggleGroup({ key: f.key, name: f.ch.name, avatar: f.ch.avatar }, gid);
+      }
+    }).catch(() => {});
+    return flushing;
+  };
+  window.addEventListener('pagehide', () => { flushNow(); });
+  const closeMenu = () => { if (menu) { menu.remove(); menu = null; } anchorEl = null; document.removeEventListener('pointerdown', outside, true); if (want.size) setTimeout(flushNow, 0); }; // 先に画面から消してから、保存する
   const outside = e => { if (menu && !menu.contains(e.target) && !(anchorEl && anchorEl.contains(e.target))) closeMenu(); };
   function place() {
     if (!menu || !anchorEl) return;
@@ -66,6 +82,8 @@
   // ---- フォルダの一覧(チャンネルを、フォルダに入れる / 外す) ----
   async function folderView(ch, back) {
     if (!menu) return;
+    await flushNow(); // 溜めてある入れる / 外すを、先に保存してから読む
+    if (!menu) return;
     if (!ch) { setView(head('フォルダ登録', back) + '<p class="msg">チャンネルを特定できませんでした。少し待ってから、もう一度押してください。</p>'); return; }
     const S = await TF.get(), key = await storedKey(ch, S), cur = new Set((S.channels[key] && S.channels[key].groups) || []);
     if (!menu) return;
@@ -78,8 +96,12 @@
   }
   async function toggleFolder(gid) {
     const f = menu && menu._folder; if (!f) return;
-    await TF.toggleGroup({ key: f.key, name: f.ch.name, avatar: f.ch.avatar }, gid);
-    folderView(f.ch, f.back);
+    const btn = menu.querySelector(`.l [data-g="${(window.CSS && CSS.escape) ? CSS.escape(gid) : gid}"]`); if (!btn) return;
+    const on = !btn.classList.contains('on'); // 画面は、すぐに切り替える
+    btn.classList.toggle('on', on); const ck = btn.querySelector('.ck'); if (ck) ck.textContent = on ? '✓' : '';
+    if (wantCtx && wantCtx.key !== f.key) await flushNow();
+    wantCtx = f; want.set(gid, on);
+    clearTimeout(wantT); wantT = setTimeout(flushNow, 700); // 続けて押したぶんは、まとめて1回で保存
   }
 
   // ---- 再生リストの一覧 ----

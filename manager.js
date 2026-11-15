@@ -168,6 +168,25 @@
     chrome.runtime.sendMessage({ type: 'chVideos', key }, r => { const vs = r && !r.error ? r.videos : []; if (vs.length) vidCache.set(key, vs); paint(vs); });
   }
 
+  // ---- 一覧は、最初の40枚だけ描き、残りは、下へスクロールしたときに足す(何百枚も一度に作ると、ワンテンポ遅れる) ----
+  let gridIO = null;
+  function renderGrid(l, cardHtml) {
+    const grid = $('#grid'), PAGE = 40; let n = 0;
+    if (gridIO) { gridIO.disconnect(); gridIO = null; }
+    grid.innerHTML = '';
+    const add = () => {
+      const part = l.slice(n, n + PAGE); n += part.length; if (!part.length) return;
+      const sent = grid.querySelector('#gsent'); if (sent) sent.remove();
+      const tmp = document.createElement('div'); tmp.innerHTML = part.map(cardHtml).join('');
+      const frag = document.createDocumentFragment(); while (tmp.firstChild) frag.appendChild(tmp.firstChild); grid.appendChild(frag);
+      observeAvatars(grid); observeSugg();
+      if (n < l.length) { // 下の見張り: ここが見えそうになったら、次の40枚を足す
+        const s = document.createElement('div'); s.id = 'gsent'; s.style.cssText = 'grid-column:1/-1;height:1px'; grid.appendChild(s);
+        if (gridIO) gridIO.disconnect(); gridIO = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) add(); }, { rootMargin: '900px' }); gridIO.observe(s);
+      }
+    };
+    add(); paintAssist();
+  }
   function drawGrid() {
     if (view.startsWith('ch:')) return drawChannel();
     if (justView !== view) { justView = view; justFiled.clear(); }
@@ -179,14 +198,14 @@
     $('#empty').hidden = l.length > 0;
     if (!l.length) $('#empty').innerHTML = chans().length ? '該当するチャンネルがありません' :
       'まだチャンネルがありません。<br>右上の「取り込みと同期」で登録チャンネルを読み込みましょう。';
-    $('#grid').innerHTML = l.map(c => `<div class="card${c.unsub ? ' unsub' : ''}" draggable="true" data-k="${esc(c.key)}">
+    const cardHtml = c => `<div class="card${c.unsub ? ' unsub' : ''}" draggable="true" data-k="${esc(c.key)}">
       ${avHtml(c)}
       <div class="info"><a href="${esc(chUrl(c.key))}" target="_blank" draggable="false">${esc(nameOf(c))}</a>${c.unsub ? '<span class="unsubtag" title="YouTube で登録していないチャンネルです(登録を解除した、または登録せずにフォルダへ入れた)。フォルダに入っている間は、残ります(フォルダから全部外すと、次の同期で一覧から消えます)。YouTube で登録すると、この印は消えます">🚫 未登録</span>' : ''}
         <small>${esc(c.key)}</small>
         <div class="acts">${act[c.key] ? TYPES.map(([f, lb]) => `<span style="--c:${BK.find(b => b[0] === bucketOf(act[c.key][f]))[3]}">${lb.slice(0, 2)} ${agoText(act[c.key][f])}</span>`).join('') : ''}</div>
         <div class="tags">${filed(c).map(id => { const x = grp(id); return `<span class="tag" style="--c:${x.color}">${TF.iconHtml(x.icon)} ${esc(x.name)}<button type="button" class="tx" data-rmg="${x.id}" title="「${esc(x.name)}」から外す">×</button></span>`; }).join('')}<button type="button" class="tag plus fbtn" title="入れるフォルダを選ぶ(いくつでも選べます)">📁 フォルダ${filed(c).length ? 'を変える' : 'に入れる'}</button>${c.unsub ? '<button type="button" class="tag plus delch" title="このチャンネルを、TubeFolio2 の一覧とフォルダから消す">🗑 一覧から消す</button>' : ''}</div>
-        ${assistOn() && !filed(c).length ? `<div class="sugg" data-k="${esc(c.key)}">${suggHtml(c)}</div>` : ''}</div></div>`).join('');
-    observeAvatars($('#grid')); paintAssist(); observeSugg();
+        ${assistOn() && !filed(c).length ? `<div class="sugg" data-k="${esc(c.key)}">${suggHtml(c)}</div>` : ''}</div></div>`;
+    renderGrid(l, cardHtml);
     drawStats();
   }
   // ---- フォルダを選ぶ画面(チャンネルの登録) ----
@@ -195,7 +214,8 @@
   //   1つのチャンネルを、いくつものフォルダに入れるのが、この画面だけで済む(以前は、ドラッグするたびに一覧から消えたり、ボタンの長い列から探したりしていた)。
   //   チェックの見た目: ✓ = 選んだチャンネルが全部入っている / − = 一部だけ入っている / 空 = 入っていない
   let pick = null; // { keys: [チャンネルのキー], q: 絞り込み }
-  const closePick = () => { pick = null; const p = $('#fpick'); if (p) p.remove(); };
+  let pendingDraw = false; // フォルダを選んでいる間は、後ろの一覧(チャンネルが何百枚も)を描き直さない。閉じたあとに1回だけ
+  const closePick = () => { pick = null; const p = $('#fpick'); if (p) p.remove(); if (pendingDraw) { pendingDraw = false; setTimeout(() => draw(), 0); } }; // 先にメニューを消してから描き直す
   function openPick(keys, anchor) {
     closePick(); if (!keys.length) return;
     pick = { keys, q: '' };
@@ -551,17 +571,17 @@
   //  点数 = チャンネル名・最近の動画タイトル・チャンネルの説明文に、フォルダのキーワードが何回出るか。キーワードは、フォルダの編集で設定(未設定ならフォルダ名から自動)
   //  設定(settings.assist / settings.assistRules)は、Drive同期の対象。取得したタイトルは、取り直せるので、同期しない(storage の chTitles)
   const RULES_DEF = { nameScore: 3, titleScore: 1, titleCount: 15, minScore: 2, bulkMin: 4, maxSugg: 3, useDict: true, fuzzy: true, useShorts: true, subfolder: true, useDesc: true, descScore: 1 };
-  const rules = () => ({ ...RULES_DEF, ...((S.settings && S.settings.assistRules) || {}) });
+  const rulesRaw = () => ({ ...RULES_DEF, ...((S.settings && S.settings.assistRules) || {}) });
   const assistOn = () => !!(S.settings && S.settings.assist);
   let chTitles = {}; chrome.storage.local.get('chTitles').then(r => { chTitles = r.chTitles || {}; });
   const nrm = t => { t = String(t || ''); if (!rules().fuzzy) return t.toLowerCase(); return t.normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60)); };
   const pathName = g => { const n = []; let x = g, i = 0; while (x && i++ < 6) { n.unshift(x.name); x = x.parent ? grp(x.parent) : null; } return n.join(' ＞ '); };
-  const kwOf = g => {
+  const kwRaw = g => {
     const src = g.kw && g.kw.length ? g.kw : rules().useDict ? TF.defaultKw(g.name) : [], inc = [], exc = [];
     for (const x of src) { const k = String(x).trim(); if (!k) continue; if (/^[-－ー]/.test(k) && k.length > 1) exc.push(nrm(k.slice(1))); else inc.push(nrm(k)); }
     return { inc, exc };
   };
-  function suggest(c) {
+  function suggestRaw(c) {
     const R = rules(), e = chTitles[c.key] || {};
     const name = nrm(nameOf(c)), titles = (e.t || []).slice(0, R.titleCount).map(nrm), descs = R.useDesc && e.cd ? [nrm(e.cd)] : [];
     const all = [name, ...titles, ...descs], res = [];
@@ -576,6 +596,12 @@
     }
     return res.sort((a, b) => b.sc - a.sc).slice(0, R.maxSugg);
   }
+  // ---- 速くする: 候補の計算(キーワードの正規化・チャンネルごとの点数)を、同じ入力のあいだは使い回す ----
+  //   以前は、1チャンネルごと・フォルダごとに、キーワードを毎回作り直していて、未分類が何百件もあると、画面を描くたびに数秒かかっていた
+  let _rS = null, _rV = null; const _kwC = new Map(), _sugC = new Map();
+  const rules = () => { if (_rS !== S) { _rS = S; _rV = rulesRaw(); _kwC.clear(); _sugC.clear(); } return _rV; }; // 設定・フォルダ(S)が新しくなったら、使い回しを捨てる
+  const kwOf = g => { rules(); let r = _kwC.get(g.id); if (!r) _kwC.set(g.id, r = kwRaw(g)); return r; };
+  function suggest(c) { rules(); const e = chTitles[c.key], sg = nameOf(c) + '|' + (e ? e.at : 0), o = _sugC.get(c.key); if (o && o.sg === sg) return o.v; const v = suggestRaw(c); _sugC.set(c.key, { sg, v }); return v; }
   function suggHtml(c) {
     const R = rules(), has = !!chTitles[c.key], list = suggest(c);
     return '<span class="sg-lb">🪄 候補</span>' + (list.map(({ g, sc, by }) => `<button class="sg" data-g="${esc(g.id)}" style="--c:${esc(g.color)}" title="一致度 ${sc}(名前 ${by.n}・タイトル ${by.t}・説明文 ${by.d})">＋${esc(pathName(g))}${sc >= R.bulkMin * 1.5 ? ' ★' : ''}</button>`).join('') || `<span class="sg-none">${has ? '候補なし(フォルダの編集でキーワードを足すと出やすくなります)' : 'タイトルを確認中…'}</span>`);
@@ -663,6 +689,7 @@
       if (!(ch.groups || ch.channels || ch.settings)) return; // meta更新では再描画しない
       S = await TF.get();
       if (view !== 'all' && view !== 'none' && view !== 'unsub' && !grp(view)) view = 'all';
+      if (pick) { pendingDraw = true; drawPick(); return; } // フォルダを選んでいる間は、選ぶ画面だけ更新
       draw();
     });
   })();

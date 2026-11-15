@@ -391,6 +391,39 @@ async function pool(items, n, fn) {
   await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const x = items[i++]; try { await fn(x); } catch (e) { /* 1件の失敗は無視 */ } } }));
 }
 // チャンネルの動画(v) / ショート(s) / ライブ配信(l) の先頭(約15件)。動画は RSS 等のフォールバックつき
+
+// ---- フォルダの新着件数(メニューの数字)を、画面を開かなくても、裏で取っておく ----
+//   結果は newCountsCache({ sig, days, at, partial, counts:{キー:件数}, ts:{キー:取った時刻} })。この端末だけの控え(取り直せる。Drive には上げない)
+//   取れたぶんから書く / 途中で止まっても、取れていたぶんは残る(続きから)。10分以内に取ったチャンネルは取り直さない。
+//   画面側(content.js)は、この控えを読んで、すぐに数字を出す。起動の20秒後と、15分ごと(スマホは30分ごと)に自動で更新する
+let newJob = null;
+function newCountsJob(force) {
+  if (newJob) return newJob;
+  newJob = (async () => {
+    const S = await TF.get(), days = S.settings.newDays || 3, gids = new Set(S.groups.map(g => g.id));
+    const keys = Object.values(S.channels).filter(c => (c.groups || []).some(id => gids.has(id))).map(c => c.key).sort();
+    if (!keys.length) return;
+    const sig = days + ':' + keys.join(','), cut = Date.now() - days * 86400000;
+    const st = await chrome.storage.local.get(['newCountsCache', 'meta']), prev = st.newCountsCache || {}, meta = st.meta || {};
+    const same = prev.days === days, counts = same ? { ...(prev.counts || {}) } : {}, ts = same ? { ...(prev.ts || {}) } : {};
+    // 今のフォルダにいないチャンネルの件数は、捨てる
+    Object.keys(counts).forEach(k => { if (!keys.includes(k)) { delete counts[k]; delete ts[k]; } });
+    const stale = k => force || !(ts[k] > Date.now() - 10 * 60e3);
+    const todo = keys.filter(stale).sort((a, b) => (a in counts) - (b in counts)); // まだ1度も取れていないものを先に
+    if (!todo.length) return;
+    let wT = 0; const flush = partial => { clearTimeout(wT); wT = 0; return chrome.storage.local.set({ newCountsCache: { sig, days, at: Date.now(), partial, counts: { ...counts }, ts: { ...ts } } }).catch(() => {}); };
+    await pool(todo, 6, async k => {
+      let n = counts[k] || 0;
+      try { const id = k.startsWith('UC') ? k : (meta[k] && meta[k].id) || (await resolve(k)).id; if (id) n = (await videos(id)).filter(x => Date.parse(x.published) >= cut).length; counts[k] = n; ts[k] = Date.now(); } catch (e) { if (!(k in counts)) counts[k] = 0; }
+      if (!wT) wT = setTimeout(() => flush(true), 1200); // 1.2秒ごとにまとめて書く
+    });
+    await flush(false);
+  })().catch(() => {}).finally(() => { newJob = null; });
+  return newJob;
+}
+chrome.alarms.get('tf-newcounts').then(a => { const iv = /Android/i.test(navigator.userAgent) ? 30 : 15; if (!a || a.periodInMinutes !== iv) chrome.alarms.create('tf-newcounts', { periodInMinutes: iv, delayInMinutes: 1 }); }).catch(() => {});
+chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tf-newcounts') newCountsJob(false); });
+chrome.runtime.onStartup.addListener(() => { setTimeout(() => newCountsJob(false), 20e3); });
 const tcache = new Map();
 async function tabVideos(id, tab) {
   if (tab === 'v') return videos(id);
@@ -681,12 +714,8 @@ chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (m.type === 'plVideos') { Promise.all((m.ids || []).map(id => plVideos(id, m.order))).then(rs => { (m.ids || []).forEach((id, i) => laterPut(id, rs[i].items.map(x => x.id))); const seen = new Set(), items = []; rs.flatMap(r => r.items).forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); items.push(x); } }); send({ items, ordered: rs.every(r => r.ordered) }); }).catch(e => send({ error: String(e.message || e) })); return true; }
   if (m.type === 'feedClear') { // 新着一覧の保存結果(feedCache_*)・ショートの投稿日(spub)・メモリのキャッシュを消す。Drive同期の対象外の一時データだけ
     tcache.clear(); chrome.storage.local.remove(['feedCache_v', 'feedCache_s', 'feedCache_l', 'spub']).then(() => send({ ok: true })).catch(e => send({ error: String(e) })); return true; }
-  if (m.type === 'newCounts') { // 各チャンネルの「N日以内の新着動画」件数(RSS・20分キャッシュ)
-    const cut = Date.now() - (m.days || 3) * 86400000;
-    Promise.all((m.keys || []).map(k => limit(async () => {
-      try { const r = await resolve(k); if (!r.id) return [k, 0]; return [k, (await videos(r.id)).filter(x => Date.parse(x.published) >= cut).length]; }
-      catch (e) { return [k, 0]; }
-    }))).then(a => send({ counts: Object.fromEntries(a) }));
+  if (m.type === 'newCounts') { // フォルダの新着件数。裏の取得(newCountsJob)を待って、控えの件数を返す
+    newCountsJob(!!m.force).then(async () => send({ counts: ((await chrome.storage.local.get('newCountsCache')).newCountsCache || {}).counts || {} }));
     return true;
   }
   if (m.type === 'shortsOwners') { // ショートの動画ID → 投稿者のチャンネルキー(oEmbed。結果はメモリにキャッシュ)

@@ -96,3 +96,17 @@
   window.addEventListener('yt-navigate-finish', () => { if (isWatch(location.pathname)) until = performance.now() + 5000; else until = 0; }, true);
   window.tfQuiet = () => performance.now() < until;
 })();
+
+// ---- 一覧の重い見回り(カードを全部調べ直す処理)を、ページの要素が増減したときだけ動かすための目印(CPU対策)
+//   window.tfDomGen = ページの要素が増えた・減った回数(childList のみ。文字や属性の変化は数えない)
+//   window.tfChanged(キー, 追加の印, 最長の間隔ms=8000): 前回の確認から、要素の増減・ページ・追加の印が変わったとき、または最長の間隔が過ぎたときだけ true。
+//   → 何も変わらない画面で、1〜1.5秒ごとに、何百枚ものカードを調べ直して、CPUを使い続けるのを防ぐ
+(() => {
+  window.tfDomGen = 0;
+  try { new MutationObserver(recs => { for (const r of recs) { if (r.addedNodes.length || r.removedNodes.length) { window.tfDomGen++; return; } } }).observe(document, { childList: true, subtree: true }); } catch (e) { /* なし */ }
+  window.tfChanged = (key, extra, maxAge) => {
+    const m = (window.tfChanged.m = window.tfChanged.m || {}), s = window.tfDomGen + '|' + location.pathname + location.search + '|' + (extra == null ? '' : extra), t = Date.now(), o = m[key];
+    if (o && o.s === s && t - o.t < (maxAge || 8000)) return false;
+    m[key] = { s, t }; return true;
+  };
+})();

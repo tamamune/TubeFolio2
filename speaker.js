@@ -177,6 +177,7 @@
     });
   }
   function tickTimed() {
+    if (!cfg.speak) return;
     const vEl = video();
     if (!cfg.speak || !vEl || evFor !== curVid()) return;
     if (adShowing()) { stop(); return; }

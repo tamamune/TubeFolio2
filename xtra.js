@@ -384,7 +384,7 @@ const TGXtra = (() => {
     }
   }
   function badges() {
-    if (!cfg.disBadge || document.hidden) return;
+    if (!cfg.disBadge || document.hidden || (window.tfChanged && !window.tfChanged('bd', rydMem.size + ':' + Math.round(scrollY / 300), 5000))) return;
     const H = innerHeight + 800;
     for (const item of document.querySelectorAll(ITEM + ', .tg-card[data-v]')) {
       const own = item.classList.contains('tg-card'); // TubeFolio の一覧のカード

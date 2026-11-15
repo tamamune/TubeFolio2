@@ -595,7 +595,7 @@ const TGPlayerX = (() => {
   document.addEventListener('ratechange', e => { if (e.target === video() && adSaved) adFast(); }, true);
   // 広告中だけ 150ms ごとに見回る（tick は1秒周期で、16倍速だとスキップボタンを逃すため）
   setInterval(() => {
-    if (!cfg.adFast) return;
+    if (!cfg.adFast || !(location.pathname === '/watch' || location.pathname.startsWith('/shorts'))) return; // 広告の早送りは、再生画面・ショートだけ(150msごとなので、ほかの画面では動かさない)
     const p = document.querySelector('#movie_player');
     if (p && (p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting'))) adFast();
   }, 150);

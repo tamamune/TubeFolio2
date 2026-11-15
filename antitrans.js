@@ -130,7 +130,7 @@
 
   setInterval(() => {
     if (!on || document.hidden || (window.tfQuiet && window.tfQuiet())) return;
-    try { scanList(); } catch (e) { /* 一覧で失敗しても、再生画面の分は続ける */ }
+    try { if (!window.tfChanged || window.tfChanged('at', orig.size, 4000)) scanList(); } catch (e) { /* 一覧で失敗しても、再生画面の分は続ける */ }
     try { scanWatch(); } catch (e) { /* 次の回に */ }
   }, 1000);
 })();

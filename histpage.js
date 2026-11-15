@@ -29,9 +29,75 @@ function histPage() {
   const inRange = () => { const cut = days ? Math.floor(new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000) - (days - 1) * DAY : 0; return H.p.filter(x => x[0] >= cut); };
 
   // ---- 棒(横): 上位の一覧。値は文字で横に出す ----
-  const hbars = (rows, unit) => { const max = Math.max(1, ...rows.map(r => r.val)); return rows.length ? `<div class="hx-hb">${rows.map(r => `<div class="hx-hr" data-tip="${esc(r.tip || '')}"><span class="hx-hl" title="${esc(r.name)}">${r.href ? `<a href="${esc(r.href)}" target="_top">${esc(r.name)}</a>` : esc(r.name)}</span><span class="hx-ht"><i style="width:${(r.val / max * 100).toFixed(1)}%"></i></span><span class="hx-hv">${esc(unit(r.val))}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span></div>`).join('')}</div>` : '<p class="none">まだ記録がありません。</p>'; };
+  const tkf = v => v >= 3600 ? (v / 3600).toFixed(v >= 36000 ? 0 : 1) + "h" : Math.round(v / 60) + "分"; // 横軸の目盛りは短く(長い文字だと重なる)
+  const hbars = (rows, unit) => { const max = Math.max(1, ...rows.map(r => r.val)); return rows.length ? `<div class="hx-hb">${rows.map(r => `<div class="hx-hr" data-tip="${esc(r.tip || '')}"><span class="hx-hl" title="${esc(r.name)}">${r.href ? `<a href="${esc(r.href)}" target="_top">${esc(r.name)}</a>` : esc(r.name)}</span><span class="hx-ht"><i style="width:${(r.val / max * 100).toFixed(1)}%"></i></span><span class="hx-hv">${esc(unit(r.val))}${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span></div>`).join('')}<div class="hx-hr hx-hax"><span></span><span class="hx-tk">${[0, 0.25, 0.5, 0.75, 1].map(k => `<em>${k ? esc(tkf(max * k)) : '0'}</em>`).join('')}</span><span></span></div></div>` : '<p class="none">まだ記録がありません。</p>'; };
   // ---- 棒(縦): 日別・時間帯・曜日。目盛りは、いちばん上の値と半分の線だけ ----
   const vbars = (cols, labelEvery) => { const max = Math.max(60, ...cols.map(c => c.val)); return `<div class="hx-vb"><div class="hx-vy"><span>${esc(hm(max))}</span><span>${esc(hm(max / 2))}</span><span>0</span></div><div class="hx-vp"><i class="hx-g" style="bottom:50%"></i><i class="hx-g" style="bottom:100%"></i>${cols.map((c, i) => `<div class="hx-vc" data-tip="${esc(c.tip)}"><b style="height:${(c.val / max * 100).toFixed(1)}%"></b><em>${i % labelEvery === 0 ? esc(c.label) : ''}</em></div>`).join('')}</div></div>`; };
+
+  // ---- 時間帯の傾向(曜日 × 時間のヒートマップ。就寝時間・作業時間つき) と 曜日 × フォルダ(積み上げ) ----
+  const WDM = ['月', '火', '水', '木', '金', '土', '日']; // 表の行(月はじまり)。Date.getDay() は (i + 1) % 7
+  let sw = { from: '23:00', to: '07:00' }, FC = null, showSleep = true, showWork = true; const hidF = new Set();
+  try { showSleep = localStorage.getItem('tfHistSleep') !== '0'; showWork = localStorage.getItem('tfHistWork') !== '0'; } catch (e) { /* なし */ }
+  const toMin = s => { const [h, m] = String(s || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  const ov = (a, b, c, d) => Math.max(0, Math.min(b, d) - Math.max(a, c)); // 区間 [a,b) と [c,d) の重なり
+  const winOv = (from, to, m0, m1) => from <= to ? ov(m0, m1, from, to) : ov(m0, m1, from, 1440) + ov(m0, m1, 0, to); // 時間帯(日をまたいでもよい)と、一日の中の区間(分)の重なり
+  // 1回の再生(開始 t 秒・sec 秒)を、1時間ごとの区間に分ける(1回で何時間もまたぐ再生も、それぞれの時間に数える。1回の再生は最大6時間まで)
+  const slices = (t, sec, fn) => { let s = t, left = Math.min(sec, 6 * 3600), g = 0; while (left > 0 && g++ < 8) { const d = new Date(s * 1000), h = d.getHours(), m0 = h * 60 + d.getMinutes() + d.getSeconds() / 60, len = Math.min(left, (60 - d.getMinutes()) * 60 - d.getSeconds()); fn(d, h, m0, m0 + len / 60, len); s += len; left -= len; } };
+  const hrs = sec => sec >= 3600 * 10 ? Math.round(sec / 3600) + 'h' : (sec / 3600).toFixed(1) + 'h';
+
+  function patternHtml(P) {
+    const heat = Array.from({ length: 7 }, () => new Array(24).fill(0)), slp = Array.from({ length: 7 }, () => new Array(24).fill(0)), hourSum = new Array(24).fill(0);
+    const a = toMin(sw.from), b = toMin(sw.to), slots = FC && FC.on ? (FC.slots || []) : [], wmask = Array.from({ length: 7 }, () => new Array(24).fill(0));
+    slots.forEach(s => { const f = toMin(s.from), t = toMin(s.to); (s.days || []).forEach(dd => { for (let h = 0; h < 24; h++) { const m0 = h * 60, m1 = m0 + 60; if (f <= t) wmask[dd][h] += ov(m0, m1, f, t); else { wmask[dd][h] += ov(m0, m1, f, 1440); wmask[(dd + 1) % 7][h] += ov(m0, m1, 0, t); } } }); });
+    let sleepSec = 0, workSec = 0, all = 0;
+    P.forEach(x => slices(x[0], x[2] || 0, (d, h, m0, m1, len) => {
+      const w = d.getDay(); heat[w][h] += len; hourSum[h] += len; all += len;
+      const so = winOv(a, b, m0, m1) * 60; if (so > 0) { sleepSec += so; slp[w][h] += so; }
+      if (wmask[w][h] >= 30) workSec += len;
+    }));
+    const max = Math.max(1, ...heat.flat()), pk = hourSum.indexOf(Math.max(...hourSum));
+    const cell = (w, h) => { // w = 0(日)〜6(土)
+      const v = heat[w][h], sl = winOv(a, b, h * 60, h * 60 + 60) >= 30, wk = wmask[w][h] >= 30;
+      const cls = ['hx-hc', showSleep && sl ? 'sl' : '', showSleep && slp[w][h] > 0 ? 'sw' : '', showWork && wk ? 'wk' : ''].filter(Boolean).join(' ');
+      const style = v ? ` style="background:color-mix(in srgb, var(--hx-s1) ${Math.round((0.2 + 0.8 * Math.sqrt(v / max)) * 100)}%, transparent)"` : '';
+      return `<i class="${cls}"${style} data-tip="${WD[w]}曜 ${h}時台 ・ ${v ? hm(v) : '見ていない'}${sl ? ' ・ 就寝時間' : ''}${wk ? ' ・ 作業時間' : ''}${slp[w][h] > 0 ? ' ・ 就寝時間に ' + hm(slp[w][h]) : ''}"></i>`;
+    };
+    const grid = `<div class="hx-hg">${[0, 1, 2, 3, 4, 5, 6].map(i => { const w = (i + 1) % 7; return `<span class="hx-hw">${WDM[i]}</span>${Array.from({ length: 24 }, (_, h) => cell(w, h)).join('')}`; }).join('')}<span></span>${[0, 6, 12, 18].map(h => `<em>${h}時</em>`).join('')}</div>`;
+    const focusTxt = FC && FC.on ? slots.map(s => `${(s.days || []).slice().sort((x, y) => (x + 6) % 7 - (y + 6) % 7).map(d => WD[d]).join('')} ${s.from}〜${s.to}`).join(' / ') : '集中モードがオフのため表示なし';
+    const pct = x => all ? ` (全体の ${Math.round(x / all * 100)}%)` : '';
+    return `<section class="hx-card"><div class="hx-ch"><h2>時間帯の傾向</h2><span class="hx-cs">${all ? `いちばん多いのは ${pk}〜${(pk + 1) % 24}時` : 'まだ記録がありません'}</span></div>${grid}
+      <div class="hx-pc"><span class="hx-sq sl"></span>就寝時間 <input type="time" class="hx-ti" id="hx-sf" value="${esc(sw.from)}"> 〜 <input type="time" class="hx-ti" id="hx-st" value="${esc(sw.to)}"> <label class="hx-ck"><input type="checkbox" id="hx-ss"${showSleep ? ' checked' : ''}> 表示</label></div>
+      <div class="hx-pc"><span class="hx-sq wk"></span>作業時間 = 集中モードの時間帯 <span class="hx-cs">${esc(focusTxt)}</span>${FC && FC.on ? ` <label class="hx-ck"><input type="checkbox" id="hx-sk"${showWork ? ' checked' : ''}> 表示</label>` : ''}</div>
+      <p class="hx-ps">🌙 就寝時間に見た: <b>${hm(sleepSec)}</b>${pct(sleepSec)}${FC && FC.on ? ` <span class="hx-sep">・</span>💼 作業時間に見た: <b>${hm(workSec)}</b>${pct(workSec)}` : ''}</p></section>`;
+  }
+
+  function stackHtml(P, now, span) {
+    const byId = new Map(S.groups.map(g => [g.id, g])), PAL = (TF.PALETTE || ['#e53935', '#8e24aa', '#3949ab', '#1e88e5', '#00897b', '#43a047', '#fb8c00', '#6d4c41']);
+    const root = id => { let g = byId.get(id), n = 0; while (g && g.parent && byId.has(g.parent) && n++ < 50) g = byId.get(g.parent); return g; };
+    const serOf = x => { const reg = chOf(H.v[x[1]]), gid = reg && (reg.groups || []).find(id => byId.has(id)), g = gid && root(gid); return g ? g.id : '_none'; };
+    const tot = new Map(); P.forEach(x => { const k = serOf(x); tot.set(k, (tot.get(k) || 0) + (x[2] || 0)); });
+    const grand = [...tot.values()].reduce((s, v) => s + v, 0);
+    const named = [...tot.entries()].filter(([k]) => k !== '_none').sort((p, q) => q[1] - p[1]), top = named.slice(0, 8).map(([k]) => k), topSet = new Set(top);
+    const keyOf = x => { const k = serOf(x); return k === '_none' || topSet.has(k) ? k : '_other'; };
+    const series = [...top.map((k, i) => ({ k, name: byId.get(k).name, color: byId.get(k).color || PAL[i % PAL.length] })), ...(named.length > 8 ? [{ k: '_other', name: 'その他のフォルダ', color: '#b0b0b0' }] : []), ...(tot.has('_none') ? [{ k: '_none', name: '登録外・おすすめ', color: '#6b6b6b' }] : [])];
+    series.forEach(s => { s.val = s.k === '_other' ? named.slice(8).reduce((n, [, v]) => n + v, 0) : (tot.get(s.k) || 0); });
+    // 列: 7日以内は日ごと(古い順)、それより長いときは曜日ごとの1日あたりの平均
+    const daily = span <= 7, cols = [];
+    if (daily) for (let i = span - 1; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); cols.push({ key: dkey(d), label: WD[d.getDay()], sub: `${d.getMonth() + 1}/${d.getDate()}`, n: 1, by: new Map() }); }
+    else for (let i = 0; i < 7; i++) { const w = (i + 1) % 7; let n = 0; for (let j = 0; j < Math.min(span, 3650); j++) { const d = new Date(now); d.setDate(d.getDate() - j); if (d.getDay() === w) n++; } cols.push({ w, label: WDM[i], sub: '平均', n: Math.max(1, n), by: new Map() }); }
+    P.forEach(x => { const d = new Date(x[0] * 1000), c = daily ? cols.find(c => c.key === dkey(d)) : cols[(d.getDay() + 6) % 7]; if (!c) return; const k = keyOf(x); c.by.set(k, (c.by.get(k) || 0) + (x[2] || 0) / c.n); });
+    const vis = series.filter(s => !hidF.has(s.k)), sum = c => vis.reduce((n, s) => n + (c.by.get(s.k) || 0), 0), top0 = Math.max(3600 * 0.5, ...cols.map(sum)), max = top0 * 1.12; // 1.12 = 合計の文字を、枠の中に収める余白
+    const sorted = vis.slice().sort((p, q) => q.val - p.val);
+    const bars = cols.map(c => { const t = sum(c), tip = `${c.label}${daily ? ' ' + c.sub : ''}(${daily ? '' : '1日の平均 '}${hrs(t)}) ` + vis.filter(s => c.by.get(s.k)).sort((p, q) => (c.by.get(q.k) || 0) - (c.by.get(p.k) || 0)).slice(0, 6).map(s => `${s.name} ${hrs(c.by.get(s.k))}`).join(' ・ ');
+      const segs = t ? sorted.map(s => { const v = c.by.get(s.k) || 0; return v ? `<i style="height:${(v / t * 100).toFixed(2)}%;background:${esc(s.color)}"></i>` : ''; }).join('') : '';
+      return `<div class="hx-sc" data-tip="${esc(tip)}">${t ? `<div class="hx-sb" style="height:${(t / max * 100).toFixed(2)}%"><b>${t >= 180 ? hrs(t) : ''}</b>${segs}</div>` : '<u></u>'}</div>`; }).join('');
+    const xl = cols.map(c => `<div><span>${esc(c.label)}</span><small>${esc(c.sub)}</small></div>`).join('');
+    // 枠の中: 区切りの線(25%ごと)と、左に目盛りの文字
+    const plot = `<div class="hx-sf"><div class="hx-sy">${[1, 0.75, 0.5, 0.25, 0].map(k => `<span>${k ? hrs(max * k) : '0'}</span>`).join('')}</div><div class="hx-sw"><div class="hx-sp"><i class="hx-sg" style="bottom:25%"></i><i class="hx-sg" style="bottom:50%"></i><i class="hx-sg" style="bottom:75%"></i><div class="hx-st">${bars}</div></div><div class="hx-sx">${xl}</div></div></div>`;
+    const legend = series.map(s => `<button type="button" class="hx-lg${hidF.has(s.k) ? ' off' : ''}" data-f="${esc(s.k)}" title="押すと、この系列を隠す / 戻す"><i style="background:${esc(s.color)}"></i>${esc(s.name)} <b>${grand ? Math.round(s.val / grand * 100) : 0}%</b></button>`).join('');
+    return `<section class="hx-card"><div class="hx-ch"><h2>曜日 × フォルダ</h2><span class="hx-cs">${daily ? '視聴時間(積み上げ)' : '1日あたりの平均(積み上げ)'}</span></div>
+      ${grand ? `${plot}<div class="hx-lgd">${legend}</div>` : '<p class="none">まだ記録がありません。</p>'}</section>`;
+  }
 
   function drawAn() {
     const P = inRange(), total = P.reduce((a, x) => a + (x[2] || 0), 0), vids = new Set(P.map(x => x[1]));
@@ -49,9 +115,6 @@ function histPage() {
       [...m.values()].forEach(e => cols.push({ val: e.val, label: unit === 'w' ? `${e.d.getMonth() + 1}/${e.d.getDate()}` : `${e.d.getFullYear() % 100}/${e.d.getMonth() + 1}`, tip: (unit === 'w' ? `${e.d.getMonth() + 1}月${e.d.getDate()}日からの週` : `${e.d.getFullYear()}年${e.d.getMonth() + 1}月`) + ` ・ ${hm(e.val)}` }));
     }
     const actDays = byDay.size, best = [...byDay.entries()].sort((a, b) => b[1] - a[1])[0];
-    // 時間帯・曜日
-    const hours = new Array(24).fill(0), wds = new Array(7).fill(0);
-    P.forEach(x => { const d = new Date(x[0] * 1000); hours[d.getHours()] += x[2]; wds[d.getDay()] += x[2]; });
     // チャンネル・フォルダ・動画
     const chs = new Map(), fol = new Map(), vv = new Map(); let shortSec = 0, unfiled = 0;
     P.forEach(x => {
@@ -70,8 +133,7 @@ function histPage() {
     const period = days ? `直近${days === 365 ? '1年' : days + '日'}` : 'すべての期間';
     A.innerHTML = `<div class="hx-tiles">${tile('合計の視聴時間', hm(total), period)}${tile('見た動画', vids.size + '本', `再生 ${P.length}回`)}${tile('1日の平均', hm(total / Math.max(1, days || span)), `見た日 ${actDays}日`)}${tile('いちばん長く見た日', best ? hm(best[1]) : '—', best ? best[0].replace(/^(\d+)-0?(\d+)-0?(\d+)$/, '$1年$2月$3日') : '')}${tile('ショート', hm(shortSec), total ? `全体の ${Math.round(shortSec / total * 100)}%` : '')}</div>
       <section class="hx-card"><h2>${unit === 'd' ? '日ごと' : unit === 'w' ? '週ごと' : '月ごと'}の視聴時間</h2>${vbars(cols, cols.length > 60 ? 14 : cols.length > 16 ? 7 : cols.length > 8 ? 2 : 1)}</section>
-      <div class="hx-two"><section class="hx-card"><h2>時間帯(何時に見ているか)</h2>${vbars(hours.map((v, h) => ({ val: v, label: h + '時', tip: `${h}時台 ・ ${hm(v)}` })), 3)}</section>
-      <section class="hx-card"><h2>曜日</h2>${vbars(wds.map((v, i) => ({ val: v, label: WD[i], tip: `${WD[i]}曜日 ・ ${hm(v)}` })), 1)}</section></div>
+      <div class="hx-two hx-pat">${patternHtml(P)}${stackHtml(P, now, span)}</div>
       <div class="hx-two"><section class="hx-card"><h2>チャンネル(上位15)</h2>${hbars(chRows, hm)}</section>
       <section class="hx-card"><h2>フォルダ</h2><p class="hx-note">複数のフォルダに入れたチャンネルは、それぞれのフォルダに数えます。</p>${hbars(folRows, hm)}</section></div>
       <section class="hx-card"><h2>よく見た動画(上位10)</h2>${hbars(vRows, hm)}</section>`;
@@ -111,7 +173,7 @@ function histPage() {
     $('#st').textContent = H.p.length ? `記録 ${H.p.length}回 ・ 動画 ${Object.keys(H.v).length}本` : '';
     tip.hidden = true; drawAn(); drawMg();
   };
-  const reload = () => Promise.all([chrome.storage.local.get(['hist', 'meta']), TF.get()]).then(([r, s]) => { const h = r.hist || {}; H = { v: h.v || {}, p: (Array.isArray(h.p) ? h.p : []).filter(x => Array.isArray(x) && x[1]).sort((a, b) => a[0] - b[0]), g: h.g || 0 }; meta = r.meta || {}; S = s; buildIdx(); draw(); });
+  const reload = () => Promise.all([chrome.storage.local.get(['hist', 'meta', 'sleepWin', 'focus']), TF.get()]).then(([r, s]) => { const h = r.hist || {}; H = { v: h.v || {}, p: (Array.isArray(h.p) ? h.p : []).filter(x => Array.isArray(x) && x[1]).sort((a, b) => a[0] - b[0]), g: h.g || 0 }; meta = r.meta || {}; S = s; FC = r.focus || null; sw = { from: s.settings.sleepFrom || (r.sleepWin && r.sleepWin.from) || '23:00', to: s.settings.sleepTo || (r.sleepWin && r.sleepWin.to) || '07:00' }; buildIdx(); draw(); });
   const prune = h => { const used = new Set(h.p.map(x => x[1])); Object.keys(h.v).forEach(id => { if (!used.has(id)) delete h.v[id]; }); return h; };
   const removeIf = (fn, ask) => { const n = H.p.filter(fn).length; if (!n) return; if (ask && !confirm(ask.replace('{n}', n))) return; save(prune({ v: { ...H.v }, p: H.p.filter(x => !fn(x)) }), true); };
   const dl = (name, text, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
@@ -168,6 +230,15 @@ function histPage() {
   const showTip = e => { const n = e.target.closest && e.target.closest('[data-tip]'); if (!n || !n.dataset.tip) { tip.hidden = true; return; } tip.textContent = n.dataset.tip; tip.hidden = false; const r = n.getBoundingClientRect(), w = tip.offsetWidth; tip.style.left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2)) + 'px'; tip.style.top = Math.max(6, r.top - tip.offsetHeight - 6) + 'px'; };
   box.addEventListener('mouseover', showTip); box.addEventListener('click', showTip); box.addEventListener('mouseleave', () => { tip.hidden = true; });
   window.addEventListener('scroll', () => { tip.hidden = true; }, { passive: true });
-  chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.hist || ch.channels || ch.groups)) reload(); });
+  // 時間帯の傾向の操作: 就寝時間(設定と共通: settings.sleepFrom/sleepTo と sleepWin)・表示の切り替え・凡例
+  const sleepPatch = (k, v) => { sw = { ...sw, [k]: v }; TF.mutate(s => { s.settings[k === 'from' ? 'sleepFrom' : 'sleepTo'] = v; }); return chrome.storage.local.get('sleepWin').then(r => chrome.storage.local.set({ sleepWin: { on: true, from: '23:00', to: '07:00', ...(r.sleepWin || {}), [k]: v }, prefsAt: Date.now() })); };
+  main.addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'hx-sf') sleepPatch('from', t.value || '23:00'); else if (t.id === 'hx-st') sleepPatch('to', t.value || '07:00');
+    else if (t.id === 'hx-ss') { showSleep = t.checked; try { localStorage.setItem('tfHistSleep', showSleep ? '1' : '0'); } catch (e2) { /* なし */ } drawAn(); }
+    else if (t.id === 'hx-sk') { showWork = t.checked; try { localStorage.setItem('tfHistWork', showWork ? '1' : '0'); } catch (e2) { /* なし */ } drawAn(); }
+  });
+  main.addEventListener('click', e => { const lg = e.target.closest('.hx-lg'); if (!lg) return; const k = lg.dataset.f; if (hidF.has(k)) hidF.delete(k); else hidF.add(k); drawAn(); });
+  chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.hist || ch.channels || ch.groups || ch.sleepWin || ch.focus || ch.settings)) reload(); });
   reload();
 }

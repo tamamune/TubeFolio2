@@ -24,7 +24,7 @@
 
   function scan() {
     apply();
-    if (!hide || !isList() || document.hidden) return;
+    if (!hide || !isList() || document.hidden || (window.tfChanged && !window.tfChanged('mh'))) return;
     for (const it of document.querySelectorAll(ITEM)) {
       if (it.closest('#tg-feed, #tg-hf-list')) continue;
       if (isMember(it)) { if (it.dataset.tgMem !== '1') it.dataset.tgMem = '1'; }

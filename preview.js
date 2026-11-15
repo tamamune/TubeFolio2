@@ -49,10 +49,18 @@
     fpCur = { th, v, state: null, done: false, t0: Date.now(), short: !!th.closest('[data-type="short"]') || /\/shorts\//.test(th.closest('a[href]')?.getAttribute('href') || '') };
     try {
       parent.postMessage({ tfPv: 'start', v, start, nu, sc: Math.min(1, Math.max(0.01, +PXH.pvScale || 0.25)), fast: !!PXH.hoverFast, snd: !!PXH.hoverSound, vol: Math.round(hoverVol() * 100),
-        rect: { l: r.left, t: r.top, w: r.width, h: r.height }, rad: getComputedStyle(th).borderRadius }, '*');
+        rect: { l: r.left, t: r.top, w: r.width, h: r.height }, rad: getComputedStyle(th).borderRadius, btn: fpBtn(th) }, '*');
     } catch { /* なし */ }
-    if (nu) th.classList.add('tg-fp-on', 'tg-fp-play'); // 新プレビュー:すぐに重ねて表示(UIが小さいので待たない)
+    // (以前は、新プレビューだけ、すぐに重ねていた。動き出すまでは黒い画面になるので、旧と同じく、動き出すまでサムネを出したままにする)
   }
+  // サムネの左下の「🕒 後で見る」ボタン(.rlater)の位置と見た目。プレビューが上に重なっても見えるよう、YouTube側で、同じ見た目の印を、プレビューの上に出す
+  function fpBtn(th) {
+    const b = th.querySelector('.rlater'); if (!b) return null;
+    const r = b.getBoundingClientRect(), c = getComputedStyle(b);
+    return { l: r.left, t: r.top, w: r.width, h: r.height, text: b.textContent, bg: c.backgroundColor, fg: c.color, bd: c.borderTopWidth + ' ' + c.borderTopStyle + ' ' + c.borderTopColor, rad: c.borderRadius, fs: c.fontSize, fw: c.fontWeight };
+  }
+  // 先読み: このページが開いたら、少したってから、YouTube側に、プレイヤーを1つ読み込んでおいてもらう(最初のプレビューが、読み込み待ちで遅くならないように)。マウスで操作しない端末では、しない
+  if (window.parent !== window && !matchMedia('(pointer: coarse)').matches) setTimeout(() => { if (PXH.feedPreview !== false) { try { parent.postMessage({ tfPv: 'warm' }, '*'); } catch { /* なし */ } } }, 1500);
   function fpHostStop() { if (HOSTED) { try { parent.postMessage({ tfPv: 'stop' }, '*'); } catch { /* なし */ } } }
   // YouTube側からの返事: 動き出した / 失敗した / 記録
   window.addEventListener('message', e => {
@@ -112,7 +120,7 @@
     fpStop();
     if (!th || PXH.feedPreview === false || e.target.closest('button')) return;
     fpThumb = th;
-    fpTimer = setTimeout(() => { if (fpThumb === th) fpStart(th); }, 600);
+    fpTimer = setTimeout(() => { if (fpThumb === th) fpStart(th); }, 300);
   }, true);
   document.addEventListener('mouseout', e => { if (fpThumb && !fpThumb.contains(e.relatedTarget)) fpStop(); }, true);
   document.addEventListener('click', e => { if (fpThumb && fpThumb.contains(e.target)) fpStop(); }, true);

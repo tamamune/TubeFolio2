@@ -216,7 +216,7 @@
       laterBtnFor(card, id, inl);
     });
   }
-  setInterval(() => { if (!document.hidden && !(window.tfQuiet && window.tfQuiet())) markPlayed(); }, 1500);
+  setInterval(() => { if (!document.hidden && !(window.tfQuiet && window.tfQuiet()) && (!window.tfChanged || window.tfChanged('mp', laterIds.size))) markPlayed(); }, 1500); // 要素の増減がないときは、数秒に1回だけ(カード全部を調べ直すので重い)
   // ホーム: チャンネル名の下に、フォルダ設定で登録したフォルダの名前を出す(フォルダの色の点 + 名前)。
   //   チャンネル名の行の中には入れない(名前の読み取り bylineText に混ざらないよう、行の後ろに、別の行として足す)。YouTube がカードを作り直して消えたら、次の見回りで付け直す
   const folderChip = (card, gs) => {
@@ -377,18 +377,25 @@
   document.addEventListener('tg-trend-state', e => { const d = e.detail || {}, x = document.getElementById('tfh-trw'); if (x && d.k === 'words') x.classList.toggle('on', !!d.open); });
   function closeFly() { const f = $('#tf-gsb-fly'); if (f) f.remove(); const b = $('#tf-gsb-root .gs-bulge'); if (b) b.classList.remove('on'); document.querySelectorAll('#tf-gsb-root .gs-it.act').forEach(x => x.classList.remove('act')); }
   // 新着動画の件数(フォルダ内のチャンネルだけ取得。10分ごと/期間やチャンネル構成が変わったとき更新)
-  let newCounts = {}, newSig = '', newT = 0, newBusy = false;
+  //   初回に開いても0で待たされないよう、(1) 前回の件数を覚えておいて(newCountsCache。この端末だけ・取り直せる控え)すぐ出す
+  //   (2) 取得は、ページを開いて少したったら先に始める (3) 取れたぶんから、数字を入れていく(全部そろうまで0のまま待たない)
+  let newCounts = {}, newSig = '', newT = 0, newBusy = false, newHave = false; // newHave = 件数がひとつでも分かっている(控え or 取得済み)
+  const folderNew = gid => { const sub = TF.subtree(S.groups, gid); return Object.values(S.channels).reduce((a, c) => a + (c.groups.some(id => sub.has(id)) ? (newCounts[c.key] || 0) : 0), 0); };
+  const paintNew = () => document.querySelectorAll('#tf-gsb-fly button[data-a="grp"][data-g]').forEach(b => { const i = b.querySelector('i'), g = b.dataset.g; if (i && g !== 'all') i.textContent = String(folderNew(g)); }); // 開いているメニューの数字だけ入れ替える(描き直さないので、スクロールが戻らない)
+  chrome.storage.local.get('newCountsCache').then(r => { const c = r.newCountsCache; if (c && c.counts && !newHave) { newCounts = c.counts; newHave = true; newSig = c.sig || ''; newT = c.at || 0; paintNew(); } }).catch(() => {});
+  chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch.newCountsCache && ch.newCountsCache.newValue && ch.newCountsCache.newValue.counts) { newCounts = ch.newCountsCache.newValue.counts; newHave = true; paintNew(); } });
   function refreshNew() {
     const days = S.settings.newDays || 3, keys = Object.values(S.channels).filter(c => c.groups.some(id => groupOf(id))).map(c => c.key).sort(), sig = days + ':' + keys.join(',');
     if (newBusy || !keys.length || (sig === newSig && Date.now() - newT < 10 * 60 * 1000)) return;
     newBusy = true; newSig = sig; newT = Date.now();
-    chrome.runtime.sendMessage({ type: 'newCounts', keys, days }, r => { newBusy = false; if (r && r.counts) { newCounts = r.counts; renderHBar(); } }); // 開いているフォルダのメニューも描き直す
+    chrome.runtime.sendMessage({ type: 'newCounts', keys, days, sig }, r => { newBusy = false; if (r && r.counts) { newCounts = r.counts; newHave = true; paintNew(); renderHBar(); } }); // 開いているフォルダのメニューも描き直す
   }
+  if (!matchMedia('(pointer: coarse)').matches) setTimeout(() => { try { if (S) refreshNew(); } catch (e) { /* 次に開いたときに */ } }, 10000); // パソコンだけ: 開いたあと少したってから先に取る(スマホは、重くなるので、メニューを開いたとき)
   const curGrp = () => (onLaterPage() || isHome()) ? (S.settings.plFolder || 'all') : S.settings.activeGroup; // 選択中のフォルダ(「視聴」を開いているときは、そのページ用)
   function hubFlyHtml(key) {
     if (key === 'folder') {
       refreshNew();
-      const rows = TF.flat(S.groups).map(({ g, depth }) => { const sub = TF.subtree(S.groups, g.id); const n = Object.values(S.channels).reduce((a, c) => a + (c.groups.some(id => sub.has(id)) ? (newCounts[c.key] || 0) : 0), 0); return `<button data-a="grp" data-g="${g.id}" class="${curGrp() === g.id ? 'act' : ''}" style="padding-left:${12 + depth * 14}px">${TF.iconHtml(g.icon)} ${esc(g.name)}<i>${n}</i></button>`; }).join('');
+      const rows = TF.flat(S.groups).map(({ g, depth }) => { const sub = TF.subtree(S.groups, g.id); const n = newHave ? folderNew(g.id) : "…"; return `<button data-a="grp" data-g="${g.id}" class="${curGrp() === g.id ? 'act' : ''}" style="padding-left:${12 + depth * 14}px">${TF.iconHtml(g.icon)} ${esc(g.name)}<i>${n}</i></button>`; }).join('');
       return `<div class="fh">フォルダ ・ 新着動画(${S.settings.newDays || 3}日以内)</div><button data-a="view" class="sep2">📂 フォルダ設定(管理画面)を開く</button><button data-a="grp" data-g="all" class="${curGrp() === 'all' ? 'act' : ''}">すべて</button>${rows}`;
     }
     if (key === 'cols') {
@@ -1074,8 +1081,30 @@
       });
     } catch (err) { done(); toast(stale, 6000); }
   }
-  // ボタンは、サムネのリンクの中にあるので、押しても動画へ移動しないように、先に受け取って止める
-  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.tf-lbtn'); if (!b) return; e.preventDefault(); e.stopImmediatePropagation(); laterToggle(b); }, true);
+  // ボタンは、サムネのリンクの中にあるので、押しても動画へ移動しないように、先に受け取って止める。浮かべたコピー(tf-lghost)を押したときは、本物のボタンを押したことにする
+  document.addEventListener('click', e => { let b = e.target.closest && e.target.closest('.tf-lbtn'); if (!b) return; e.preventDefault(); e.stopImmediatePropagation(); if (b.classList.contains('tf-lghost')) b = lbHover.card && lbHover.card.querySelector('.tf-lbtn:not(.tf-lghost)'); if (b) laterToggle(b); }, true);
+  // ホームのショート(ほか一覧のサムネ): マウスを乗せて、プレビューが始まると、YouTube がサムネの中身を入れ替える・上に重ねるので、🕒が消えていた。
+  //   乗せている間だけ、0.2秒ごとに、消えていたら付け直す。上に重ねられて見えないときは、同じ場所に浮かべたコピーを出す(押すと、本物を押したのと同じ)
+  const lbHover = {
+    card: null, t: 0, ghost: null,
+    stop() { clearInterval(this.t); this.t = 0; this.card = null; if (this.ghost) { this.ghost.remove(); this.ghost = null; } },
+    fix() {
+      const c = this.card; if (!c || !c.isConnected) return this.stop();
+      const id = videoId(c); if (!id) return;
+      laterBtnFor(c, id, laterIds.has(id)); // 消されていたら付け直す
+      const b = c.querySelector('.tf-lbtn:not(.tf-lghost)'); if (!b) return;
+      const r = b.getBoundingClientRect(), top = r.width ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
+      if (r.width && top && top !== b && !b.contains(top) && !(this.ghost && top === this.ghost)) { // 上に重ねられている
+        let g = this.ghost; if (!g) { g = this.ghost = el('button', 'tf-lbtn tf-lghost', LBI); g.type = 'button'; document.body.appendChild(g); }
+        g.style.left = r.left + 'px'; g.style.top = r.top + 'px'; g.className = 'tf-lbtn tf-lghost' + (b.classList.contains('done') ? ' done' : ''); if (g.textContent !== b.textContent) g.textContent = b.textContent; g.title = b.title;
+      } else if (this.ghost && !(top && top === this.ghost)) { this.ghost.remove(); this.ghost = null; }
+    }
+  };
+  document.addEventListener('mouseover', e => {
+    const c = e.target.closest && e.target.closest(LB_HOST); if (!c || c === lbHover.card || c.closest('#tf-view, ytd-watch-flexy, ytd-miniplayer')) return;
+    lbHover.stop(); lbHover.card = c; lbHover.t = setInterval(() => lbHover.fix(), 200);
+  }, true);
+  document.addEventListener("mouseout", e => { const c = lbHover.card; if (!c) return; const r = c.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) return; lbHover.stop(); }, true); // カードの上にいるあいだは、プレビューが上に重なっても(mouseout が出ても)止めない
   ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'auxclick', 'dblclick'].forEach(t => document.addEventListener(t, e => { if (e.target.closest && e.target.closest('.tf-lbtn')) e.stopPropagation(); }, true));
 
   // ---------- カードの「⋮」メニューに「TubeFolio2 後で見る に追加」を足す ----------
@@ -1186,7 +1215,7 @@
     document.addEventListener('load', e => { if (e.target && e.target.tagName === 'IMG' && onList()) schedule(); }, true);
     document.addEventListener('mouseout', e => { if (onList() && e.target.closest && e.target.closest(OUTER)) { clearTimeout(window._tfMo); window._tfMo = setTimeout(schedule, 450); } }, true);
     document.addEventListener('transitionend', e => { if (onList() && e.target.closest && e.target.closest(OUTER)) schedule(); }, true);
-    setInterval(() => { if (!document.hidden && (isHome() || isSubs() || isChPage())) processCards(); }, 1500); // チャンネルのページ: あとから読み込まれた動画にも、「視聴済みを隠す」を効かせる
+    setInterval(() => { if (!document.hidden && (isHome() || isSubs() || isChPage()) && (!window.tfChanged || window.tfChanged('pc'))) processCards(); }, 1500); // チャンネルのページ: あとから読み込まれた動画にも、「視聴済みを隠す」を効かせる
     refresh(); checkImport(); queueSync();
     // 戻るボタンで、動画から、さっき開いていた画面(視聴・検索・ブックマークなど)へ戻る
     try {
