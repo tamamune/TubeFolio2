@@ -49,18 +49,27 @@ html[dark] #tfsh{--sh-bg:rgba(32,32,32,.88);--sh-fg:#f1f1f1;--sh-sub:#bdbdbd;--s
 #tfsh.clr .sh-clr{width:38px;flex:none;background:var(--sh-bg)}
 /* スマホ・狭い画面: 文字を隠して、アイコンだけの細い縦の帯にする(動画をじゃましない。指で押しやすい大きさ) */
 @media all{
-#tfsh{width:50px;gap:5px;padding:6px}
+#tfsh{width:64px;gap:7px;padding:8px}
 #tfsh .sh-r{flex-direction:column}
-#tfsh button{height:38px;padding:0;font-size:16px;border-radius:12px}
+#tfsh button{height:48px;padding:0;font-size:20px;border-radius:14px}
 #tfsh .l{display:none}
 #tfsh .sh-t{font-size:10px;line-height:1.3}#tfsh .sh-t b{display:block;font-size:12px}#tfsh .sh-t br{display:none}
 #tfsh .sh-fold{height:30px;font-size:16px}
-#tfsh.fold{width:auto}#tfsh.fold .sh-fold{height:44px;width:44px}
+#tfsh.fold{width:auto}#tfsh.fold .sh-fold{height:48px;width:48px}
 #tfsh.clr .sh-clr{width:44px}
-#tfsh [data-a=back],#tfsh [data-a=fwd]{font-size:14px}
+#tfsh [data-a=back],#tfsh [data-a=fwd]{font-size:15px}
+#tfsh .sh-t{font-size:11px}#tfsh .sh-t b{font-size:13px}
 #tfsh .sh-n{font-size:10px;word-break:break-all}}
 /* スマホ・狭い画面: 右の端に固定。右の端のぶんだけ、YouTubeの動画の領域を狭めて、重ならないようにする。指で押す大きさ */
-@media (pointer:coarse),(max-width:900px){#tfsh{left:auto;right:4px;width:54px}#tfsh button{height:44px}#tfsh.fold .sh-fold{height:44px;width:44px}html[data-tfsh-m] ytd-shorts #shorts-container{width:calc(100% - 64px) !important}}
+@media (pointer:coarse),(max-width:900px){
+#tfsh{left:auto;right:4px;width:58px;gap:8px;padding:8px 6px;border-radius:29px;align-items:center}
+#tfsh .sh-r{align-items:center}
+#tfsh button{flex:none;width:46px;height:46px;border-radius:50%;font-size:19px}
+#tfsh [data-a=back],#tfsh [data-a=fwd]{font-size:14px}
+#tfsh .sh-fold{height:30px;width:46px;border-radius:15px}
+#tfsh.fold{border-radius:29px}#tfsh.fold .sh-fold{height:46px;width:46px;border-radius:50%}
+#tfsh.clr{border-radius:50%}#tfsh.clr .sh-clr{width:46px}
+html[data-tfsh-m] ytd-shorts #shorts-container{width:calc(100% - 68px) !important}}
 /* パソコン: 動画の右(YouTube の👍💬ボタンのさらに右)に置く。窓が狭くて入らないときは、動画ごと左へずらす(--tfsh-shift) */
 html[data-tfsh-d] ytd-shorts #shorts-container{transform:translateX(calc(var(--tfsh-shift,0) * -1px))}
 /* クリアスクリーン: 動画だけにする(場所は変えない = 消さずに透明にして、押しても動画に届くようにする) */
