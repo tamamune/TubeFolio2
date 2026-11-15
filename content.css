@@ -1068,5 +1068,24 @@ html:not([dark]) #tf-gsb-fly.tf-barfly button.sep2 { border-bottom-color: rgba(0
 html #tf-view.tf-aip, html[data-tf-pg] #tf-view.tf-aip, html[data-tf-hbot] #tf-view.tf-aip, html[data-tf-hbot][data-tf-pg] #tf-view.tf-aip, html[data-tf-hfix] #tf-view.tf-aip { top: 0 !important; bottom: 0 !important; z-index: 2400; padding-top: 0 !important; }
 
 /* ショートの 🕒: 下には再生回数・メニューがあるので、左上に出す。サムネの枠に位置を合わせる */
-.tf-lbtn.sh { top: 8px; bottom: auto; }
+.tf-lbtn.sh { bottom: 8px; top: auto; }
 .shortsLockupViewModelHostThumbnailContainer:has(> .tf-lbtn) { position: relative; }
+
+/* TubeFolio2 設定「再生・動画」: スマホの設定のような一覧(1行=1機能。名前・説明・右にスイッチ。「〉」で詳しい設定) */
+#tf-set .tf-pxg > .tf-al { display: flex; flex-direction: column; gap: 3px; padding: 6px 0 4px; }
+#tf-set .tf-ar { display: flex; align-items: center; gap: 10px; min-height: 56px; box-sizing: border-box; padding: 10px 14px; border-radius: 6px; background: transparent; border: 1px solid var(--tf-line); }
+#tf-set .tf-ar:first-child { border-radius: 18px 18px 6px 6px; } #tf-set .tf-ar:last-child { border-radius: 6px 6px 18px 18px; } #tf-set .tf-ar:only-child { border-radius: 18px; }
+#tf-set .tf-ar.go { cursor: pointer; } #tf-set .tf-ar.go:hover { background: color-mix(in srgb, var(--tf-fg) 7%, transparent); }
+#tf-set .tf-at { flex: 1; min-width: 0; } #tf-set .tf-at b { display: block; font-size: 15px; font-weight: 500; line-height: 20px; color: var(--tf-fg); } #tf-set .tf-at small { display: block; margin-top: 2px; font-size: 12px; line-height: 17px; color: var(--tf-sub); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+#tf-set .tf-ar.info .tf-at small { white-space: normal; }
+#tf-set .tf-ac { flex: none; color: var(--tf-sub); font-size: 16px; } #tf-set .tf-av { flex: none; width: 1px; height: 30px; background: var(--tf-line); }
+#tf-set .tf-sw2 { flex: none; display: inline-flex; cursor: pointer; } #tf-set .tf-sw2 input { display: none; }
+#tf-set .tf-sw2 span { position: relative; width: 52px; height: 32px; box-sizing: border-box; border-radius: 16px; border: 2px solid var(--tf-sub); background: transparent; transition: .2s; }
+#tf-set .tf-sw2 span::after { content: "✕"; position: absolute; top: 4px; left: 5px; width: 20px; height: 20px; border-radius: 50%; background: var(--tf-sub); color: var(--tf-bg); font: 700 11px/20px Roboto, sans-serif; text-align: center; transition: .2s; }
+#tf-set .tf-sw2 input:checked + span { background: var(--tf-acc); border-color: var(--tf-acc); }
+#tf-set .tf-sw2 input:checked + span::after { content: "✓"; top: 2px; left: 22px; width: 24px; height: 24px; line-height: 24px; background: #fff; color: var(--tf-acc); font-size: 13px; }
+#tf-set .tf-dh { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; font-size: 16px; } #tf-set .tf-dh b { font-weight: 600; }
+#tf-set .tf-back { width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--tf-chip); color: var(--tf-fg); font-size: 18px; cursor: pointer; } #tf-set .tf-back:hover { background: color-mix(in srgb, var(--tf-fg) 18%, transparent); }
+#tf-set .tf-dc { border-top: 0; padding-top: 0; }
+/* 「再生・動画」の一番外の外枠(中身全体を囲む枠)をなくす。各グループの枠は、そのまま */
+#tf-set #tfs-pxsec.tf-grp { border: 0; background: transparent; box-shadow: none; padding: 0; margin: 10px 0; }

@@ -119,7 +119,7 @@ const TF = (() => {
   // Google Drive で共有するデータ(storage のキー)。ここ1か所で決める(sync.js の SYNC_KEYS・JSONの書き出し/読み込みが使う)。
   // 同期しないもの(理由): YouTube 自身が共有しているデータ(視聴履歴・登録チャンネル・再生リストの本体) /
   //   取り直せるキャッシュ(feedCache_* trdc_<日付> spub chTitles chAvCache wbCache ghCache recent plTargetId plTargetName plLaterIds trendsCache4 trendsCache24 tfPlSums) /
-  //   この端末だけの記録・動作中の状態(ytApiKey=秘密なのでDriveに上げない tgLog syncStatus syncMeta syncBase driveTok notified notifyQueue queue tfQueue tfView lastCheckAt checkLock subsSyncAt bmt:…)。
+  //   この端末だけの記録・動作中の状態(ytApiKey=秘密なのでDriveに上げない t1Cleaned(古い t1_* を消した印) tgLog syncStatus syncMeta syncBase driveTok notified notifyQueue queue tfQueue tfView lastCheckAt checkLock subsSyncAt bmt:…)。
   //   急上昇ワードのキャッシュ trendsCache<時間>(_c<カテゴリ>)も、取り直せるので同期しない。
   //   アカウントの見張りの記録(この端末だけ): ytAcct(最後に整理したときの YouTube のアカウント) / acctNoticed・acctBlockAt(お知らせを出した記録) / subsBackups(整理の直前の、フォルダとチャンネルの控え・最新3回分) / driveHint(Drive のアカウント)。
   // 新しいキーを足したら、ここに入れる。対象外にするなら、上の理由に書く。

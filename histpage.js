@@ -1,7 +1,7 @@
 // 視聴履歴のページ(上のバーの「視聴履歴」。page.html?p=hist)。page.js から histPage() で呼ばれる。
 //   データ: storage の hist(histrec.js が、再生のたびに記録する。Drive同期の対象 = どのPCで見た分も合わさる)
 //     hist = { v: { 動画ID: [タイトル, チャンネル名, チャンネルのキー, 長さ(秒), ショートなら1] }, p: [[開始(秒), 動画ID, 見た秒数], …] }
-//   「📊 分析」: 期間を選んで、合計・日別・時間帯・曜日・チャンネル・フォルダ・よく見た動画を出す
+//   1ページに、上に「📊 分析」(期間を選んで、合計・日別・時間帯・曜日・チャンネル・フォルダ・よく見た動画)、下に「🗂 履歴の管理」を並べる
 //   「🗂 履歴の管理」: 一覧・検索・1件ずつ/まとめて削除・CSV/JSONの書き出し・JSONの読み込み・テストデータの作成/削除
 //   テストデータは、動画IDが「TFTEST」で始まる(本物の動画IDと重ならない)。「テストデータを削除」で、それだけを消せる
 function histPage() {
@@ -10,13 +10,13 @@ function histPage() {
   const ms = sec => { sec = Math.round(sec); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
   const dkey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const WD = '日月火水木金土';
-  let H = { v: {}, p: [], g: 0 }, S = null, meta = {}, tab = 'an', days = 30, q = '', shown = 200;
-  try { tab = localStorage.getItem('tfHistTab') || 'an'; days = +localStorage.getItem('tfHistDays') || 30; } catch (e) { /* なし */ }
+  let H = { v: {}, p: [], g: 0 }, S = null, meta = {}, days = 30, q = '', shown = 200;
+  try { days = +localStorage.getItem('tfHistDays') || 30; } catch (e) { /* なし */ }
   main.innerHTML = `<div class="head"><h1>${esc(TITLE)}</h1><span class="sub">この拡張機能で再生した記録(Google Drive で共有)</span><span class="sp"></span><span id="st"></span></div>
-    <div class="hx-tabs"><button data-tab="an">📊 分析</button><button data-tab="mg">🗂 履歴の管理</button><span class="sp"></span>
+    <div class="hx-tabs"><span class="sp"></span>
       <span class="hx-seg" id="hx-days">${[[7, '7日'], [30, '30日'], [90, '90日'], [365, '1年'], [0, 'すべて']].map(([n, l]) => `<button data-d="${n}">${l}</button>`).join('')}</span></div>
-    <div id="hx"></div><div id="hx-tip" hidden></div>`;
-  const box = $('#hx'), tip = $('#hx-tip');
+    <div id="hx"><div id="hx-a"></div><div id="hx-m"></div></div><div id="hx-tip" hidden></div>`;
+  const box = $('#hx'), A = $('#hx-a'), M = $('#hx-m'), tip = $('#hx-tip');
   // g = 最後に削除した時刻。削除のときに更新する(sync.js が、ほかのPCの古い記録で、消した分を戻さないために使う)
   const save = (h, deleted) => { const g = deleted ? Date.now() : H.g; return chrome.storage.local.set({ hist: g ? { v: h.v, p: h.p, g } : { v: h.v, p: h.p } }); };
   // チャンネルのキー → 登録チャンネル(フォルダを引くため)。キーが違う形(@ハンドル / UC…)でも、IDと名前で引けるようにする
@@ -35,7 +35,7 @@ function histPage() {
 
   function drawAn() {
     const P = inRange(), total = P.reduce((a, x) => a + (x[2] || 0), 0), vids = new Set(P.map(x => x[1]));
-    if (!H.p.length) { box.innerHTML = `<p class="empty">まだ視聴履歴がありません。動画を5秒以上再生すると、ここに記録されます。<br>画面を試すには、「🗂 履歴の管理」の「テストデータを作成」を使ってください。</p>`; return; }
+    if (!H.p.length) { A.innerHTML = `<p class="empty">まだ視聴履歴がありません。動画を5秒以上再生すると、ここに記録されます。<br>画面を試すには、下の「🛠 データの管理」の「テストデータを作成」を使ってください。</p>`; return; }
     // 日別(期間が長いときは、週・月でまとめる)
     const now = new Date(), first = P.length ? new Date(P[0][0] * 1000) : now, span = days || Math.max(1, Math.round((now - first) / 864e5) + 1);
     const unit = span <= 92 ? 'd' : span <= 400 ? 'w' : 'm', byDay = new Map();
@@ -68,7 +68,7 @@ function histPage() {
     const vRows = [...vv.entries()].sort((a, b) => b[1].val - a[1].val).slice(0, 10).map(([id, e]) => { const m = H.v[id] || []; return { name: m[0] || id, val: e.val, sub: `${e.n}回`, tip: `${m[0] || id} ・ ${m[1] || ''} ・ ${hm(e.val)} ・ ${e.n}回`, href: TEST.test(id) ? '' : 'https://www.youtube.com/watch?v=' + id }; });
     const tile = (l, v, s) => `<div class="hx-tile"><small>${esc(l)}</small><b>${esc(v)}</b>${s ? `<span>${esc(s)}</span>` : ''}</div>`;
     const period = days ? `直近${days === 365 ? '1年' : days + '日'}` : 'すべての期間';
-    box.innerHTML = `<div class="hx-tiles">${tile('合計の視聴時間', hm(total), period)}${tile('見た動画', vids.size + '本', `再生 ${P.length}回`)}${tile('1日の平均', hm(total / Math.max(1, days || span)), `見た日 ${actDays}日`)}${tile('いちばん長く見た日', best ? hm(best[1]) : '—', best ? best[0].replace(/^(\d+)-0?(\d+)-0?(\d+)$/, '$1年$2月$3日') : '')}${tile('ショート', hm(shortSec), total ? `全体の ${Math.round(shortSec / total * 100)}%` : '')}</div>
+    A.innerHTML = `<div class="hx-tiles">${tile('合計の視聴時間', hm(total), period)}${tile('見た動画', vids.size + '本', `再生 ${P.length}回`)}${tile('1日の平均', hm(total / Math.max(1, days || span)), `見た日 ${actDays}日`)}${tile('いちばん長く見た日', best ? hm(best[1]) : '—', best ? best[0].replace(/^(\d+)-0?(\d+)-0?(\d+)$/, '$1年$2月$3日') : '')}${tile('ショート', hm(shortSec), total ? `全体の ${Math.round(shortSec / total * 100)}%` : '')}</div>
       <section class="hx-card"><h2>${unit === 'd' ? '日ごと' : unit === 'w' ? '週ごと' : '月ごと'}の視聴時間</h2>${vbars(cols, cols.length > 60 ? 14 : cols.length > 16 ? 7 : cols.length > 8 ? 2 : 1)}</section>
       <div class="hx-two"><section class="hx-card"><h2>時間帯(何時に見ているか)</h2>${vbars(hours.map((v, h) => ({ val: v, label: h + '時', tip: `${h}時台 ・ ${hm(v)}` })), 3)}</section>
       <section class="hx-card"><h2>曜日</h2>${vbars(wds.map((v, i) => ({ val: v, label: WD[i], tip: `${WD[i]}曜日 ・ ${hm(v)}` })), 1)}</section></div>
@@ -91,8 +91,8 @@ function histPage() {
         <button class="hx-x" data-del="1" title="この記録を削除">✕</button></div>`;
     });
     const keep = document.activeElement && document.activeElement.id === 'hx-q';
-    const toolsOpen = !!box.querySelector('.hx-tools[open]');
-    box.innerHTML = `<div class="hx-bar"><input id="hx-q" type="search" placeholder="タイトル・チャンネルで絞り込み" value="${esc(q)}" autocomplete="off"><span class="sub">${hit.length}件 ・ ${hm(hit.reduce((a, x) => a + x[2], 0))}</span><span class="sp"></span>
+    const toolsOpen = !!M.querySelector('.hx-tools[open]');
+    M.innerHTML = `<div class="hx-bar"><input id="hx-q" type="search" placeholder="タイトル・チャンネルで絞り込み" value="${esc(q)}" autocomplete="off"><span class="sub">${hit.length}件 ・ ${hm(hit.reduce((a, x) => a + x[2], 0))}</span><span class="sp"></span>
         ${words.length && hit.length ? '<button data-a="delhit" class="warn">絞り込んだ記録を削除</button>' : ''}</div>
       <details class="hx-tools"${toolsOpen ? ' open' : ''}><summary>🛠 データの管理(書き出し・読み込み・削除・テストデータ)</summary><div class="hx-tb">
         <button data-a="csv">📤 CSVで書き出す</button><button data-a="json">📤 JSONで書き出す</button><button data-a="imp">📥 JSONから読み込む(今の記録に足す)</button><input type="file" id="hx-file" accept=".json,application/json" hidden>
@@ -107,10 +107,9 @@ function histPage() {
     if (keep) { const i = $('#hx-q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
   }
   const draw = () => {
-    document.querySelectorAll('.hx-tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     document.querySelectorAll('#hx-days button').forEach(b => b.classList.toggle('on', +b.dataset.d === days));
     $('#st').textContent = H.p.length ? `記録 ${H.p.length}回 ・ 動画 ${Object.keys(H.v).length}本` : '';
-    tip.hidden = true; (tab === 'mg' ? drawMg : drawAn)();
+    tip.hidden = true; drawAn(); drawMg();
   };
   const reload = () => Promise.all([chrome.storage.local.get(['hist', 'meta']), TF.get()]).then(([r, s]) => { const h = r.hist || {}; H = { v: h.v || {}, p: (Array.isArray(h.p) ? h.p : []).filter(x => Array.isArray(x) && x[1]).sort((a, b) => a[0] - b[0]), g: h.g || 0 }; meta = r.meta || {}; S = s; buildIdx(); draw(); });
   const prune = h => { const used = new Set(h.p.map(x => x[1])); Object.keys(h.v).forEach(id => { if (!used.has(id)) delete h.v[id]; }); return h; };
@@ -121,10 +120,10 @@ function histPage() {
   function makeTest() {
     const real = Object.values((S && S.channels) || {}).filter(c => c && c.name).slice(0, 8).map(c => [c.name, c.key]);
     const fake = ['テスト料理チャンネル', 'テストゲーム実況', 'テスト旅行記', 'テスト音楽ch', 'テストニュース解説', 'テストガジェット', 'テストねこ動画', 'テスト歴史講座'].map((n, i) => [n, '@tftest' + i]);
-    const chs = [...real, ...fake], words = ['入門', '完全ガイド', 'まとめ', 'やってみた', 'レビュー', '第1回', '第2回', '総集編', 'ライブ配信', '徹底比較', '作業用', '初見プレイ'];
+    const CATS = ['音楽', 'ゲーム', 'ニュースと政治', '教育', 'エンターテイメント', 'ハウツーとスタイル', '科学と技術', 'ペットと動物'], chs = [...real, ...fake], words = ['入門', '完全ガイド', 'まとめ', 'やってみた', 'レビュー', '第1回', '第2回', '総集編', 'ライブ配信', '徹底比較', '作業用', '初見プレイ'];
     const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1)), pick = a => a[Math.floor(Math.random() * a.length)];
     const v = { ...H.v }, p = H.p.slice(), ids = [];
-    for (let i = 0; i < 160; i++) { const id = 'TFTEST' + String(i).padStart(5, '0'), c = chs[Math.floor(Math.pow(Math.random(), 1.6) * chs.length)], short = Math.random() < 0.15; v[id] = [`【テスト】${c[0].replace(/^テスト/, '')}の${pick(words)} #${i + 1}`, c[0], c[1], short ? rnd(15, 58) : rnd(180, 2400), short ? 1 : 0]; ids.push(id); }
+    for (let i = 0; i < 160; i++) { const id = 'TFTEST' + String(i).padStart(5, '0'), c = chs[Math.floor(Math.pow(Math.random(), 1.6) * chs.length)], short = Math.random() < 0.15; v[id] = [`【テスト】${c[0].replace(/^テスト/, '')}の${pick(words)} #${i + 1}`, c[0], c[1], short ? rnd(15, 58) : rnd(180, 2400), short ? 1 : 0, pick(CATS), dkey(new Date(Date.now() - rnd(1, 900) * 864e5)), Math.random() < 0.08 ? 1 : 0, [pick(words), pick(words), c[0].replace(/^テスト/, '')]]; ids.push(id); }
     const hoursW = [1, 0, 0, 0, 0, 0, 1, 3, 3, 1, 1, 2, 5, 3, 1, 1, 2, 3, 5, 8, 10, 10, 8, 4], hsum = hoursW.reduce((a, b) => a + b, 0);
     const pickHour = () => { let r = Math.random() * hsum; for (let h = 0; h < 24; h++) { r -= hoursW[h]; if (r <= 0) return h; } return 21; };
     const today = new Date(); today.setHours(0, 0, 0, 0); const nowS = Math.floor(Date.now() / 1000);
@@ -132,21 +131,20 @@ function histPage() {
       const day = new Date(today); day.setDate(day.getDate() - d);
       if (Math.random() < 0.08) continue; // 見なかった日
       const n = rnd(2, [0, 6].includes(day.getDay()) ? 12 : 7);
-      for (let i = 0; i < n; i++) { const id = pick(ids), dur = v[id][3], t = Math.floor(day.getTime() / 1000) + pickHour() * 3600 + rnd(0, 3599); if (t > nowS) continue; p.push([t, id, Math.max(5, Math.round(dur * (Math.random() < 0.55 ? rnd(85, 100) : rnd(10, 80)) / 100))]); }
+      for (let i = 0; i < n; i++) { const id = pick(ids), dur = v[id][3], t = Math.floor(day.getTime() / 1000) + pickHour() * 3600 + rnd(0, 3599); if (t > nowS) continue; const sec = Math.max(5, Math.round(dur * (Math.random() < 0.55 ? rnd(85, 100) : rnd(10, 80)) / 100)); p.push([t, id, sec, Math.min(dur, Math.round(sec * 1.1)), pick(['pc', 'pc', 'pc', 'ph', 'ph', 'tb']), pick(['home', 'home', 'search', 'sub', 'watch', 'watch', 'list', 'channel', 'direct'])]); }
     }
     p.sort((a, b) => a[0] - b[0]);
     return save(prune({ v, p }));
   }
 
   main.addEventListener('click', e => {
-    const t = e.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; shown = 200; try { localStorage.setItem('tfHistTab', tab); } catch (e2) { /* なし */ } return draw(); }
     const d = e.target.closest('#hx-days button'); if (d) { days = +d.dataset.d; shown = 200; try { localStorage.setItem('tfHistDays', String(days)); } catch (e2) { /* なし */ } return draw(); }
     const del = e.target.closest('[data-del]'); if (del) { const k = del.closest('.hx-row').dataset.k; return removeIf(x => x[0] + '|' + x[1] === k); }
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
     if (a === 'more') { shown += 300; drawMg(); }
     else if (a === 'delhit') { const words = q.toLowerCase().split(/\s+/).filter(Boolean), cut = new Set(inRange().map(x => x[0] + '|' + x[1])); removeIf(x => { if (!cut.has(x[0] + '|' + x[1])) return false; const m = H.v[x[1]] || [], s = ((m[0] || '') + ' ' + (m[1] || '')).toLowerCase(); return words.every(w => s.includes(w)); }, `「${q}」に合う {n}件の記録を削除しますか?`); }
-    else if (a === 'csv') { const c = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"'; dl('tubefolio2-history-' + dkey(new Date()) + '.csv', '﻿' + ['日時,動画ID,タイトル,チャンネル,見た秒数,動画の長さ(秒),ショート'].concat(H.p.map(x => { const m = H.v[x[1]] || [], dt = new Date(x[0] * 1000); return [c(dkey(dt) + ' ' + dt.toTimeString().slice(0, 8)), c(x[1]), c(m[0]), c(m[1]), x[2], m[3] || '', m[4] ? 1 : 0].join(','); })).join('\r\n'), 'text/csv'); }
+    else if (a === 'csv') { const c = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"'; dl('tubefolio2-history-' + dkey(new Date()) + '.csv', '﻿' + ['日時,動画ID,タイトル,チャンネル,見た秒数,動画の長さ(秒),ショート,チャンネルのキー,フォルダ,カテゴリ,公開日,ライブ,タグ,デバイス,流入経路'].concat(H.p.map(x => { const m = H.v[x[1]] || [], dt = new Date(x[0] * 1000), reg = chOf(m), fg = reg ? (reg.groups || []).map(id => (S.groups.find(g => g.id === id) || {}).name).filter(Boolean).join(' / ') : ''; return [c(dkey(dt) + ' ' + dt.toTimeString().slice(0, 8)), c(x[1]), c(m[0]), c(m[1]), x[2], m[3] || '', m[4] ? 1 : 0, c(m[2]), c(fg), c(m[5]), c(m[6]), m[7] ? 1 : 0, c((m[8] || []).join(' ')), c(x[4]), c(x[5])].join(','); })).join('\r\n'), 'text/csv'); }
     else if (a === 'json') dl('tubefolio2-history-' + dkey(new Date()) + '.json', JSON.stringify({ app: 'TubeFolio2', kind: 'hist', exportedAt: new Date().toISOString(), hist: { v: H.v, p: H.p } }), 'application/json');
     else if (a === 'imp') $('#hx-file').click();
     else if (a === 'test') { if (confirm('テストデータ(60日分・動画160本)を作って、今の記録に足します。あとで「テストデータを削除」で消せます。よろしいですか?')) makeTest(); }
@@ -160,7 +158,7 @@ function histPage() {
     try {
       const j = JSON.parse(await f.text()), h = j.hist || (j.data && j.data.hist) || j;
       if (!h || !Array.isArray(h.p) || typeof h.v !== 'object') throw new Error('視聴履歴のファイルではありません');
-      const m = new Map(); [...H.p, ...h.p].forEach(x => { if (!Array.isArray(x) || !x[1]) return; const k = x[0] + '|' + x[1], o = m.get(k); if (!o || x[2] > o[2]) m.set(k, [+x[0], String(x[1]), +x[2] || 0, ...(+x[3] ? [+x[3]] : [])]); });
+      const m = new Map(); [...H.p, ...h.p].forEach(x => { if (!Array.isArray(x) || !x[1]) return; const k = x[0] + '|' + x[1], o = m.get(k); if (!o || x[2] > o[2]) m.set(k, [+x[0], String(x[1]), +x[2] || 0, ...x.slice(3)]); });
       await save(prune({ v: { ...h.v, ...H.v }, p: [...m.values()].sort((a, b) => a[0] - b[0]) }));
     } catch (err) { alert('読み込めませんでした: ' + (err.message || err)); }
   });

@@ -535,6 +535,9 @@ const TGPlayerX = (() => {
         <div class="seg"><button data-ab="a">A：ここから</button><button data-ab="b">B：ここまで</button><button data-ab="clear">解除</button></div>
         <div class="row"><span>📷 スクリーンショット</span><button data-c="shot">保存（S キー）</button></div>
         <div class="row"><span>🎧 省データ（144p・映像を隠す）</span><button data-c="saver" class="${cfg.saver ? 'on' : ''}">${cfg.saver ? 'オン' : 'オフ'}</button></div>
+        <div class="row"><span>🪶 H.264で再生（軽い・次の読み込みから）</span><button data-px="h264" class="${cfg.h264 ? 'on' : ''}">${cfg.h264 ? 'オン' : 'オフ'}</button></div>
+        <div class="row h264t"><span>テスト: 切り替えたら、今の動画をここから読み込み直す</span><button data-c="h264re">読み込み直す</button></div>
+        <p>確認: 動画を右クリック →「詳細統計情報」の Codecs が avc1 なら H.264、vp09 / av01 なら別の方式です。</p>
         <div class="row"><span>▶ 外部プレイヤー（mpv / VLC）</span><button data-c="ext">で開く</button></div>
         ${sl('vol', '🔊 音量', 100, 300)}${sl('br', '☀ 明るさ', 50, 200)}${sl('ct', '◐ コントラスト', 50, 200)}${sl('sat', '🎨 彩度', 0, 200)}
         <div class="row"><span></span><button data-c="reset">音量・画質を元に戻す</button></div>`;
@@ -548,6 +551,7 @@ const TGPlayerX = (() => {
       if (t.dataset.ab) { abSet(t.dataset.ab); pop.remove(); togglePop('tool'); return; }
       if (t.dataset.px) { const k = t.dataset.px, { px = {} } = await chrome.storage.local.get('px'), cur = px[k] === undefined ? !!DEF[k] : !!px[k], nv = !cur; await chrome.storage.local.set({ px: { ...px, [k]: nv }, prefsAt: Date.now() }); await load(); pop.remove(); togglePop('tool'); if (k === 'h264') flash(nv ? 'H.264：オン（次に読み込む動画から。今の動画は再読み込みで）' : 'H.264：オフ'); return; }
       if (t.dataset.c === 'ext') { window.TGPerf?.openExternal(); pop.remove(); return; }
+      if (t.dataset.c === 'h264re') { const v = curVid(), el = video(); if (v) { const s = el && isFinite(el.currentTime) ? Math.floor(el.currentTime) : 0; location.href = '/watch?v=' + encodeURIComponent(v) + (s > 3 ? '&t=' + s + 's' : ''); } return; } // ページごと読み込み直す(H.264の切り替えは、動画を読み込むときに効く)
       if (t.dataset.c === 'shot') shot();
       if (t.dataset.c === 'saver') { const { px = {} } = await chrome.storage.local.get('px'); await chrome.storage.local.set({ px: { ...px, saver: !cfg.saver }, prefsAt: Date.now() }); pop.remove(); flash(!cfg.saver ? '🎧 省データモード：オン' : '🎧 省データモード：オフ'); }
       if (t.dataset.c === 'reset') { Object.assign(adj, { vol: 100, br: 100, ct: 100, sat: 100 }); applyVol(); applyFilter(); pop.remove(); togglePop('tool'); }

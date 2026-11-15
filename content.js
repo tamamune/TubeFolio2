@@ -399,10 +399,8 @@
       const row = (a, on, ic, t, note) => `<button data-a="${a}" class="${on ? 'act' : ''}" title="${note}">${ic} ${t} ${on ? '✓' : ''}</button>`;
       return `<div class="fh">表示の切り替え</div>${row('hw', !!S.settings.hideWatched, '🙈', '視聴済みを隠す', '登録チャンネルの一覧と、個々のチャンネルのページで、8割以上見た動画を隠します')}${row('dis', pxDis, '👎', '低評価率を表示', '一覧のサムネに、低評価の割合を出します')}${row('mem', hideMem, '👑', 'メンバー限定の動画を隠す', 'ホーム・検索・登録チャンネル・チャンネルのページで、メンバー限定の動画を隠します')}${row('shr', hideSh, '🩳', 'ホームのショートを隠す', 'ホームの一覧に出るショート(棚・単体)を隠します')}`;
     }
-    if (key === 'lab') { // 🧪 実験(負荷軽減・画質・操作): 押すたびに、その場で切り替わる(メニューは開いたまま)。再生画面の ⚡ ツールと同じ設定(px)
-      const T = [['h264', '🪶', 'H.264で再生(軽い・次の読み込みから)', false], ['pvNoHist', '🙈', 'プレビューを視聴履歴に入れない', true], ['origAudio', '🗣', '音声は元の言語を既定に', true]];
-      const on = (k, d) => (pxAll[k] === undefined ? d : !!pxAll[k]), ep = pxAll.extPlayer === 'vlc' ? 'VLC' : 'mpv';
-      return `<div class="fh">🧪 実験(オン/オフ)</div>${T.map(([k, ic, t, d]) => `<button data-a="lab" data-k="${k}" class="${on(k, d) ? 'act' : ''}">${ic} ${t} ${on(k, d) ? '✓' : ''}</button>`).join('')}<div class="fh">実験ページ</div><button data-a="labtra">📈 急上昇(YouTube公式API・今・要APIキー)</button><div class="fh">選ぶもの</div><button data-a="labp">▶ 外部プレイヤー: ${ep}(押して切り替え)</button><div class="fn">画質・関連動画・コメント欄・終了画面カード・ホイール音量は、TubeFolio2 の設定(⚡ 軽量化・画質)にあります</div>`;
+    if (key === 'lab') { // 🧪 実験: 実験ページ(急上昇)への入口だけ。音声の既定・外部プレイヤーの切り替えはここから外した(H.264は再生画面の ⚡ ツール、プレビューを履歴に入れないは設定「一覧・サムネ」)
+      return `<div class="fh">実験ページ</div><button data-a="labtra">📈 急上昇(YouTube公式API・今・要APIキー)</button><div class="fn">画質・関連動画・コメント欄・終了画面カード・ホイール音量は、TubeFolio2 の設定(⚡ 軽量化・画質)にあります</div>`;
     }
     if (key === 'vtool') return `<div class="fh">再生リスト</div><button data-a="plnew">＋ 再生リストを新しく作る</button><button data-a="pldel">🗑 再生リストを削除</button>`;
     if (key === 'sync') return `<div class="fh">Google Drive</div><button data-a="sync">☁ 今すぐ同期</button>${bkList[0] ? `<button data-a="restore" title="登録チャンネルの整理の直前に取った、フォルダとチャンネルの控え(最新3回分)に戻します">⏪ 整理の前に戻す(${esc(new Date(bkList[0].t).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }))} ・ ${bkList[0].n}件)</button>` : ''}<div class="fn" id="tf-fly-st">${esc(hubSt)}</div>`;
@@ -695,7 +693,10 @@
       // [種類, 保存先, キー, 名前, 選択肢, 既定値]  種類: b=オン/オフのスイッチ / s=選択
       const GROUPS = window.TF_SPEC || [], SPEC = GROUPS.flatMap(g => g[3].flatMap(c => c.rows)); // 項目の一覧は setspec.js
       const sec = $('#tfs-pxsec', p);
+      const ui = {}; let stNow = null; // stNow = 今の設定の値(詳細を開き直しても、変えた値が出るように、保存のたびに更新する)
+      const setVal = (store, key, v) => { if (store === key) { if (stNow) stNow[store] = v; return chrome.storage.local.set({ [store]: v, prefsAt: Date.now() }); } if (stNow) stNow[store] = { ...(stNow[store] || {}), [key]: v }; return chrome.storage.local.get(store).then(r => chrome.storage.local.set({ [store]: { ...(r[store] || {}), [key]: v }, prefsAt: Date.now() })); };
       chrome.storage.local.get(['px', 'cmt', 'cchap', 'sleepWin', 'pickMode', 'fOpen', 'chSet', 'setGrp']).then(st => {
+        stNow = st;
         const cur = (store, key, def) => { if (store === key) return st[store] !== undefined ? st[store] : def; const o = st[store]; return o && o[key] !== undefined ? o[key] : def; }; // store と key が同じものは、storage の値そのもの(例: pickMode)
         const seg = (id, opts, v) => `<div class="tf-seg">${opts.map(([ov, ot]) => `<button type="button" data-px="${esc(id)}" data-v="${esc(ov)}" class="${String(ov) === String(v) ? 'on' : ''}">${esc(ot)}</button>`).join('')}</div>`;
         const line = (label, ctl) => `<div class="tf-cmrow"><span>${label}</span>${ctl}</div>`;
@@ -711,28 +712,52 @@
           }
           const v = cur(store, key, def);
           return line(esc(label), seg(id, kind === 'b' ? [[true, opts[0]], [false, opts[1]]] : opts, kind === 'b' ? v !== false : v)); };
-        const card = c => `<div class="tf-card"><div class="tf-ch">${esc(c.t)}</div><p class="tf-note">${esc(c.d)}</p>${c.rows.map(row).join('')}</div>`;
-        const grp = st.setGrp || {};
-        sec.innerHTML = GROUPS.map(([gid, title, def, cards]) => `<details class="tf-pxg" data-grp="${gid}"${(gid in grp ? grp[gid] : def) ? ' open' : ''}><summary>${esc(title)}<small>${cards.length} 項目</small></summary>${cards.map(card).join('')}</details>`).join('');
-        // 「登録/非登録の目印」は一覧・サムネへ、「表示」はその他へ移す(中身はそのまま。操作の処理はIDで結んである)
+        // ---- 設定の一覧(スマホの設定のような表示): 1行 = 1機能(名前・説明・右にスイッチ)。「〉」を押すと、その機能の詳しい設定を選べる ----
+        const MASTER = new Set(['px.seek', 'px.mini', 'px.bgWait', 'px.out', 'px.adFast', 'px.sb', 'px.speak', 'px.antiTr', 'cchap.on', 'px.cmtName', 'px.gh', 'px.wb', 'px.wiki', 'fOpen.on', 'px.sfx', 'px.showLab']); // スイッチを一覧に出す項目(その機能の全体のオン/オフ)
+        const cardMap = new Map(); let cid = 0, view = '';
+        const masterOf = c => c.rows.find(r => r[0] === 'b' && MASTER.has(r[1] + '.' + r[2])); // 一覧にスイッチを出す行(詳細の画面には、同じスイッチを出さない)
+        const cardRow = c => {
+          const id = 'c' + (cid++); cardMap.set(id, c);
+          const m = masterOf(c), detail = !!c.node || (m ? c.rows.length > 1 : c.rows.length > 0);
+          const sw = m ? `${detail ? '<i class="tf-av"></i>' : ''}<label class="tf-sw2" title="オン / オフ"><input type="checkbox" data-sw="${esc(m[1] + '.' + m[2])}"${cur(m[1], m[2], m[5]) !== false ? ' checked' : ''}><span></span></label>` : '';
+          return `<div class="tf-ar${detail ? ' go' : ''}${c.rows.length || c.node ? '' : ' info'}" data-cid="${id}"><div class="tf-at"><b>${esc(c.t)}</b><small>${esc(c.d)}</small></div>${detail ? '<span class="tf-ac">〉</span>' : ''}${sw}</div>`;
+        };
+        // 「登録/非登録の目印」は一覧・サムネへ、「表示」はその他へ移す(中身はそのまま。操作の処理はIDで結んである)。詳細を開いたときだけ、その場所へ出す(普段は隠した置き場に残す)
+        const moved = [], holder = document.createElement('div'); holder.hidden = true; sec.after(holder);
         [['🏷 登録', 'list'], ['🖥 表示', 'other']].forEach(([head, gid]) => {
-          const s0 = [...p.querySelectorAll('section.tf-grp[data-tab="org"]')].find(x => (x.querySelector('.tf-ghd')?.textContent || '').startsWith(head)), d0 = sec.querySelector(`details[data-grp="${gid}"]`);
-          if (!s0 || !d0) return;
+          const s0 = [...p.querySelectorAll('section.tf-grp[data-tab="org"]')].find(x => (x.querySelector('.tf-ghd')?.textContent || '').startsWith(head));
+          if (!s0) return;
           const h0 = s0.querySelector('.tf-ghd'), c0 = document.createElement('div'); c0.className = 'tf-card';
           const t0 = document.createElement('div'); t0.className = 'tf-ch'; t0.textContent = h0.textContent; h0.remove();
-          c0.appendChild(t0); [...s0.childNodes].forEach(n => c0.appendChild(n)); d0.appendChild(c0); s0.remove();
-          const n0 = d0.querySelector('summary small'); if (n0) n0.textContent = d0.querySelectorAll('.tf-card').length + ' 項目';
+          c0.appendChild(t0); [...s0.childNodes].forEach(n => c0.appendChild(n)); holder.appendChild(c0); s0.remove();
+          moved.push({ gid, c: { t: t0.textContent, d: '', rows: [], node: c0 } });
         });
-        sec.addEventListener('toggle', e => { const d = e.target; if (!d.dataset || !d.dataset.grp) return; chrome.storage.local.get('setGrp').then(r => { const g = r.setGrp || {}; if (g[d.dataset.grp] !== d.open) chrome.storage.local.set({ setGrp: { ...g, [d.dataset.grp]: d.open } }); }); }, true);
+        const drawList = () => {
+          view = ''; cardMap.clear(); cid = 0; const grp = st.setGrp || {};
+          sec.innerHTML = GROUPS.map(([gid, title, def, cards]) => { const all = [...cards, ...moved.filter(x => x.gid === gid).map(x => x.c)]; return `<details class="tf-pxg" data-grp="${gid}"${(gid in grp ? grp[gid] : def) ? ' open' : ''}><summary>${esc(title)}<small>${all.length} 項目</small></summary><div class="tf-al">${all.map(cardRow).join('')}</div></details>`; }).join('');
+        };
+        const hold = () => { const c = cardMap.get(view); if (c && c.node) holder.appendChild(c.node); };
+        ui.open = id => {
+          const c = cardMap.get(id); if (!c) return; view = id;
+          sec.innerHTML = `<div class="tf-dh"><button type="button" class="tf-back" data-back="1" title="戻る" aria-label="戻る">←</button><b>${esc(c.t)}</b></div>${c.d ? `<p class="tf-note">${esc(c.d)}</p>` : ''}<div class="tf-card tf-dc">${c.rows.filter(r => r !== masterOf(c)).map(row).join('')}</div>`;
+          if (c.node) sec.querySelector('.tf-dc').appendChild(c.node);
+          bindSp(); sec.scrollIntoView({ block: 'nearest' });
+        };
+        ui.back = () => { hold(); drawList(); };
+        drawList();
+        sec.addEventListener('toggle', e => { const d = e.target; if (!d.dataset || !d.dataset.grp) return; st.setGrp = { ...(st.setGrp || {}), [d.dataset.grp]: d.open }; chrome.storage.local.get('setGrp').then(r => { const g = r.setGrp || {}; if (g[d.dataset.grp] !== d.open) chrome.storage.local.set({ setGrp: { ...g, [d.dataset.grp]: d.open } }); }); }, true);
+        sec.addEventListener('change', e => { const t = e.target.closest && e.target.closest('input[data-sw]'); if (!t) return; const [store, key] = t.dataset.sw.split('.'); setVal(store, key, t.checked); });
+        const bindSp = () => {
         const tf = $('#tfs-slf', sec), tt = $('#tfs-slt', sec), tg = $('#tfs-tgm', sec), ci = $('#tfs-city', sec);
         if (tf) tf.onchange = e => { const v = e.target.value || '23:00'; TF.mutate(s => { s.settings.sleepFrom = v; }); sleepSet({ from: v }); };
         if (tt) tt.onchange = e => { const v = e.target.value || '06:00'; TF.mutate(s => { s.settings.sleepTo = v; }); sleepSet({ to: v }); };
         if (tg) tg.onclick = () => { if (window.tfOpenTagMgr) window.tfOpenTagMgr(); };
-        if (ci) ci.onchange = e => chrome.storage.local.get('px').then(r => chrome.storage.local.set({ px: { ...(r.px || {}), outCity: e.target.value.trim() }, prefsAt: Date.now() }));
+        if (ci) ci.onchange = e => { st.px = { ...(st.px || {}), outCity: e.target.value.trim() }; chrome.storage.local.get('px').then(r => chrome.storage.local.set({ px: { ...(r.px || {}), outCity: e.target.value.trim() }, prefsAt: Date.now() })); };
         const pvr = $('#tfs-pvr', sec), pvn = $('#tfs-pvn', sec); // 新プレビューのUIの大きさ(1〜100%)
         // 大きさは新プレビューでだけ効くので、大きさを変えたら方式も「新プレビュー」にする(旧のままだと何%にしても変わらない)
         const pvSave = pc => {
           pc = Math.min(100, Math.max(1, +pc || 25));
+          st.px = { ...(st.px || {}), pvScale: +(pc / 100).toFixed(6), pvMode: 'new' };
           chrome.storage.local.get('px').then(r => chrome.storage.local.set({ px: { ...(r.px || {}), pvScale: +(pc / 100).toFixed(6), pvMode: 'new' }, prefsAt: Date.now() }));
           sec.querySelectorAll('.tf-seg button[data-px="px.pvMode"]').forEach(b => b.classList.toggle('on', b.dataset.v === 'new'));
           return pc;
@@ -742,17 +767,20 @@
           pvr.onchange = () => pvSave(pvn.value);
           pvn.onchange = () => { const pc = pvSave(pvn.value); pvn.value = +pc.toFixed(1); pvr.value = Math.round(pc); };
         }
+        };
+        ui.bindSp = bindSp;
       });
       sec.addEventListener('click', e => {
         const del = e.target.closest && e.target.closest('[data-chdel]');
-        if (del) { const keys = del.dataset.chdel.split('\n'); chrome.storage.local.get('chSet').then(r => { const o = { ...(r.chSet || {}) }; keys.forEach(k => delete o[k]); return chrome.storage.local.set({ chSet: o, prefsAt: Date.now() }); }); del.closest('.tf-cmrow').remove(); return; }
+        const bk = e.target.closest && e.target.closest('[data-back]'); if (bk && ui.back) return ui.back();
+        const rw = e.target.closest && e.target.closest('.tf-ar.go'); if (rw && !e.target.closest('.tf-sw2') && ui.open) return ui.open(rw.dataset.cid);
+        if (del) { const keys = del.dataset.chdel.split('\n'); chrome.storage.local.get('chSet').then(r => { const o = { ...(r.chSet || {}) }; keys.forEach(k => delete o[k]); if (stNow) stNow.chSet = o; return chrome.storage.local.set({ chSet: o, prefsAt: Date.now() }); }); del.closest('.tf-cmrow').remove(); return; }
         const t = e.target.closest && e.target.closest('.tf-seg button[data-px]'); if (!t) return;
         const [store, key] = t.dataset.px.split('.'), spec = SPEC.find(r => r[1] === store && r[2] === key);
         let v = t.dataset.v;
         if (spec && spec[0] === 'b') v = v === 'true'; else if (spec && spec[0] === 's') { const o = spec[4].find(x => String(x[0]) === String(v)); v = o ? o[0] : v; } // 数値は数値のまま保存
         t.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === t));
-        if (store === key) { chrome.storage.local.set({ [store]: v, prefsAt: Date.now() }); return; }
-        chrome.storage.local.get(store).then(r => { const o = { ...(r[store] || {}) }; o[key] = v; return chrome.storage.local.set({ [store]: o, prefsAt: Date.now() }); });
+        setVal(store, key, v);
       });
     }
     { // 整理・通知: 通知(フォルダごとのルール・知らせ方)・フォルダ別の再生速度。保存先: notifyRules / notifyFolders / folderRates(いずれもDrive同期の対象)

@@ -99,4 +99,5 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 });
 
 // (以前あった「急上昇動画(Top1Trend)」のパネルは廃止。新しい急上昇ツール(🧪 実験)に移行。古い控えの t1_* だけ消す)
-chrome.storage.local.get(null).then(all => { const ks = Object.keys(all).filter(k => /^t1_/.test(k)); if (ks.length) chrome.storage.local.remove(ks); }).catch(() => {});
+// 保存データ全体を読むので重い(履歴・一覧の控えなど数MB。スマホの起動が遅くなる)。1回だけやって、済んだ印(t1Cleaned。この端末だけ)を残す
+chrome.storage.local.get('t1Cleaned').then(r => { if (r.t1Cleaned) return; return chrome.storage.local.get(null).then(all => { const ks = Object.keys(all).filter(k => /^t1_/.test(k)); return (ks.length ? chrome.storage.local.remove(ks) : null); }).then(() => chrome.storage.local.set({ t1Cleaned: 1 })); }).catch(() => {});
