@@ -1,6 +1,7 @@
 // ショート(/shorts/…)の操作パネル。画面の左に浮かべる(パソコン: マウスで押す / スマホ: 指で押す。同じボタンで、指のときは大きくなる)
 //   ⏪5 / 5⏩ : 5秒戻る・進む(押し続けると、くり返す)
 //   🎞 コマ送り: 入れると一時停止して、◀コマ・コマ▶ が出る(1コマ = 1/30秒。押し続けると、くり返す)
+//   ▲ ▼ : 前の動画 / 次の動画(パソコンでは、YouTube の上下の矢印を消して、これに置き換える)
 //   ⏭ 自動で次へ: 入れると、動画の最後まで来たら、次のショートへ移る(ショートは、ふだんは繰り返し再生される)。設定は px.shAuto(Drive で同期)
 //   🕒 後で見る: 再生リスト「TubeFolio2 後で見る」に、今のショートを追加(登録済みなら ✓ になり、押すと外す)
 //   🖥 クリア: 動画以外の表示(題名・ボタン・上のバー・矢印)を隠す。画面の左の小さなボタンか Esc で戻る
@@ -49,29 +50,29 @@ html[dark] #tfsh{--sh-bg:rgba(32,32,32,.88);--sh-fg:#f1f1f1;--sh-sub:#bdbdbd;--s
 #tfsh.clr .sh-clr{width:38px;flex:none;background:var(--sh-bg)}
 /* スマホ・狭い画面: 文字を隠して、アイコンだけの細い縦の帯にする(動画をじゃましない。指で押しやすい大きさ) */
 @media all{
-#tfsh{width:64px;gap:7px;padding:8px}
-#tfsh .sh-r{flex-direction:column}
-#tfsh button{height:48px;padding:0;font-size:20px;border-radius:14px}
+#tfsh{width:62px;gap:8px;padding:8px 6px;border-radius:31px;align-items:center}
+#tfsh .sh-r{flex-direction:column;align-items:center}
+#tfsh button{flex:none;width:46px;height:46px;padding:0;font-size:20px;border-radius:50%}
 #tfsh .l{display:none}
 #tfsh .sh-t{font-size:10px;line-height:1.3}#tfsh .sh-t b{display:block;font-size:12px}#tfsh .sh-t br{display:none}
-#tfsh .sh-fold{height:30px;font-size:16px}
-#tfsh.fold{width:auto}#tfsh.fold .sh-fold{height:48px;width:48px}
-#tfsh.clr .sh-clr{width:44px}
+#tfsh .sh-fold{height:46px;width:46px;font-size:18px}
+#tfsh.fold{width:auto;border-radius:31px}#tfsh.fold .sh-fold{height:46px;width:46px}
+#tfsh.clr{border-radius:50%}#tfsh.clr .sh-clr{width:46px}
+#tfsh [data-a=prev],#tfsh [data-a=next]{font-size:17px}
 #tfsh [data-a=back],#tfsh [data-a=fwd]{font-size:15px}
 #tfsh .sh-t{font-size:11px}#tfsh .sh-t b{font-size:13px}
 #tfsh .sh-n{font-size:10px;word-break:break-all}}
 /* スマホ・狭い画面: 右の端に固定。右の端のぶんだけ、YouTubeの動画の領域を狭めて、重ならないようにする。指で押す大きさ */
 @media (pointer:coarse),(max-width:900px){
-#tfsh{left:auto;right:4px;width:58px;gap:8px;padding:8px 6px;border-radius:29px;align-items:center}
-#tfsh .sh-r{align-items:center}
-#tfsh button{flex:none;width:46px;height:46px;border-radius:50%;font-size:19px}
+#tfsh{left:auto;right:4px}
+#tfsh button{font-size:19px}
 #tfsh [data-a=back],#tfsh [data-a=fwd]{font-size:14px}
-#tfsh .sh-fold{height:30px;width:46px;border-radius:15px}
-#tfsh.fold{border-radius:29px}#tfsh.fold .sh-fold{height:46px;width:46px;border-radius:50%}
-#tfsh.clr{border-radius:50%}#tfsh.clr .sh-clr{width:46px}
 html[data-tfsh-m] ytd-shorts #shorts-container{width:calc(100% - 68px) !important}}
-/* パソコン: 動画の右(YouTube の👍💬ボタンのさらに右)に置く。窓が狭くて入らないときは、動画ごと左へずらす(--tfsh-shift) */
+/* パソコン: 動画のすぐ右・下揃えに置く(YouTube の👍💬ボタンは、その右へずらす = --tfsh-aw)。窓が狭くて入らないときは、動画ごと左へずらす(--tfsh-shift)。YouTube の上下の矢印は消す(▲▼で置き換え) */
 html[data-tfsh-d] ytd-shorts #shorts-container{transform:translateX(calc(var(--tfsh-shift,0) * -1px))}
+html[data-tfsh-d] #tfsh{top:auto;transform:none}
+html[data-tfsh-d] ytd-shorts ytd-reel-player-overlay-renderer #actions{transform:translateX(var(--tfsh-aw,0px))}
+html[data-tfsh-d] ytd-shorts #navigation-container,html[data-tfsh-d] ytd-shorts #navigation-button-up,html[data-tfsh-d] ytd-shorts #navigation-button-down{display:none !important}
 /* クリアスクリーン: 動画だけにする(場所は変えない = 消さずに透明にして、押しても動画に届くようにする) */
 html[data-tfsh-clear] ytd-shorts #experiment-overlay,html[data-tfsh-clear] ytd-shorts #cinematic-shorts-scrim,html[data-tfsh-clear] ytd-shorts ytd-reel-player-overlay-renderer,html[data-tfsh-clear] ytd-shorts ytd-shorts-player-controls,html[data-tfsh-clear] ytd-shorts #navigation-container,html[data-tfsh-clear] ytd-shorts #navigation-button-up,html[data-tfsh-clear] ytd-shorts #navigation-button-down,
 html[data-tfsh-clear] ytd-shorts ytd-reel-player-header-renderer,html[data-tfsh-clear] ytd-masthead,html[data-tfsh-clear] #masthead-container,html[data-tfsh-clear] ytd-mini-guide-renderer,
@@ -83,6 +84,7 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
   bar.innerHTML = `
     <div class="sh-r sh-head"><button type="button" class="sh-fold" title="パネルをたたむ / ひらく">🛠<span class="l"> ショート</span></button></div>
     <div class="sh-t"><span>今回</span> <b class="sh-s">0:00</b><br><span>本日</span> <b class="sh-d">0:00</b></div>
+    <div class="sh-r"><button type="button" data-a="prev" title="前の動画">▲</button><button type="button" data-a="next" title="次の動画">▼</button></div>
     <div class="sh-r"><button type="button" data-a="back" title="5秒戻る">⏪ 5</button><button type="button" data-a="fwd" title="5秒進む">5 ⏩</button></div>
     <div class="sh-r"><button type="button" data-a="frame" title="コマ送りモード(一時停止して、1コマずつ動かす)">🎞<span class="l"> コマ送り</span></button></div>
     <div class="sh-r sh-fr" hidden><button type="button" data-a="fb" title="1コマ戻る">◀<span class="l"> コマ</span></button><button type="button" data-a="ff" title="1コマ進む"><span class="l">コマ </span>▶</button></div>
@@ -103,11 +105,13 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
   const seek = d => { const v = vid(); if (!v || !isFinite(v.duration)) return; v.currentTime = Math.min(Math.max(0, v.currentTime + d), Math.max(0, v.duration - 0.05)); };
   const STEP = 1 / 30; // 1コマ(動画のコマ数は読めないので、30コマ/秒として動かす)
   const step = d => { const v = vid(); if (!v) return; if (!v.paused) v.pause(); seek(d * STEP); };
-  const goNext = () => {
-    const b = document.querySelector('#navigation-button-down button, #navigation-button-down');
-    if (b) { b.click(); return; }
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, which: 40, bubbles: true })); // 矢印が無い画面(スマホ版): ↓キーと同じ
+  const goNav = down => {
+    const b = document.querySelector(down ? '#navigation-button-down button, #navigation-button-down' : '#navigation-button-up button, #navigation-button-up');
+    if (b) { b.click(); return; } // 表示を消していても、押せる
+    const k = down ? { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, which: 40 } : { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, which: 38 };
+    document.dispatchEvent(new KeyboardEvent('keydown', { ...k, bubbles: true })); // 矢印が無い画面(スマホ版): ↓↑キーと同じ
   };
+  const goNext = () => goNav(true), goPrev = () => goNav(false);
 
   // ---- ボタン ----
   const paint = () => {
@@ -146,6 +150,7 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
   hold(q('[data-a=back]'), () => seek(-5), 220); hold(q('[data-a=fwd]'), () => seek(5), 220);
   hold(q('[data-a=fb]'), () => step(-1), 90); hold(q('[data-a=ff]'), () => step(1), 90);
   q('[data-a=frame]').addEventListener('click', () => { frame = !frame; if (frame) { const v = vid(); if (v) v.pause(); } paint(); });
+  q('[data-a=next]').addEventListener('click', goNext); q('[data-a=prev]').addEventListener('click', goPrev);
   q('[data-a=auto]').addEventListener('click', () => setAuto(!auto));
   q('[data-a=later]').addEventListener('click', later);
   q('[data-a=clear]').addEventListener('click', () => setClear(!clear));
@@ -206,12 +211,14 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
     const de = document.documentElement, mob = matchMedia('(pointer:coarse),(max-width:900px)').matches, on = onShorts();
     de.toggleAttribute('data-tfsh-m', mob && on); de.toggleAttribute('data-tfsh-d', !mob && on);
     const v = !mob && on ? vid() : null;
-    if (!v || bar.hidden) { bar.style.left = ''; de.style.removeProperty('--tfsh-shift'); shift = 0; return; }
+    if (!v || bar.hidden) { bar.style.left = ''; bar.style.bottom = ''; de.style.removeProperty('--tfsh-shift'); de.style.removeProperty('--tfsh-aw'); shift = 0; return; }
     const r = v.getBoundingClientRect(); if (r.width < 50) return;
     const base = r.right + shift, bw = bar.offsetWidth, ACT = 74, GAP = 14, NAV = 100; // ACT = YouTube の👍💬ボタンの列 / NAV = 右端の↑↓ボタンの列
     const need = base + ACT + GAP + bw + 8 - (innerWidth - NAV), ns = Math.max(0, Math.min(Math.round(need), Math.max(0, Math.round(r.left + shift - 80)))); // 入らないぶんだけ、動画を左へ(左の余白は残す)
     if (ns !== shift) { shift = ns; de.style.setProperty('--tfsh-shift', String(ns)); }
-    bar.style.left = Math.round(base - shift + ACT + GAP) + 'px';
+    bar.style.left = Math.round(base - shift + GAP) + 'px'; // 動画のすぐ右
+    bar.style.bottom = Math.max(8, Math.round(innerHeight - r.bottom)) + 'px'; // 動画の下端に揃える
+    de.style.setProperty('--tfsh-aw', (bw + GAP) + 'px'); // YouTube の👍💬ボタンを、パネルのぶん右へ
   };
   window.addEventListener('resize', place);
   loadToday(); setInterval(() => { tick(); place(); }, 1000);
