@@ -155,7 +155,7 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
   q('[data-a=auto]').addEventListener('click', () => setAuto(!auto));
   q('[data-a=later]').addEventListener('click', later);
   q('[data-a=clear]').addEventListener('click', () => setClear(!clear));
-  q('.sh-fold').addEventListener('click', () => { folded = !folded; sset('tfShFold', folded ? '1' : '0'); paint(); });
+  q('.sh-fold').addEventListener('click', () => { folded = !folded; sset('tfShFold', folded ? '1' : '0'); paint(); place(); });
   // パネルの上の操作が、YouTube の上下のスワイプ・キー操作に伝わらないようにする(スマホで押したときに、次の動画へ動かないように)
   ['touchstart', 'touchmove', 'pointerdown', 'mousedown', 'keydown', 'keyup'].forEach(n => bar.addEventListener(n, e => { if (n === 'keydown' && e.defaultPrevented) return; e.stopPropagation(); }));
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && clear && onShorts()) { setClear(false); } }, true);
@@ -218,7 +218,10 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
     const need = base + ACT + GAP + bw + 8 - (innerWidth - NAV), ns = Math.max(0, Math.min(Math.round(need), Math.max(0, Math.round(r.left + shift - 80)))); // 入らないぶんだけ、動画を左へ(左の余白は残す)
     if (ns !== shift) { shift = ns; de.style.setProperty('--tfsh-shift', String(ns)); }
     bar.style.left = Math.round(base - shift + GAP) + 'px'; // 動画のすぐ右
-    bar.style.bottom = Math.max(8, Math.round(innerHeight - r.bottom)) + 'px'; // 動画の下端に揃える
+    // 動画の下端に揃える。たたむときは、ひらいたときの上端(🛠ボタンの位置)を動かさず、上に向かってたたむ
+    let extra = 0;
+    if (bar.classList.contains('fold') && !bar.classList.contains('clr')) { const h0 = bar.offsetHeight; bar.classList.remove('fold'); extra = Math.max(0, bar.offsetHeight - h0); bar.classList.add('fold'); }
+    bar.style.bottom = Math.max(8, Math.round(innerHeight - r.bottom + extra)) + 'px';
     de.style.setProperty('--tfsh-aw', (bw + GAP) + 'px'); // YouTube の👍💬ボタンを、パネルのぶん右へ
   };
   window.addEventListener('resize', place);
