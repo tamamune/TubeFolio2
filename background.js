@@ -689,6 +689,34 @@ chrome.alarms.get('tf-music').then(a => { if (!a || a.periodInMinutes !== 30) ch
 chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tf-music') musicAuto(false); });
 chrome.runtime.onStartup.addListener(() => { setTimeout(() => musicAuto(false), 60e3); }); // 起動の1分後(Drive の同期で、ほかのPCの実行時刻を受け取ってから)
 
+// ---- TubeTunes(別の拡張機能)から、「🎵 音楽🎵」の曲の 📌 取り置き・削除 を受ける(許可するのは TubeTunes の拡張機能IDだけ) ----
+//   { op: 'info'|'keep'|'unkeep'|'remove', videoId, listId } → { ok, isMusic, keep, blocked } / { error }
+//   listId が「🎵 音楽🎵」の再生リストと違うときは、何もしない(isMusic: false)。データは autoMusic(Drive同期の対象)
+const TT_ID = 'foogjnjpclbidngnjhbbidfclkpoilhj';
+async function ttMusic(m) {
+  if (!/^[\w-]{11}$/.test(m.videoId || '')) throw new Error('指定が不正です');
+  if (amBusy) await amBusy.catch(() => {}); // 自動追加の実行中は、終わってから(上書きし合わない)
+  const { autoMusic: a = {} } = await chrome.storage.local.get('autoMusic'), id = m.videoId;
+  if (!a.listId || a.listId !== m.listId) return { ok: true, isMusic: false };
+  const keep = { ...(a.keep || {}) }, removed = { ...(a.removed || {}) }, added = { ...(a.added || {}) };
+  if (m.op === 'keep') keep[id] = Date.now();
+  else if (m.op === 'unkeep') delete keep[id];
+  else if (m.op === 'remove') {
+    await plEdit(a.listId, [{ action: 'ACTION_REMOVE_VIDEO_BY_VIDEO_ID', removedVideoId: id }]);
+    removed[id] = Date.now(); delete keep[id]; delete added[id];
+    await chrome.storage.local.set({ autoMusic: { ...a, keep, removed, added, snap: (a.snap || []).filter(x => x !== id) }, plAddedAt: Date.now() });
+    bgLog('🎵 音楽', `TubeTunes から削除: ${id}(しばらく追加しません)`);
+    return { ok: true, isMusic: true, keep: false, blocked: true };
+  } else if (m.op !== 'info') throw new Error('不明な操作');
+  if (m.op === 'keep' || m.op === 'unkeep') await chrome.storage.local.set({ autoMusic: { ...a, keep } });
+  return { ok: true, isMusic: true, keep: !!keep[id], blocked: !!removed[id] };
+}
+chrome.runtime.onMessageExternal.addListener((m, sender, send) => {
+  if (!sender || sender.id !== TT_ID || !m || m.type !== 'ttMusic') return;
+  ttMusic(m).then(send).catch(e => send({ error: String(e.message || e) }));
+  return true;
+});
+
 chrome.runtime.onMessage.addListener((m, _s, send) => {
   if (!m) return;
   if (m.type === 'feedAll') { logged('新着', feedAll(m.days || 4, !!m.force, m.kind, !!m.quick), '新着一覧(' + (m.kind || 'v') + ')を取得').then(send).catch(e => send({ error: String(e) })); return true; }
