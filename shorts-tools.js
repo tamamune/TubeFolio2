@@ -72,7 +72,7 @@ html[data-tfsh-m] ytd-shorts #shorts-container{width:calc(100% - 68px) !importan
 html[data-tfsh-d] ytd-shorts #shorts-container{transform:translateX(calc(var(--tfsh-shift,0) * -1px))}
 html[data-tfsh-d] #tfsh{top:auto;transform:none}
 html[data-tfsh-d] ytd-shorts ytd-reel-player-overlay-renderer #actions{transform:translateX(var(--tfsh-aw,0px))}
-html[data-tfsh-d] ytd-shorts #navigation-container,html[data-tfsh-d] ytd-shorts #navigation-button-up,html[data-tfsh-d] ytd-shorts #navigation-button-down{display:none !important}
+html[data-tfsh-d] ytd-shorts #navigation-container,html[data-tfsh-d] ytd-shorts #navigation-button-up,html[data-tfsh-d] ytd-shorts #navigation-button-down{opacity:0 !important;pointer-events:none !important}
 /* クリアスクリーン: 動画だけにする(場所は変えない = 消さずに透明にして、押しても動画に届くようにする) */
 html[data-tfsh-clear] ytd-shorts #experiment-overlay,html[data-tfsh-clear] ytd-shorts #cinematic-shorts-scrim,html[data-tfsh-clear] ytd-shorts ytd-reel-player-overlay-renderer,html[data-tfsh-clear] ytd-shorts ytd-shorts-player-controls,html[data-tfsh-clear] ytd-shorts #navigation-container,html[data-tfsh-clear] ytd-shorts #navigation-button-up,html[data-tfsh-clear] ytd-shorts #navigation-button-down,
 html[data-tfsh-clear] ytd-shorts ytd-reel-player-header-renderer,html[data-tfsh-clear] ytd-masthead,html[data-tfsh-clear] #masthead-container,html[data-tfsh-clear] ytd-mini-guide-renderer,
@@ -106,10 +106,11 @@ html[data-tfsh-clear] ytm-reel-player-overlay-renderer,html[data-tfsh-clear] ytm
   const STEP = 1 / 30; // 1コマ(動画のコマ数は読めないので、30コマ/秒として動かす)
   const step = d => { const v = vid(); if (!v) return; if (!v.paused) v.pause(); seek(d * STEP); };
   const goNav = down => {
-    const b = document.querySelector(down ? '#navigation-button-down button, #navigation-button-down' : '#navigation-button-up button, #navigation-button-up');
-    if (b) { b.click(); return; } // 表示を消していても、押せる
-    const k = down ? { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, which: 40 } : { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, which: 38 };
-    document.dispatchEvent(new KeyboardEvent('keydown', { ...k, bubbles: true })); // 矢印が無い画面(スマホ版): ↓↑キーと同じ
+    const before = curId(), sel = down ? '#navigation-button-down' : '#navigation-button-up';
+    const key = () => { const k = down ? { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, which: 40 } : { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, which: 38 }; [document, window].forEach(t => t.dispatchEvent(new KeyboardEvent('keydown', { ...k, bubbles: true, cancelable: true }))); };
+    const b = document.querySelector(sel + ' button') || document.querySelector(sel);
+    if (b) b.click(); else key(); // 矢印が無い画面(スマホ版)は、↓↑キーと同じ
+    if (b) setTimeout(() => { if (onShorts() && curId() === before) key(); }, 600); // 矢印を押しても動かなかったら、キーでも試す
   };
   const goNext = () => goNav(true), goPrev = () => goNav(false);
 
